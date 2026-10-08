@@ -17,6 +17,8 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Módulos perezosos: cada uno es JS plano en ámbito global (los juegos nuevos van envueltos en una IIFE y primero inyectan su CSS con un `<style>`), y DEBE terminar con `Mods.ok("nombre")`. Las dependencias (`data-deps`) se cargan antes. Un juego nuevo declara deps en `src/games/games.json`; módulos compartidos en `src/lazy/deps.json`.
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario).
 
+- Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. El juego se despliega copiando dist/juegos.html a server/public/index.html (`npm run build` en server/ lo hace)..
+
 ## 3. Globales del núcleo
 - `$(sel, root)`, `esc(s)` (escapa HTML: úsalo en todo texto de jugador), `store.get/set(clave, def)` (localStorage con JSON; SIEMPRE usarlo), `toast(msg)`, `openSheet(html)/hideSheet()`, `cleanNick`, `b64e/b64d`.
 - `Flip.wrap(raiz, fn)`: anima elementos con `data-fk="clave-unica"` desde su posición anterior; `Flip.slide(el, desde, hasta, retardo)`/`Flip.path` para trayectos. Respeta prefers-reduced-motion.
@@ -82,7 +84,7 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | theme | núcleo | theme.js | – | Tema claro/oscuro: fija data-theme en :root y lo guarda (hub.theme); iconos sol/luna del header. |
 | history | núcleo | history.js | – | Hist: partidas recientes y estadísticas (hub.recent, hub.stats). recordSingle(r) para solitario/puzles; las partidas multijugador se registran al terminar desde el hub. |
 | saves | núcleo | saves.js | – | Saves: guardado en disco de la partida en curso (solo la última por juego). Multijugador: {id,game,ts,kind,pl,eng}; un jugador: putSingle/getSingle. El asiento 0 es el anfitrión; los demás recuperan sitio por nombre. |
-| net | núcleo | net.js | – | Transportes de red intercambiables con interfaz común (send, broadcast, close, onmsg, onleave, hostId): ClaudeNet (sala online por la capacidad 'room') y LocalNet (WebRTC sin conexión emparejado por QR/código). El resto del código no conoce el transporte. |
+| net | núcleo | net.js | – | Transportes de red intercambiables con interfaz común (send, broadcast, close, onmsg, onleave, hostId): ClaudeNet (sala online por la capacidad 'room') y LocalNet (WebRTC sin conexión emparejado por QR/código). El resto del código no conoce el transporte. SrvNet: backend WebSocket de ClaudeNet contra el Worker de server/ (detect/open/advertise/startLobby); protocolo en server/src/worker.js. |
 | rooms | núcleo | rooms.js | – | Salas: roles (host/guest), lista de jugadores, mensajes entre anfitrión e invitados, códigos de sala de 4 letras. Independiente de cada juego. |
 | lobby | núcleo | lobby.js | – | Pantalla de sala: jugadores, rivales IA, opciones del juego, invitar/unirse, empezar. También lista las salas online abiertas. |
 | session | núcleo | session.js | – | Sesión: guardar y reanudar partida tras recargar, confirmación de salida («Salir» en rojo) y prevención de cierres accidentales. |
@@ -531,14 +533,98 @@ const Saves = {
     return 'hace ' + Math.round(h / 24) + ' d';
   }
 };
-/* CTX net: Transportes de red intercambiables con interfaz común (send, broadcast, close, onmsg, onleave, hostId): ClaudeNet (sala online por la capacidad 'room') y LocalNet (WebRTC sin conexión emparejado por QR/código). El resto del código no conoce el transporte. */
+/* CTX net: Transportes de red intercambiables con interfaz común (send, broadcast, close, onmsg, onleave, hostId): ClaudeNet (sala online por la capacidad 'room') y LocalNet (WebRTC sin conexión emparejado por QR/código). El resto del código no conoce el transporte. SrvNet: backend WebSocket de ClaudeNet contra el Worker de server/ (detect/open/advertise/startLobby); protocolo en server/src/worker.js. */
 /* ===== Transportes de red de las salas. El resto sólo conoce esta interfaz =====
    t.send(peer, msg)  t.broadcast(msg)  t.close()
    t.onmsg(peer, msg)  t.onleave(peer)  t.hostId (los invitados escriben al anfitrión) */
 
-/* ---------- Online: capacidad "room" de la plataforma ---------- */
+/* ---------- Servidor propio (Cloudflare Worker, carpeta server/): mismo contrato que la capacidad "room" ----------
+   Se usa cuando la página NO corre dentro de claude.ai. URL del servidor, por orden:
+   ?srv=https://… en la dirección (se recuerda) · localStorage hub.srv · MJ_SERVER_URL (lo fija el build con MJ_SERVER=…) · el mismo origen de la página */
+const MJ_SERVER_URL = "";
+const SrvNet = {
+  http: '', wss: '', me: '', lob: null, lobT: 0, onRooms: null, pres: {}, dead: false,
+  norm(u) {
+    u = String(u || '').trim().replace(/\/+$/, '');
+    if (!/^(https?|wss?):\/\/[^\s/]+$/i.test(u)) return null;
+    const host = u.replace(/^[a-z]+:\/\//i, ''), tls = !/^(http|ws):\/\//i.test(u) || /^(https|wss):/i.test(u);
+    return { http: (tls ? 'https://' : 'http://') + host, wss: (tls ? 'wss://' : 'ws://') + host };
+  },
+  async ping(c) {
+    try {
+      const ac = new AbortController(), to = setTimeout(() => ac.abort(), 4000);
+      const r = await fetch(c.http + '/api/ping', { cache: 'no-store', signal: ac.signal });
+      clearTimeout(to);
+      return r.ok && (await r.text()) === 'mesa-ok';
+    } catch (e) { return false; }
+  },
+  async detect() {
+    const cand = [];
+    try { const q = new URLSearchParams(location.search).get('srv'); if (q) { const c = SrvNet.norm(q); if (c) { store.set('hub.srv', q); cand.push(c); } } } catch (e) { /* sin query */ }
+    const saved = SrvNet.norm(store.get('hub.srv', '')); if (saved) cand.push(saved);
+    const fixed = SrvNet.norm(MJ_SERVER_URL); if (fixed) cand.push(fixed);
+    if (/^https?:$/.test(location.protocol)) { const o = SrvNet.norm(location.origin); if (o) cand.push(o); }
+    for (const c of cand) if (await SrvNet.ping(c)) { SrvNet.http = c.http; SrvNet.wss = c.wss; return true; }
+    return false;
+  },
+  connect(path, onopen) {
+    return new Promise((res, rej) => {
+      let ws; try { ws = new WebSocket(SrvNet.wss + path); } catch (e) { rej(e); return; }
+      const to = setTimeout(() => { try { ws.close(); } catch (e) { /* nada */ } rej(new Error('tiempo')); }, 7000);
+      ws.onerror = () => { clearTimeout(to); rej(new Error('red')); };
+      ws.onmessage = ev => {
+        let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
+        if (d && d.t === 'hello') { clearTimeout(to); ws.onmessage = null; res({ ws, hello: d }); }
+      };
+    });
+  },
+  startLobby(onRooms) {
+    SrvNet.onRooms = onRooms; SrvNet.dead = false;
+    const go = async () => {
+      if (SrvNet.dead) return;
+      try {
+        const { ws, hello } = await SrvNet.connect('/ws/lobby');
+        SrvNet.lob = ws; SrvNet.me = hello.me;
+        ws.onmessage = ev => {
+          let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
+          if (d && d.t === 'rooms' && Array.isArray(d.rooms)) { ClaudeNet.rooms = d.rooms.filter(p => p && p.peer !== SrvNet.me && p.presence && p.presence.rk); if (SrvNet.onRooms) SrvNet.onRooms(ClaudeNet.rooms); }
+        };
+        ws.onclose = () => { SrvNet.lob = null; clearTimeout(SrvNet.lobT); SrvNet.lobT = setTimeout(go, 4000); };
+        SrvNet.pushPresence();
+      } catch (e) { clearTimeout(SrvNet.lobT); SrvNet.lobT = setTimeout(go, 6000); }
+    };
+    go();
+    clearInterval(SrvNet.kaT);
+    SrvNet.kaT = setInterval(() => { try { if (SrvNet.lob && SrvNet.lob.readyState === 1) SrvNet.lob.send('ping'); } catch (e) { /* nada */ } }, 25000);
+  },
+  pushPresence() {
+    try { if (SrvNet.lob && SrvNet.lob.readyState === 1) SrvNet.lob.send(JSON.stringify({ t: 'adv', info: SrvNet.pres && SrvNet.pres.rk ? SrvNet.pres : null })); } catch (e) { /* sin lobby */ }
+  },
+  advertise(patch) { SrvNet.pres = Object.assign({}, SrvNet.pres, patch); SrvNet.pushPresence(); },
+  async open(code) {
+    const { ws, hello } = await SrvNet.connect('/ws/room/' + code.toLowerCase());
+    const peers = new Set(hello.peers || []);
+    const t = { kind: 'claude', hostId: '', me: hello.me, onmsg: null, onleave: null, closed: false };
+    const put = o => { try { if (ws.readyState === 1) ws.send(JSON.stringify(o)); } catch (e) { /* conexión caída */ } };
+    t.send = (to, m) => put({ to, m });
+    t.broadcast = m => put({ to: '*', m });
+    ws.onmessage = ev => {
+      let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
+      if (!d || typeof d !== 'object') return;
+      if (d.t === 'm' && d.m && typeof d.m === 'object') { peers.add(d.from); if (t.onmsg) t.onmsg(d.from, d.m); }
+      else if (d.t === 'join') peers.add(d.peer);
+      else if (d.t === 'leave') { peers.delete(d.peer); if (t.onleave) t.onleave(d.peer); }
+    };
+    const ka = setInterval(() => { try { if (ws.readyState === 1) ws.send('ping'); } catch (e) { /* nada */ } }, 25000);
+    ws.onclose = () => { clearInterval(ka); if (!t.closed) { peers.forEach(p => { if (t.onleave) t.onleave(p); }); peers.clear(); } };
+    t.close = () => { t.closed = true; clearInterval(ka); try { ws.close(); } catch (e) { /* ya cerrado */ } };
+    return t;
+  }
+};
+
+/* ---------- Online: capacidad "room" de la plataforma (o servidor propio) ---------- */
 const ClaudeNet = {
-  ns: null, rooms: [],
+  ns: null, rooms: [], srv: false,
   async init(onRooms) {
     try { ClaudeNet.ns = (window.claude && window.claude.use) ? await window.claude.use('room') : null; } catch (e) { ClaudeNet.ns = null; }
     if (ClaudeNet.ns) {
@@ -549,11 +635,13 @@ const ClaudeNet = {
         });
       } catch (e) { /* sin descubrimiento */ }
     }
+    if (!ClaudeNet.ns && await SrvNet.detect()) { ClaudeNet.srv = true; ClaudeNet.ns = {}; SrvNet.startLobby(onRooms); }
     return !!ClaudeNet.ns;
   },
-  advertise(info) { try { ClaudeNet.ns.presence(info); } catch (e) { /* sin lobby */ } },
+  advertise(info) { if (ClaudeNet.srv) { SrvNet.advertise(info); return; } try { ClaudeNet.ns.presence(info); } catch (e) { /* sin lobby */ } },
   unadvertise() { ClaudeNet.advertise({ rk: null, hn: null, c: null, st: null, gm: null }); },
   async open(code) {
+    if (ClaudeNet.srv) return SrvNet.open(code);
     const rm = await ClaudeNet.ns.join('rk-' + code.toLowerCase());
     const me = () => { const p = rm.peers().find(x => x.isMe && x.sameTab); return p ? p.peer : ''; };
     const t = { kind: 'claude', hostId: '', onmsg: null, onleave: null, offs: [] };
@@ -1412,6 +1500,18 @@ const ACTS = {
   tolobby() { backToLobby(); },
   tomenu() { leaveAll(); },
   closesheet() { hideSheet(); },
+  async dl() {
+    hideSheet();
+    try {
+      const r = await fetch(location.href.split('#')[0].split('?')[0], { cache: 'no-cache' });
+      if (!r.ok) throw 0;
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await r.blob()); a.download = 'mesa-de-juegos.html';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      toast('Descargando mesa-de-juegos.html');
+    } catch (e) { toast('No se pudo descargar'); }
+  },
   snd() { Sfx.on = !Sfx.on; store.set('hub.sound', Sfx.on); paintTools(); if (Sfx.on) Sfx.tone(720, 0.05, 'triangle', 0, 0.05); },
   theme() { toggleTheme(); paintTools(); },
   reco() {
@@ -1425,8 +1525,8 @@ const ACTS = {
   },
   async reinvite() { hideSheet(); try { await Mods.load('pair'); } catch (e) { toast('No se pudo cargar el emparejamiento'); return; } hostInvite(); },
   menu() {
-    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button><button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button></div>');
-    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button><button class="btn flat" data-act="closesheet">Cerrar</button></div>');
+    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button>' + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button></div>');
+    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button>' + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button></div>');
   }
 };
 /* CTX games/catalog: Una línea Hub.catalog.push por juego: {id, cat, name, blurb, mod}. Añadir un juego = módulo + una línea aquí + su entrada en games.json. */

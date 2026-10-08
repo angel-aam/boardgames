@@ -1,0 +1,21 @@
+{
+  // Mesa de Juegos: sirve la página, permite descargar la copia offline y reenvía los mensajes de las salas por WebSocket
+  "name": "mesa-de-juegos",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+  // Páginas estáticas (index.html y mesa-de-juegos.html se copian a ./public con `npm run build`)
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "ROOM", "class_name": "Room" },
+      { "name": "LOBBY", "class_name": "Lobby" }
+    ]
+  },
+  // El plan gratuito exige Durable Objects con almacenamiento SQLite
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room", "Lobby"] }],
+  "vars": {
+    // Orígenes que pueden abrir salas (separados por comas). Vacío = cualquiera.
+    // Para GitHub Pages: "https://TU_USUARIO.github.io,null"  («null» = el archivo abierto sin conexión desde el móvil)
+    "ALLOWED_ORIGINS": ""
+  }
+}

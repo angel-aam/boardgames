@@ -1,0 +1,11 @@
+{
+  "name": "mesa-de-juegos-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p public && cp ../dist/juegos.html public/index.html && cp ../dist/juegos.html public/mesa-de-juegos.html",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": { "wrangler": "^4" }
+}
