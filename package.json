@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "mkdir -p public && cp ../dist/juegos.html public/index.html && cp ../dist/juegos.html public/mesa-de-juegos.html",
+    "minify": "node minify.js",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "node minify.js && wrangler deploy"
   },
-  "devDependencies": { "wrangler": "^4" }
+  "devDependencies": {
+    "html-minifier-terser": "^7.2.0",
+    "terser": "^5.51.2",
+    "wrangler": "^4"
+  }
 }

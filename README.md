@@ -1,6 +1,6 @@
 # Servidor online de Mesa de Juegos (Cloudflare Workers)
 
-Un Worker + Durable Objects que (1) sirve el HTML y (2) reenvía mensajes WebSocket entre jugadores. El anfitrión sigue siendo quien decide la partida; el servidor solo retransmite. No guarda datos.
+Un Worker + Durable Objects que (1) sirve el juego (`public/index.html`, generado) y (2) reenvía mensajes WebSocket entre jugadores. El anfitrión sigue siendo quien decide la partida; el servidor solo retransmite. No guarda datos.
 
 ## Desplegar
 Requisitos: Node 18+ y tu cuenta de Cloudflare.
@@ -8,13 +8,20 @@ Requisitos: Node 18+ y tu cuenta de Cloudflare.
 ```
 cd server
 npm install
-npm run build          # copia ../dist/juegos.html a public/
 npx wrangler login     # abre el navegador, autoriza
 npx wrangler deploy
 ```
 Al terminar muestra `https://mesa-de-juegos.<tu-subdominio>.workers.dev`. Ábrelo: ya es la web completa con salas online (comprueba `/api/ping` → `mesa-ok`).
 
-## Usarlo desde GitHub Pages (o el HTML offline)
+## Actualizar el juego
+El código fuente sin minificar vive en `public/mesa-de-juegos.html` (no se publica: lo excluye `public/.assetsignore`). Para actualizar:
+1. Sustituye `public/mesa-de-juegos.html` por la nueva versión.
+2. `npm run deploy` → minifica a `public/index.html` y ejecuta `wrangler deploy`.
+
+Solo minificar: `npm run minify`. Elimina todos los comentarios (también los de contexto para IA; el fuente los conserva) y reduce el HTML ~14 %. La opción «Descarga offline» del menú baja el `index.html` publicado, como `mesa-de-juegos.html`.
+Para publicar sin minificar, usa `npx wrangler deploy` a secas tras copiar el fuente a `public/index.html`.
+
+## Usarlo desde otra web (GitHub Pages, opcional) Pages (o el HTML offline)
 Abre una vez `https://TU-PAGINA/?srv=https://mesa-de-juegos.<subdominio>.workers.dev`; la dirección queda guardada en ese navegador. O fíjala al construir: `MJ_SERVER=https://… node build.js`.
 Si quieres limitar quién puede conectar, edita `ALLOWED_ORIGINS` en `wrangler.jsonc` (p. ej. `"https://USUARIO.github.io,null"`; `null` es el HTML abierto desde archivo) y vuelve a desplegar.
 
