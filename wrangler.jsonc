@@ -1,6 +1,6 @@
 {
   // Mesa de Juegos: sirve la página, permite descargar la copia offline y reenvía los mensajes de las salas por WebSocket
-  "name": "mesa-de-juegos",
+  "name": "boardgames",
   "main": "src/worker.js",
   "compatibility_date": "2025-09-01",
   // Páginas estáticas (index.html y mesa-de-juegos.html se copian a ./public con `npm run build`)

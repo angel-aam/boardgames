@@ -25,7 +25,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - `Sfx.tone(freq, dur, tipo, retardo, vol)` y `Sfx.win/lose/join`; cada juego define sus efectos con `ctx.tone`.
 - `Mods.load(nombre)` (promesa) / `Mods.ok(nombre)`.
 - `Hist` (recientes y estadísticas), `Saves` (partida en curso en disco, solo la última por juego; `put/get/forGame/latest/putSingle/getSingle`), `ClaudeNet` y `LocalNet` (transportes: `send(peer,msg) broadcast close onmsg onleave hostId`), `Hub`, `H` (estado global del hub), `ACTS` (acciones del DOM por `data-act`).
-- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
+- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
 
 ## 4. Contrato de un juego (`Hub.register`)
 Multijugador por turnos:
@@ -44,14 +44,15 @@ Un jugador (puzles): `single:{levels:[..], def, info(i)}` + `mountSingle(el, ctx
 Registrar en `src/games/catalog.js`: `Hub.catalog.push({id, cat:'tablero'|'cartas'|'puzzles', name, blurb, mod})`; categorías en `HOME_CATS` (hub.js). El lobby ordena nombres alfabéticamente (`localeCompare 'es'`).
 
 ## 5. Catálogo (id · categoría · módulo/deps · notas)
-- tablero: ajedrez, damas, backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub), scrabble (scdict; español, IA por frecuencia de palabras).
+- tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub), scrabble (scdict; español, IA por frecuencia de palabras).
 - cartas: brisca, chinchon, tute (los tres con baraja española), solitario (Klondike, un jugador; poker = baraja inglesa de 52).
-- puzzles (un jugador): tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
+- puzzles (un jugador): mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
 - Compartidos: `baraja` (cartas españolas, SVG), `poker`, `qr` (generar QR y códigos de texto; sin lector), `pair` (emparejamiento sin conexión; dep qr), `scdict` (diccionario español ~635k palabras mayúsculas sin tildes, Ñ conservada, sin K/W; `ScDict.W`, `.lv[0|1]` = 8000/20000 más comunes, `.has(w)`), `teclado` (teclado QWERTY móvil con Ñ; `Teclado.mount(el,{enter,del,onKey})`), `dados` (`Dados.roll(n,caras)/one`, `Dados.view`, tema de dado, `Dados.sound`, `Dados.PIPS`).
 
 ## 6. Estilos
 - Variables CSS (claro/oscuro, el tema se fija con `data-theme` en :root): - -bg - -surface - -ink - -muted - -line - -accent - -accent-ink - -accent-soft - -board - -set - -rack - -bad - -good - -tile - -tile-edge - -t0..t3 - -shadow - -f-ui - -f-mono. Usa SIEMPRE estas variables; añade variantes oscuras con `:root[data-theme="dark"]` y `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) … }`.
-- Cada juego usa un prefijo de clases propio (dm- domino, pc- parchís, bg- backgammon, wd- wordle, ah- ahorcado, tg- tangram, tk- teclado, dd- dados…) y cuelga su layout de `#stage > .prefijo`; el CSS de un juego va dentro de su módulo.
+- Ayudas visuales: lo que resalta QUÉ pieza/ficha se puede jugar (outline, pulso, atenuar las no jugables) va en CSS bajo `body[data-assist] …` (opción «Ayuda visual» del menú ☰, `hub.assist`, apagada por defecto). Lo que es retroalimentación de una selección (casillas de destino, errores) o estado funcional no se condiciona.
+- Cada juego usa un prefijo de clases propio (dm- domino, pc- parchís, bg- backgammon, wd- wordle, ah- ahorcado, tg- tangram, mj- mahjong, c4- 4 en raya, c4- 4 en raya, tk- teclado, dd- dados…) y cuelga su layout de `#stage > .prefijo`; el CSS de un juego va dentro de su módulo.
 - Componentes comunes: `.btn` (`.primary`, `.flat`, `.danger`), `.card`, `.seg` (selector segmentado), `.gcard` (tarjeta del menú), `.panel/.sheet`, `.mnu` (menú apilado de partida), `.fld`. Tamaños con `min(...)`/`dvh` para no hacer scroll; objetivos táctiles ≥ 40px o con zona ampliada `::after{inset:-7px}`.
 
 ## 7. Reglas de implementación
@@ -115,6 +116,8 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | parchis | juego tablero «Parchís» | games/parchis/parchis.js (+parchis.css) | dados | Parchís 2–4 jugadores con anillo circular de 68 casillas y un dado (módulo dados). Progreso k de ficha: 0 casa, 1..64 anillo, 65..71 pasillo, 72 meta. Reglas: 5 para sacar, 6 repite (7 si no hay fichas en casa), tres 6 castigan, barreras, casillas seguras, bonus 20/10. Mover = tocar ficha y confirmar. |
 | domino | juego tablero «Dominó» | games/domino/domino.js (+domino.css) | dados | Dominó doble seis 2–4 jugadores (parejas con 4; pozo con 2–3; partida a una mano, 50 o 100). Cadena lineal en el motor (line + lc = fichas añadidas por la izquierda); la vista dibuja una serpiente con dmLayout (cuadrícula de medias filas, dobles cruzados, curva con ficha vertical). |
 | tangram | juego puzzles «Tangram» | games/tangram/tangram.js (+tangram.css) | – | Tangram de un jugador (3 niveles). Puzzles generados ensamblando las 7 piezas por aristas (tgGen, siempre con solución); tablero SVG 12×16 (silueta arriba, bandeja abajo); arrastrar, girar 45°, voltear, imán a vértices; victoria por superficie cubierta (tgSolved), no por posición; pista. |
+| cuatro | juego tablero «4 en raya» | games/cuatro/cuatro.js (+cuatro.css) | – | 4 en raya 2 jugadores (7×6, casillas fila*7+col, 'r' rojas empiezan / 'y'); acciones {t:'dr',c} y {t:'rs'}. IA negamax alfa-beta (profundidad 2/4/6). Caída animada (- -d filas), cuatro ganadoras resaltadas. |
+| mahjong | juego puzzles «Mahjong» | games/mahjong/mahjong.js (+mahjong.css) | – | Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
 <title>Mesa de Juegos</title>
@@ -1439,8 +1442,11 @@ document.addEventListener('input', e => {
   if (e.target.id === 'nick') { H.nick = cleanNick(e.target.value); store.set('hub.nick', H.nick); }
   if (e.target.id === 'code') e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
 });
+/* «Ayuda visual»: marca en el DOM (body[data-assist]) que activan los estilos de ayuda de cada juego; apagado por defecto */
+const assistOn = () => store.get('hub.assist', false) === true;
+const paintAssist = () => document.body.toggleAttribute('data-assist', assistOn());
 function bootHub() {
-  paintTools();
+  paintAssist(); paintTools();
   show('home'); renderHome();
   ClaudeNet.init(() => { if (H.screen === 'gmenu') renderRooms(); }).then(() => { if (H.screen === 'gmenu') renderGMenu(); });
 }
@@ -1505,6 +1511,7 @@ const ACTS = {
   tolobby() { backToLobby(); },
   tomenu() { leaveAll(); },
   closesheet() { hideSheet(); },
+  assist() { store.set('hub.assist', !assistOn()); paintAssist(); ACTS.menu(); },
   async dl() {
     hideSheet();
     try {
@@ -1532,8 +1539,8 @@ const ACTS = {
   subbot() { botAway(); ACTS.reco(); },
   async reinvite() { hideSheet(); try { await Mods.load('pair'); } catch (e) { toast('No se pudo cargar el emparejamiento'); return; } hostInvite(); },
   menu() {
-    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button>' + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button></div>');
-    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button>' + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button></div>');
+    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button></div>');
+    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button></div>');
   }
 };
 /* CTX games/catalog: Una línea Hub.catalog.push por juego: {id, cat, name, blurb, mod}. Añadir un juego = módulo + una línea aquí + su entrada en games.json. */
@@ -1556,6 +1563,8 @@ Hub.catalog.push({ id: 'ahorcado', cat: 'puzzles', name: 'Ahorcado', blurb: 'Un 
 Hub.catalog.push({ id: 'parchis', cat: 'tablero', name: 'Parchís', blurb: 'Clásico · 2 a 4 jugadores', mod: 'parchis' });
 Hub.catalog.push({ id: 'domino', cat: 'tablero', name: 'Dominó', blurb: 'Doble seis · 2 a 4 jugadores', mod: 'domino' });
 Hub.catalog.push({ id: 'tangram', cat: 'puzzles', name: 'Tangram', blurb: 'Un jugador · 3 niveles', mod: 'tangram' });
+Hub.catalog.push({ id: 'cuatro', cat: 'tablero', name: '4 en raya', blurb: 'Clásico · 2 jugadores', mod: 'cuatro' });
+Hub.catalog.push({ id: 'mahjong', cat: 'puzzles', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas', mod: 'mahjong' });
 bootHub();
 </script>
 <script type="text/plain" data-mod="qr" data-deps="">
@@ -4611,7 +4620,7 @@ Mods.ok("ajedrez");
 </script>
 <script type="text/plain" data-mod="damas" data-deps="">
 /* CTX damas: Damas 2 jugadores (captura obligatoria, damas coronadas); IA por niveles. */
-(function(){const s=document.createElement("style");s.textContent="/* Damas: tablero adaptable sin scroll; clases con prefijo dm- */\n.dm{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;--sq:min(calc((100vw - 28px)/8),calc((100dvh - 290px)/8),62px)}\n.dm-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--sq)*8);min-height:30px}\n.dm-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.dm-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.dm-who b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.dm-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #2a3350;display:inline-block}\n.dm-dot.w{background:#fff}.dm-dot.b{background:#1b2236;border-color:#b9c6e6}\n.dm-cap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}\n.dm-cap em{font-style:normal;font-family:var(--f-mono);font-weight:700;color:var(--ink)}\n.dm-board{display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border-radius:8px;overflow:hidden;border:2px solid var(--ink);box-shadow:0 4px 14px rgba(20,34,63,.25)}\n.dm-c{position:relative;width:var(--sq);height:var(--sq);padding:0;border:0;border-radius:0;display:grid;place-items:center;color:inherit}\n.dm-c.l{background:color-mix(in srgb,var(--accent-soft) 55%,#fff)}\n.dm-c.d{background:color-mix(in srgb,var(--accent) 55%,var(--accent-soft))}\n:root[data-theme=\"dark\"] .dm-c.l{background:#4b6fb8}\n:root[data-theme=\"dark\"] .dm-c.d{background:#223a6c}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .dm-c.l{background:#4b6fb8}:root:not([data-theme=\"light\"]) .dm-c.d{background:#223a6c}}\n.dm-c.lm::before{content:'';position:absolute;inset:0;background:rgba(255,206,60,.42)}\n.dm-c.sel{box-shadow:inset 0 0 0 3px var(--good)}\n.dm-c.can::before{content:'';position:absolute;inset:3px;border-radius:50%;border:2px dashed var(--good);animation:dmp 1.4s ease-in-out infinite}\n@keyframes dmp{50%{opacity:.35}}\n@media (prefers-reduced-motion: reduce){.dm-c.can::before{animation:none}}\n.dm-c.dt::after{content:'';position:absolute;width:32%;height:32%;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 0 2px var(--good)}\n.dm-p{position:relative;z-index:1;width:78%;height:78%;border-radius:50%;display:grid;place-items:center;font-size:calc(var(--sq)*.46);line-height:1;font-family:'Noto Sans Symbols 2','Segoe UI Symbol','DejaVu Sans',sans-serif}\n.dm-p.w{background:radial-gradient(circle at 35% 30%,#fff,#e4e9f6 70%);box-shadow:0 2px 0 #8d9abb,0 3px 5px rgba(0,0,0,.3);color:#b88a00}\n.dm-p.b{background:radial-gradient(circle at 35% 30%,#46506d,#161c2e 70%);box-shadow:0 2px 0 #090d18,0 3px 5px rgba(0,0,0,.4);color:#ffd45c}\n.dm-p::before{content:'';position:absolute;inset:14%;border-radius:50%;border:1.5px solid rgba(0,0,0,.18)}\n.dm-p.b::before{border-color:rgba(255,255,255,.18)}\n.dm-st{min-height:40px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.dm-st .muted{font-weight:500;font-size:12.5px}\n.dm-acts{display:flex;width:calc(var(--sq)*8)}\n.dm-acts .btn{flex:1;min-height:38px}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Damas: tablero adaptable sin scroll; clases con prefijo dm- */\n.dm{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;--sq:min(calc((100vw - 28px)/8),calc((100dvh - 290px)/8),62px)}\n.dm-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--sq)*8);min-height:30px}\n.dm-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.dm-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.dm-who b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.dm-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #2a3350;display:inline-block}\n.dm-dot.w{background:#fff}.dm-dot.b{background:#1b2236;border-color:#b9c6e6}\n.dm-cap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}\n.dm-cap em{font-style:normal;font-family:var(--f-mono);font-weight:700;color:var(--ink)}\n.dm-board{display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));border-radius:8px;overflow:hidden;border:2px solid var(--ink);box-shadow:0 4px 14px rgba(20,34,63,.25)}\n.dm-c{position:relative;width:var(--sq);height:var(--sq);padding:0;border:0;border-radius:0;display:grid;place-items:center;color:inherit}\n.dm-c.l{background:color-mix(in srgb,var(--accent-soft) 55%,#fff)}\n.dm-c.d{background:color-mix(in srgb,var(--accent) 55%,var(--accent-soft))}\n:root[data-theme=\"dark\"] .dm-c.l{background:#4b6fb8}\n:root[data-theme=\"dark\"] .dm-c.d{background:#223a6c}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .dm-c.l{background:#4b6fb8}:root:not([data-theme=\"light\"]) .dm-c.d{background:#223a6c}}\n.dm-c.lm::before{content:'';position:absolute;inset:0;background:rgba(255,206,60,.42)}\n.dm-c.sel{box-shadow:inset 0 0 0 3px var(--good)}\nbody[data-assist] .dm-c.can::before{content:'';position:absolute;inset:3px;border-radius:50%;border:2px dashed var(--good);animation:dmp 1.4s ease-in-out infinite}\n@keyframes dmp{50%{opacity:.35}}\n@media (prefers-reduced-motion: reduce){body[data-assist] .dm-c.can::before{animation:none}}\n.dm-c.dt::after{content:'';position:absolute;width:32%;height:32%;border-radius:50%;background:rgba(255,255,255,.75);box-shadow:0 0 0 2px var(--good)}\n.dm-p{position:relative;z-index:1;width:78%;height:78%;border-radius:50%;display:grid;place-items:center;font-size:calc(var(--sq)*.46);line-height:1;font-family:'Noto Sans Symbols 2','Segoe UI Symbol','DejaVu Sans',sans-serif}\n.dm-p.w{background:radial-gradient(circle at 35% 30%,#fff,#e4e9f6 70%);box-shadow:0 2px 0 #8d9abb,0 3px 5px rgba(0,0,0,.3);color:#b88a00}\n.dm-p.b{background:radial-gradient(circle at 35% 30%,#46506d,#161c2e 70%);box-shadow:0 2px 0 #090d18,0 3px 5px rgba(0,0,0,.4);color:#ffd45c}\n.dm-p::before{content:'';position:absolute;inset:14%;border-radius:50%;border:1.5px solid rgba(0,0,0,.18)}\n.dm-p.b::before{border-color:rgba(255,255,255,.18)}\n.dm-st{min-height:40px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.dm-st .muted{font-weight:500;font-size:12.5px}\n.dm-acts{display:flex;width:calc(var(--sq)*8)}\n.dm-acts .btn{flex:1;min-height:38px}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Damas españolas · 2 jugadores (sala o contra la IA) =====
    Tablero 8×8, 12 fichas cada uno. Las fichas avanzan en diagonal y capturan hacia delante; la dama (coronada)
@@ -5360,7 +5369,7 @@ Mods.ok("tute");
 </script>
 <script type="text/plain" data-mod="backgammon" data-deps="dados">
 /* CTX backgammon: Backgammon 2 jugadores con dos dados d6 (módulo dados). Puntos 0..23, barra 24, fuera 100; gammon/backgammon. Motor con bgLegal/bgPlan; IA por niveles. */
-(function(){const s=document.createElement("style");s.textContent="/* Backgammon: tablero adaptable sin scroll; clases con prefijo bg- */\n.bg{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;margin:0 auto;--cw:min(calc((100vw - 30px)/14.1),calc((100dvh - 330px)/13.6),42px)}\n.bg-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--cw)*14.1);min-height:28px}\n.bg-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.bg-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.bg-who b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.bg-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #2a3350;display:inline-block}\n.bg-dot.w{background:#fff}.bg-dot.b{background:#1b2236;border-color:#b9c6e6}\n.bg-cap{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}\n.bg-board{display:grid;grid-template-columns:repeat(6,var(--cw)) var(--cw) repeat(6,var(--cw)) calc(var(--cw)*1.1);grid-template-rows:calc(var(--cw)*6.3) calc(var(--cw)*6.3);border-radius:8px;overflow:hidden;border:2px solid var(--ink);background:color-mix(in srgb,var(--accent-soft) 40%,#fff);box-shadow:0 4px 14px rgba(20,34,63,.25)}\n:root[data-theme=\"dark\"] .bg-board{background:#16264a}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .bg-board{background:#16264a}}\n.bg-pt{position:relative;padding:0;border:0;border-radius:0;background:transparent;display:flex;flex-direction:column;align-items:center;color:inherit;min-width:0}\n.bg-pt.rt{justify-content:flex-start}.bg-pt.rb{justify-content:flex-end}\n.bg-tri{position:absolute;inset:0;pointer-events:none}\n.bg-pt.rt .bg-tri{clip-path:polygon(6% 0,94% 0,50% 96%)}\n.bg-pt.rb .bg-tri{clip-path:polygon(6% 100%,94% 100%,50% 4%)}\n.bg-pt.ev .bg-tri{background:color-mix(in srgb,var(--accent) 60%,var(--accent-soft))}\n.bg-pt.od .bg-tri{background:color-mix(in srgb,var(--accent-soft) 90%,#fff)}\n:root[data-theme=\"dark\"] .bg-pt.ev .bg-tri{background:#4b6fb8}:root[data-theme=\"dark\"] .bg-pt.od .bg-tri{background:#2b4a8c}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .bg-pt.ev .bg-tri{background:#4b6fb8}:root:not([data-theme=\"light\"]) .bg-pt.od .bg-tri{background:#2b4a8c}}\n.bg-pt.lm::before{content:'';position:absolute;inset:0;background:rgba(255,206,60,.32);z-index:0}\n.bg-pt.sel{box-shadow:inset 0 0 0 3px var(--good)}\n.bg-pt.dt::after{content:'';position:absolute;left:50%;width:46%;aspect-ratio:1;border-radius:50%;transform:translateX(-50%);background:rgba(255,255,255,.85);box-shadow:0 0 0 2px var(--good);z-index:2}\n.bg-pt.rt.dt::after{bottom:10%}.bg-pt.rb.dt::after{top:10%}\n.bg-pt.can .bg-stack .bg-ch:last-child,.bg-bx.can .bg-stack .bg-ch:last-child{outline:2px dashed var(--good);outline-offset:1px}\n.bg-stack{position:relative;z-index:1;display:flex;flex-direction:column-reverse;align-items:center;width:100%;min-height:0}\n.bg-stack.tp{flex-direction:column}\n.bg-ch{display:grid;place-items:center;width:calc(var(--cw) - 4px);height:calc(var(--cw) - 4px);border-radius:50%;margin:0;font:700 calc(var(--cw)*.42)/1 var(--f-mono);font-style:normal;text-decoration:none;flex:none}\n.bg-ch.w{background:radial-gradient(circle at 35% 30%,#fff,#dfe5f4 70%);box-shadow:0 1.5px 0 #8d9abb,0 2px 3px rgba(0,0,0,.3);color:#33415f}\n.bg-ch.b{background:radial-gradient(circle at 35% 30%,#46506d,#161c2e 70%);box-shadow:0 1.5px 0 #090d18,0 2px 3px rgba(0,0,0,.4);color:#ffd45c}\n.bg-ch.mini{width:calc(var(--cw) - 6px);height:calc(var(--cw)*.3);border-radius:3px}\n.bg-bx{grid-column:7;position:relative;padding:0;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;background:color-mix(in srgb,var(--ink) 18%,transparent);color:inherit}\n.bg-bx .bg-stack{flex:1;justify-content:flex-start}.bg-bx .bg-stack.tp{justify-content:flex-start}\n.bg-bx .bg-stack:not(.tp){justify-content:flex-start;flex-direction:column-reverse;justify-content:flex-start}\n.bg-bx.sel{box-shadow:inset 0 0 0 3px var(--good)}\n.bg-tray{padding:0;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;background:color-mix(in srgb,var(--ink) 12%,transparent);color:inherit;border-left:2px solid var(--ink)}\n.bg-tray.dt{background:color-mix(in srgb,var(--good) 35%,transparent)}\n.bg-ot,.bg-ob{display:flex;align-items:center;gap:2px;padding:3px 0;flex-direction:column}\n.bg-offn{font:700 calc(var(--cw)*.46)/1 var(--f-mono);margin:2px 0}\n.bg-dice{--dd-s:calc(var(--cw)*1.2);display:flex;justify-content:center;align-items:center;gap:10px;min-height:calc(var(--cw)*1.25)}\n.bg-x{font:700 18px var(--f-mono)}\n.bg-st{min-height:38px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.bg-st .muted{font-weight:500;font-size:12.5px}\n.bg-acts{display:flex;gap:8px;width:calc(var(--cw)*14.1)}\n.bg-acts .btn{flex:1;min-height:38px}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Backgammon: tablero adaptable sin scroll; clases con prefijo bg- */\n.bg{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;margin:0 auto;--cw:min(calc((100vw - 30px)/14.1),calc((100dvh - 330px)/13.6),42px)}\n.bg-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--cw)*14.1);min-height:28px}\n.bg-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.bg-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.bg-who b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.bg-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #2a3350;display:inline-block}\n.bg-dot.w{background:#fff}.bg-dot.b{background:#1b2236;border-color:#b9c6e6}\n.bg-cap{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}\n.bg-board{display:grid;grid-template-columns:repeat(6,var(--cw)) var(--cw) repeat(6,var(--cw)) calc(var(--cw)*1.1);grid-template-rows:calc(var(--cw)*6.3) calc(var(--cw)*6.3);border-radius:8px;overflow:hidden;border:2px solid var(--ink);background:color-mix(in srgb,var(--accent-soft) 40%,#fff);box-shadow:0 4px 14px rgba(20,34,63,.25)}\n:root[data-theme=\"dark\"] .bg-board{background:#16264a}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .bg-board{background:#16264a}}\n.bg-pt{position:relative;padding:0;border:0;border-radius:0;background:transparent;display:flex;flex-direction:column;align-items:center;color:inherit;min-width:0}\n.bg-pt.rt{justify-content:flex-start}.bg-pt.rb{justify-content:flex-end}\n.bg-tri{position:absolute;inset:0;pointer-events:none}\n.bg-pt.rt .bg-tri{clip-path:polygon(6% 0,94% 0,50% 96%)}\n.bg-pt.rb .bg-tri{clip-path:polygon(6% 100%,94% 100%,50% 4%)}\n.bg-pt.ev .bg-tri{background:color-mix(in srgb,var(--accent) 60%,var(--accent-soft))}\n.bg-pt.od .bg-tri{background:color-mix(in srgb,var(--accent-soft) 90%,#fff)}\n:root[data-theme=\"dark\"] .bg-pt.ev .bg-tri{background:#4b6fb8}:root[data-theme=\"dark\"] .bg-pt.od .bg-tri{background:#2b4a8c}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .bg-pt.ev .bg-tri{background:#4b6fb8}:root:not([data-theme=\"light\"]) .bg-pt.od .bg-tri{background:#2b4a8c}}\n.bg-pt.lm::before{content:'';position:absolute;inset:0;background:rgba(255,206,60,.32);z-index:0}\n.bg-pt.sel{box-shadow:inset 0 0 0 3px var(--good)}\n.bg-pt.dt::after{content:'';position:absolute;left:50%;width:46%;aspect-ratio:1;border-radius:50%;transform:translateX(-50%);background:rgba(255,255,255,.85);box-shadow:0 0 0 2px var(--good);z-index:2}\n.bg-pt.rt.dt::after{bottom:10%}.bg-pt.rb.dt::after{top:10%}\nbody[data-assist] .bg-pt.can .bg-stack .bg-ch:last-child,body[data-assist] .bg-bx.can .bg-stack .bg-ch:last-child{outline:2px dashed var(--good);outline-offset:1px}\n.bg-stack{position:relative;z-index:1;display:flex;flex-direction:column-reverse;align-items:center;width:100%;min-height:0}\n.bg-stack.tp{flex-direction:column}\n.bg-ch{display:grid;place-items:center;width:calc(var(--cw) - 4px);height:calc(var(--cw) - 4px);border-radius:50%;margin:0;font:700 calc(var(--cw)*.42)/1 var(--f-mono);font-style:normal;text-decoration:none;flex:none}\n.bg-ch.w{background:radial-gradient(circle at 35% 30%,#fff,#dfe5f4 70%);box-shadow:0 1.5px 0 #8d9abb,0 2px 3px rgba(0,0,0,.3);color:#33415f}\n.bg-ch.b{background:radial-gradient(circle at 35% 30%,#46506d,#161c2e 70%);box-shadow:0 1.5px 0 #090d18,0 2px 3px rgba(0,0,0,.4);color:#ffd45c}\n.bg-ch.mini{width:calc(var(--cw) - 6px);height:calc(var(--cw)*.3);border-radius:3px}\n.bg-bx{grid-column:7;position:relative;padding:0;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;background:color-mix(in srgb,var(--ink) 18%,transparent);color:inherit}\n.bg-bx .bg-stack{flex:1;justify-content:flex-start}.bg-bx .bg-stack.tp{justify-content:flex-start}\n.bg-bx .bg-stack:not(.tp){justify-content:flex-start;flex-direction:column-reverse;justify-content:flex-start}\n.bg-bx.sel{box-shadow:inset 0 0 0 3px var(--good)}\n.bg-tray{padding:0;border:0;border-radius:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;background:color-mix(in srgb,var(--ink) 12%,transparent);color:inherit;border-left:2px solid var(--ink)}\n.bg-tray.dt{background:color-mix(in srgb,var(--good) 35%,transparent)}\n.bg-ot,.bg-ob{display:flex;align-items:center;gap:2px;padding:3px 0;flex-direction:column}\n.bg-offn{font:700 calc(var(--cw)*.46)/1 var(--f-mono);margin:2px 0}\n.bg-dice{--dd-s:calc(var(--cw)*1.2);display:flex;justify-content:center;align-items:center;gap:10px;min-height:calc(var(--cw)*1.25)}\n.bg-x{font:700 18px var(--f-mono)}\n.bg-st{min-height:38px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.bg-st .muted{font-weight:500;font-size:12.5px}\n.bg-acts{display:flex;gap:8px;width:calc(var(--cw)*14.1)}\n.bg-acts .btn{flex:1;min-height:38px}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Backgammon · 2 jugadores (sala o contra la IA) =====
    24 puntos (0..23). Blancas: avanzan de 23 a 0 y sacan por debajo del 0. Negras: de 0 a 23 y sacan por encima del 23.
@@ -6322,7 +6331,7 @@ Mods.ok("nonograma");
 </script>
 <script type="text/plain" data-mod="hive" data-deps="">
 /* CTX hive: Hive 2 jugadores (hexágonos, piezas de insecto) con IA y deshacer contra IA. Tablero SVG; no iterar this.B mientras dests() lo modifica. */
-(function(){const s=document.createElement("style");s.textContent="/* Hive: tablero hexagonal en SVG sin scroll; clases con prefijo hv- */\n.hv{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;margin:0 auto;flex:1;min-height:0;--hp0:#fff;--hp0t:#0b1e4a;--hp1:#2a3f7a;--hedge:color-mix(in srgb,var(--ink) 45%,transparent)}\n:root[data-theme=\"dark\"] .hv{--hp1:#3a5099;--hedge:rgba(255,255,255,.4)}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .hv{--hp1:#3a5099;--hedge:rgba(255,255,255,.4)}}\n.hv-bd{flex:1;min-height:0;width:100%;touch-action:manipulation}\n.hv-bd text{pointer-events:none}\n.hv-h{stroke:var(--hedge);stroke-width:.05;cursor:pointer}\n.hv-h.p0{fill:var(--hp0)}.hv-h.p1{fill:var(--hp1)}\n.hv-h.e{fill:color-mix(in srgb,var(--accent) 12%,transparent);stroke:var(--accent);stroke-dasharray:.15 .1;stroke-width:.06}\n.hv-h.tg.e{fill:color-mix(in srgb,var(--accent) 38%,transparent);stroke-dasharray:none;stroke-width:.1}\n.hv-h.tg:not(.e){stroke:var(--accent);stroke-width:.14}\n.hv-h.lm{stroke:#e6a317;stroke-width:.12}\n.hv-h.sel{stroke:var(--good);stroke-width:.18}\n.hv-h.can{stroke:var(--good);stroke-width:.09}\n.hv-cn{fill:var(--hp0t)}.hv-cn.c1{fill:#fff}\n.hv-hand{display:flex;gap:5px;width:100%;flex:none}\n.hv-pc{flex:1;display:flex;flex-direction:column;align-items:center;font-size:22px;padding:4px 0;position:relative;border-radius:10px;border:1.5px solid var(--hedge);cursor:pointer}\n.hv-pc.p0{background:var(--hp0);color:var(--hp0t)}.hv-pc.p1{background:var(--hp1);color:#fff}\n.hv-hand.ai .hv-pc{font-size:15px;pointer-events:none}\n.hv-pc small{font-size:9px}.hv-pc i{position:absolute;top:1px;right:5px;font-size:11px;font-style:normal;font-weight:700}\n.hv-pc:disabled{opacity:.35}.hv-pc.on{outline:3px solid var(--good)}\n.hv-st{text-align:center;font-size:.85rem;min-height:2.6em;flex:none}\n.hv-acts{display:flex;gap:8px;flex:none}.hv-acts .btn{flex:1}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Hive: tablero hexagonal en SVG sin scroll; clases con prefijo hv- */\n.hv{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;margin:0 auto;flex:1;min-height:0;--hp0:#fff;--hp0t:#0b1e4a;--hp1:#2a3f7a;--hedge:color-mix(in srgb,var(--ink) 45%,transparent)}\n:root[data-theme=\"dark\"] .hv{--hp1:#3a5099;--hedge:rgba(255,255,255,.4)}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .hv{--hp1:#3a5099;--hedge:rgba(255,255,255,.4)}}\n.hv-bd{flex:1;min-height:0;width:100%;touch-action:manipulation}\n.hv-bd text{pointer-events:none}\n.hv-h{stroke:var(--hedge);stroke-width:.05;cursor:pointer}\n.hv-h.p0{fill:var(--hp0)}.hv-h.p1{fill:var(--hp1)}\n.hv-h.e{fill:color-mix(in srgb,var(--accent) 12%,transparent);stroke:var(--accent);stroke-dasharray:.15 .1;stroke-width:.06}\n.hv-h.tg.e{fill:color-mix(in srgb,var(--accent) 38%,transparent);stroke-dasharray:none;stroke-width:.1}\n.hv-h.tg:not(.e){stroke:var(--accent);stroke-width:.14}\n.hv-h.lm{stroke:#e6a317;stroke-width:.12}\n.hv-h.sel{stroke:var(--good);stroke-width:.18}\nbody[data-assist] .hv-h.can{stroke:var(--good);stroke-width:.09}\n.hv-cn{fill:var(--hp0t)}.hv-cn.c1{fill:#fff}\n.hv-hand{display:flex;gap:5px;width:100%;flex:none}\n.hv-pc{flex:1;display:flex;flex-direction:column;align-items:center;font-size:22px;padding:4px 0;position:relative;border-radius:10px;border:1.5px solid var(--hedge);cursor:pointer}\n.hv-pc.p0{background:var(--hp0);color:var(--hp0t)}.hv-pc.p1{background:var(--hp1);color:#fff}\n.hv-hand.ai .hv-pc{font-size:15px;pointer-events:none}\n.hv-pc small{font-size:9px}.hv-pc i{position:absolute;top:1px;right:5px;font-size:11px;font-style:normal;font-weight:700}\n.hv-pc:disabled{opacity:.35}.hv-pc.on{outline:3px solid var(--good)}\n.hv-st{text-align:center;font-size:.85rem;min-height:2.6em;flex:none}\n.hv-acts{display:flex;gap:8px;flex:none}.hv-acts .btn{flex:1}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Hive · 2 jugadores (sala o contra la IA) =====
    Fichas hexagonales: reina, 2 escarabajos, 2 arañas, 3 hormigas y 3 saltamontes por jugador. Gana quien rodea la reina rival con 6 fichas.
@@ -7265,7 +7274,7 @@ Mods.ok("ahorcado");
 </script>
 <script type="text/plain" data-mod="parchis" data-deps="dados">
 /* CTX parchis: Parchís 2–4 jugadores con anillo circular de 68 casillas y un dado (módulo dados). Progreso k de ficha: 0 casa, 1..64 anillo, 65..71 pasillo, 72 meta. Reglas: 5 para sacar, 6 repite (7 si no hay fichas en casa), tres 6 castigan, barreras, casillas seguras, bonus 20/10. Mover = tocar ficha y confirmar. */
-(function(){const s=document.createElement("style");s.textContent="/* Parchís: tablero circular adaptable; clases con prefijo pc- */\n.pc{--c0:#f2c230;--c1:#3f7be0;--c2:#e0453a;--c3:#3aa655;display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:560px;margin:0 auto}\n.pc-pl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}\n.pc-who{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}\n.pc-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.pc-who b{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.pc-who span{opacity:.75;font-family:var(--f-mono);font-size:12px}\n.pc-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #2a3350;display:inline-block}\n.pc .c0{--cc:var(--c0)}.pc .c1{--cc:var(--c1)}.pc .c2{--cc:var(--c2)}.pc .c3{--cc:var(--c3)}\n.pc-dot{background:var(--cc)}\n.pc-b{position:relative;width:min(100%,calc(100dvh - 290px),520px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,var(--surface) 0 70%,transparent 71%);touch-action:manipulation}\n.pc-sq{position:absolute;width:3%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid color-mix(in srgb,var(--muted) 55%,var(--line));box-sizing:border-box}\n.pc-sq.sf{border:2px solid var(--muted);background:color-mix(in srgb,var(--muted) 18%,var(--surface))}\n.pc-sq.st{background:var(--cc);border:2px solid var(--ink);width:4%}\n.pc-sq.ln{background:color-mix(in srgb,var(--cc) 55%,var(--surface));border-color:var(--cc);width:3.4%}\n.pc-ctr{position:absolute;left:50%;top:50%;width:14%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--bg);border:2px solid var(--line)}\n.pc-nest{position:absolute;width:19%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:color-mix(in srgb,var(--cc) 30%,var(--surface));border:2px solid var(--cc);box-sizing:border-box}\n.pc-nest.off{opacity:.25}\n.pc-p{position:absolute;width:4%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;padding:0;border:2px solid rgba(0,0,0,.55);background:radial-gradient(circle at 35% 30%,#fff9,transparent 45%),var(--cc);box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:2;cursor:default}\n.pc-p.g{width:2.6%}\n.pc-p.can{cursor:pointer;z-index:3;animation:pcPulse 1s ease-in-out infinite}\n.pc-p.can::after{content:\"\";position:absolute;inset:-7px}\n.pc-p.sel{outline:3px solid var(--ink);outline-offset:1px;animation:none}\n@keyframes pcPulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--cc) 45%,transparent)}}\n.pc-dst{position:absolute;width:4.8%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;padding:0;background:transparent;border:3px dashed var(--ink);z-index:1;cursor:pointer}\n.pc-dst::after{content:\"\";position:absolute;inset:-7px}\n.pc-ctl{display:flex;align-items:center;gap:14px;width:100%;max-width:420px;min-height:64px}\n.pc-die{--dd-s:56px;width:56px;height:56px;padding:0;border:0;background:transparent;flex:none;cursor:default}\n.pc-die.go{cursor:pointer;animation:pcPulse2 1s ease-in-out infinite}\n@keyframes pcPulse2{50%{transform:scale(1.08)}}\n.pc-side{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}\n.pc-st{font-size:14px;line-height:1.3}.pc-st small{display:block;color:var(--muted);font-size:12px;margin-top:2px}\n.pc-roll{padding:8px 14px}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Parchís: tablero circular adaptable; clases con prefijo pc- */\n.pc{--c0:#f2c230;--c1:#3f7be0;--c2:#e0453a;--c3:#3aa655;display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:560px;margin:0 auto}\n.pc-pl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}\n.pc-who{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}\n.pc-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.pc-who b{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.pc-who span{opacity:.75;font-family:var(--f-mono);font-size:12px}\n.pc-dot{width:12px;height:12px;border-radius:50%;border:1.5px solid #2a3350;display:inline-block}\n.pc .c0{--cc:var(--c0)}.pc .c1{--cc:var(--c1)}.pc .c2{--cc:var(--c2)}.pc .c3{--cc:var(--c3)}\n.pc-dot{background:var(--cc)}\n.pc-b{position:relative;width:min(100%,calc(100dvh - 290px),520px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,var(--surface) 0 70%,transparent 71%);touch-action:manipulation}\n.pc-sq{position:absolute;width:3%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:var(--surface);border:1.5px solid color-mix(in srgb,var(--muted) 55%,var(--line));box-sizing:border-box}\n.pc-sq.sf{border:2px solid var(--muted);background:color-mix(in srgb,var(--muted) 18%,var(--surface))}\n.pc-sq.st{background:var(--cc);border:2px solid var(--ink);width:4%}\n.pc-sq.ln{background:color-mix(in srgb,var(--cc) 55%,var(--surface));border-color:var(--cc);width:3.4%}\n.pc-ctr{position:absolute;left:50%;top:50%;width:14%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:var(--bg);border:2px solid var(--line)}\n.pc-nest{position:absolute;width:19%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:color-mix(in srgb,var(--cc) 30%,var(--surface));border:2px solid var(--cc);box-sizing:border-box}\n.pc-nest.off{opacity:.25}\n.pc-p{position:absolute;width:4%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;padding:0;border:2px solid rgba(0,0,0,.55);background:radial-gradient(circle at 35% 30%,#fff9,transparent 45%),var(--cc);box-shadow:0 1px 3px rgba(0,0,0,.4);z-index:2;cursor:default}\n.pc-p.g{width:2.6%}\n.pc-p.can{cursor:pointer;z-index:3}body[data-assist] .pc-p.can{animation:pcPulse 1s ease-in-out infinite}\n.pc-p.can::after{content:\"\";position:absolute;inset:-7px}\n.pc-p.sel{outline:3px solid var(--ink);outline-offset:1px;animation:none}\n@keyframes pcPulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--cc) 45%,transparent)}}\n.pc-dst{position:absolute;width:4.8%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;padding:0;background:transparent;border:3px dashed var(--ink);z-index:1;cursor:pointer}\n.pc-dst::after{content:\"\";position:absolute;inset:-7px}\n.pc-ctl{display:flex;align-items:center;gap:14px;width:100%;max-width:420px;min-height:64px}\n.pc-die{--dd-s:56px;width:56px;height:56px;padding:0;border:0;background:transparent;flex:none;cursor:default}\n.pc-die.go{cursor:pointer;animation:pcPulse2 1s ease-in-out infinite}\n@keyframes pcPulse2{50%{transform:scale(1.08)}}\n.pc-side{display:flex;flex-direction:column;gap:6px;flex:1;min-width:0}\n.pc-st{font-size:14px;line-height:1.3}.pc-st small{display:block;color:var(--muted);font-size:12px;margin-top:2px}\n.pc-roll{padding:8px 14px}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Parchís · 2 a 4 jugadores (sala o contra la IA) =====
    Anillo de 68 casillas. Cada color sale de su casilla de salida (PC_S) y recorre 64 casillas hasta la entrada de su pasillo.
@@ -7569,7 +7578,7 @@ Mods.ok("parchis");
 </script>
 <script type="text/plain" data-mod="domino" data-deps="dados">
 /* CTX domino: Dominó doble seis 2–4 jugadores (parejas con 4; pozo con 2–3; partida a una mano, 50 o 100). Cadena lineal en el motor (line + lc = fichas añadidas por la izquierda); la vista dibuja una serpiente con dmLayout (cuadrícula de medias filas, dobles cruzados, curva con ficha vertical). */
-(function(){const s=document.createElement("style");s.textContent="/* Dominó: clases con prefijo dm- */\n.dm{--u:min(calc((100vw - 44px)/8),34px);--hs:min(calc((100vw - 40px)/8),38px);display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:560px;margin:0 auto;height:100%}\n.dm-pl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}\n.dm-who{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}\n.dm-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.dm-who b{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.dm-who span{opacity:.8;font-family:var(--f-mono);font-size:12px}\n.dm-who.pz{background:transparent;border-style:dashed}\n.dm-bd{display:grid;justify-content:center;align-content:center;grid-auto-rows:calc(var(--u)/2);gap:0;width:100%;flex:1;min-height:150px;padding:8px 6px;border-radius:16px;background:color-mix(in srgb,var(--accent) 22%,var(--surface));border:1px solid var(--line);box-sizing:border-box;overflow:hidden}\n.dm-empty{color:var(--muted);font-size:14px;place-self:center;grid-column:1/-1}\n.dm-gh{padding:0;border:2px dashed var(--ink);border-radius:calc(var(--u)*.2);background:color-mix(in srgb,var(--accent) 40%,transparent);color:var(--ink);font-size:14px;cursor:pointer;animation:dmPulse 1s ease-in-out infinite;box-sizing:border-box;margin:1px}\n@keyframes dmPulse{50%{opacity:.55}}\n.dm-t.bt{width:auto;height:auto;margin:1px}\n.dm-t{display:flex;background:#f8f6ee;border:1.5px solid #6b7690;border-radius:calc(var(--u)*.2);box-shadow:0 1px 0 rgba(0,0,0,.25);font-style:normal;flex:none;overflow:hidden;box-sizing:border-box}\n.dm-t.h{flex-direction:row;width:calc(var(--u)*2);height:var(--u)}\n.dm-t.v{flex-direction:column;width:var(--u);height:calc(var(--u)*2)}\n.dm-t.sm{--u:20px}\n.dm-h{flex:1;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:7%;min-width:0;min-height:0}\n.dm-t.h .dm-h:first-child{border-right:1.5px solid #6b7690}.dm-t.v .dm-h:first-child{border-bottom:1.5px solid #6b7690}\n.dm-h s{place-self:center;width:70%;height:70%;border-radius:50%;background:transparent}.dm-h s.on{background:#1b2236}\n.dm-hand{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;width:100%;max-height:30dvh;overflow:auto;padding:2px 0}\n.dm-hb{padding:0;border:0;background:transparent;border-radius:8px;opacity:.55}\n.dm-hb .dm-t{--u:var(--hs)}\n.dm-hb.can{opacity:1;cursor:pointer}.dm-hb.can .dm-t{box-shadow:0 0 0 2px var(--accent),0 2px 4px rgba(0,0,0,.3)}\n.dm-hb.sel{transform:translateY(-8px)}.dm-hb.sel .dm-t{box-shadow:0 0 0 3px var(--ink),0 3px 6px rgba(0,0,0,.35)}\n.dm-st{font-size:14px;line-height:1.3;text-align:center;min-height:34px}.dm-st small{display:block;color:var(--muted);font-size:12px}\n.dm-acts{display:flex;gap:8px;justify-content:center;min-height:0}\n.dm-rend{display:flex;flex-direction:column;gap:6px;width:100%}\n.dm-rr{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}\n.dm-rr.w{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}\n.dm-rr span{display:flex;flex-wrap:wrap;gap:3px}.dm-rr em{color:var(--muted);font-size:12px}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Dominó: clases con prefijo dm- */\n.dm{--u:min(calc((100vw - 44px)/8),34px);--hs:min(calc((100vw - 40px)/8),38px);display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:560px;margin:0 auto;height:100%}\n.dm-pl{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}\n.dm-who{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}\n.dm-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.dm-who b{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.dm-who span{opacity:.8;font-family:var(--f-mono);font-size:12px}\n.dm-who.pz{background:transparent;border-style:dashed}\n.dm-bd{display:grid;justify-content:center;align-content:center;grid-auto-rows:calc(var(--u)/2);gap:0;width:100%;flex:1;min-height:150px;padding:8px 6px;border-radius:16px;background:color-mix(in srgb,var(--accent) 22%,var(--surface));border:1px solid var(--line);box-sizing:border-box;overflow:hidden}\n.dm-empty{color:var(--muted);font-size:14px;place-self:center;grid-column:1/-1}\n.dm-gh{padding:0;border:2px dashed var(--ink);border-radius:calc(var(--u)*.2);background:color-mix(in srgb,var(--accent) 40%,transparent);color:var(--ink);font-size:14px;cursor:pointer;animation:dmPulse 1s ease-in-out infinite;box-sizing:border-box;margin:1px}\n@keyframes dmPulse{50%{opacity:.55}}\n.dm-t.bt{width:auto;height:auto;margin:1px}\n.dm-t{display:flex;background:#f8f6ee;border:1.5px solid #6b7690;border-radius:calc(var(--u)*.2);box-shadow:0 1px 0 rgba(0,0,0,.25);font-style:normal;flex:none;overflow:hidden;box-sizing:border-box}\n.dm-t.h{flex-direction:row;width:calc(var(--u)*2);height:var(--u)}\n.dm-t.v{flex-direction:column;width:var(--u);height:calc(var(--u)*2)}\n.dm-t.sm{--u:20px}\n.dm-h{flex:1;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:7%;min-width:0;min-height:0}\n.dm-t.h .dm-h:first-child{border-right:1.5px solid #6b7690}.dm-t.v .dm-h:first-child{border-bottom:1.5px solid #6b7690}\n.dm-h s{place-self:center;width:70%;height:70%;border-radius:50%;background:transparent}.dm-h s.on{background:#1b2236}\n.dm-hand{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;width:100%;max-height:30dvh;overflow:auto;padding:2px 0}\n.dm-hb{padding:0;border:0;background:transparent;border-radius:8px}\nbody[data-assist] .dm-hb{opacity:.55}\n.dm-hb .dm-t{--u:var(--hs)}\n.dm-hb.can{cursor:pointer}body[data-assist] .dm-hb.can{opacity:1}body[data-assist] .dm-hb.can .dm-t{box-shadow:0 0 0 2px var(--accent),0 2px 4px rgba(0,0,0,.3)}\n.dm-hb.sel{transform:translateY(-8px)}.dm-hb.sel .dm-t{box-shadow:0 0 0 3px var(--ink),0 3px 6px rgba(0,0,0,.35)}\n.dm-st{font-size:14px;line-height:1.3;text-align:center;min-height:34px}.dm-st small{display:block;color:var(--muted);font-size:12px}\n.dm-acts{display:flex;gap:8px;justify-content:center;min-height:0}\n.dm-rend{display:flex;flex-direction:column;gap:6px;width:100%}\n.dm-rr{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}\n.dm-rr.w{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}\n.dm-rr span{display:flex;flex-wrap:wrap;gap:3px}.dm-rr em{color:var(--muted);font-size:12px}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Dominó doble seis · 2 a 4 jugadores (sala o contra la IA) =====
    28 fichas, 7 por jugador; con 2 y 3 jugadores sobra el «pozo» (se roba si no se puede jugar). Con 4 se juega por parejas (asientos enfrentados).
@@ -8128,6 +8137,443 @@ Hub.register({
 
 })();
 Mods.ok("tangram");
+
+</script>
+<script type="text/plain" data-mod="cuatro" data-deps="">
+/* CTX cuatro: 4 en raya 2 jugadores (7×6, casillas fila*7+col, 'r' rojas empiezan / 'y'); acciones {t:'dr',c} y {t:'rs'}. IA negamax alfa-beta (profundidad 2/4/6). Caída animada (--d filas), cuatro ganadoras resaltadas. */
+(function(){const s=document.createElement("style");s.textContent="/* 4 en raya: tablero adaptable sin scroll; clases con prefijo c4- */\n.c4{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;--sq:min(calc((100vw - 28px)/7),calc((100dvh - 290px)/6),64px)}\n.c4-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--sq)*7);min-height:30px}\n.c4-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.c4-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.c4-who b{max-width:12ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.c4-dot{width:14px;height:14px;border-radius:50%;display:inline-block;border:1.5px solid rgba(0,0,0,.35)}\n.c4-dot.r,.c4-d.r{background:radial-gradient(circle at 35% 30%,#ff8794,#d83a4e 70%)}\n.c4-dot.y,.c4-d.y{background:radial-gradient(circle at 35% 30%,#ffe98a,#e9b920 70%)}\n.c4-board{display:grid;grid-template-columns:repeat(7,var(--sq));grid-template-rows:repeat(6,var(--sq));border-radius:12px;overflow:hidden;background:var(--accent);padding:0;border:3px solid var(--accent);box-shadow:0 4px 14px rgba(20,34,63,.28)}\n.c4-c{position:relative;width:var(--sq);height:var(--sq);padding:0;border:0;border-radius:0;background:var(--accent);display:grid;place-items:center;color:inherit}\n.c4-c::before{content:'';position:absolute;width:82%;height:82%;border-radius:50%;background:var(--bg);box-shadow:inset 0 2px 4px rgba(0,0,0,.35)}\n.c4-c.can:active::before{background:color-mix(in srgb,var(--bg) 70%,var(--accent-soft))}\n.c4-d{position:relative;z-index:1;width:76%;height:76%;border-radius:50%;display:block}\n.c4-d.r,.c4-d.y{box-shadow:inset 0 -3px 5px rgba(0,0,0,.22),0 1px 2px rgba(0,0,0,.3)}\n.c4-d.drop{animation:c4fall calc(.14s + var(--d)*.055s) cubic-bezier(.45,0,.85,.55)}\n@keyframes c4fall{from{transform:translateY(calc(var(--d)*-110%))}}\n.c4-d.w{animation:c4win .9s ease-in-out infinite;outline:3px solid #fff;outline-offset:-3px}\n@keyframes c4win{50%{transform:scale(.86)}}\n@media (prefers-reduced-motion: reduce){.c4-d.drop,.c4-d.w{animation:none}}\n.c4-st{min-height:26px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.c4-acts{display:flex;width:calc(var(--sq)*7)}\n.c4-acts .btn{flex:1;min-height:38px}\n";document.head.appendChild(s)})();
+(function(){
+/* ===== 4 en raya · 2 jugadores (sala o contra la IA) =====
+   Tablero de 7 columnas × 6 filas; las fichas caen hasta la casilla libre más baja. Gana quien alinea 4 (horizontal, vertical o diagonal).
+   Casillas 0..41 (fila*7+columna, fila 0 = arriba). Fichas 'r' (rojas, mueven primero) e 'y' (amarillas). Acción: {t:'dr', c:columna} · {t:'rs'} (rendirse).
+   IA: negamax con poda alfa-beta; nivel Fácil = profundidad 2 con despistes, Normal = 4, Difícil = 6. */
+const C4_W = 7, C4_H = 6, C4_ORD = [3, 2, 4, 1, 5, 0, 6];
+const C4_LINES = (() => {
+  const L = [];
+  for (let r = 0; r < C4_H; r++) for (let c = 0; c < C4_W; c++) for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+    const er = r + 3 * dr, ec = c + 3 * dc; if (er < 0 || er >= C4_H || ec < 0 || ec >= C4_W) continue;
+    L.push([0, 1, 2, 3].map(k => (r + k * dr) * C4_W + c + k * dc));
+  }
+  return L;
+})();
+const c4Free = (b, c) => { for (let r = C4_H - 1; r >= 0; r--) if (b[r * C4_W + c] === '.') return r * C4_W + c; return -1; };
+/* línea ganadora que pasa por la casilla s (o null) */
+function c4WinAt(b, s, p) {
+  const r = s / C4_W | 0, c = s % C4_W;
+  for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+    const cells = [s];
+    for (const sg of [1, -1]) for (let k = 1; k < 4; k++) { const rr = r + sg * k * dr, cc = c + sg * k * dc; if (rr < 0 || rr >= C4_H || cc < 0 || cc >= C4_W || b[rr * C4_W + cc] !== p) break; cells.push(rr * C4_W + cc); }
+    if (cells.length >= 4) return cells.slice(0, 4);
+  }
+  return null;
+}
+function c4Eval(b, p) {
+  const o = p === 'r' ? 'y' : 'r'; let s = 0;
+  for (let r = 0; r < C4_H; r++) { if (b[r * C4_W + 3] === p) s += 3; else if (b[r * C4_W + 3] === o) s -= 3; }
+  for (const L of C4_LINES) {
+    let m = 0, e = 0, x = 0;
+    for (const i of L) { const v = b[i]; if (v === p) m++; else if (v === o) x++; else e++; }
+    if (m && x) continue;
+    if (m === 3) s += 6; else if (m === 2) s += 2; else if (x === 3) s -= 5; else if (x === 2) s -= 2;
+  }
+  return s;
+}
+/* negamax: valor para el jugador p que mueve; last = casilla del último movimiento rival */
+function c4Nega(b, p, depth, alpha, beta, left) {
+  if (!left) return 0;
+  if (!depth) return c4Eval(b, p);
+  const o = p === 'r' ? 'y' : 'r'; let best = -1e9;
+  for (const c of C4_ORD) {
+    const s = c4Free(b, c); if (s < 0) continue;
+    b[s] = p;
+    const v = c4WinAt(b, s, p) ? 10000 + depth : -c4Nega(b, o, depth - 1, -beta, -alpha, left - 1);
+    b[s] = '.';
+    if (v > best) best = v; if (v > alpha) alpha = v; if (alpha >= beta) break;
+  }
+  return best;
+}
+const C4_DEPTH = [2, 4, 6];
+function c4Pick(board, p, lv, rnd) {
+  const b = board.slice(), o = p === 'r' ? 'y' : 'r', cols = [];
+  for (let c = 0; c < C4_W; c++) if (c4Free(b, c) >= 0) cols.push(c);
+  if (!cols.length) return -1;
+  for (const c of cols) { const s = c4Free(b, c); b[s] = p; const w = c4WinAt(b, s, p); b[s] = '.'; if (w) return c; } /* ganar ya */
+  if (lv === 0 && rnd() < .3) return cols[Math.floor(rnd() * cols.length)];
+  const sc = cols.map(c => {
+    const s = c4Free(b, c); b[s] = p;
+    /* no regalar una victoria: jugar justo debajo de una casilla donde el rival gana ya */
+    const v = -c4Nega(b, o, C4_DEPTH[lv == null ? 1 : lv] - 1, -1e9, 1e9, 99) + rnd() * (lv === 0 ? 3 : .6);
+    b[s] = '.'; return [c, v];
+  });
+  sc.sort((a, z) => z[1] - a[1]);
+  return sc[0][0];
+}
+
+class C4Game {
+  constructor(players, saved) {
+    this.players = players.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+    this.r = Math.random() < .5 ? 0 : 1; /* asiento con rojas (empieza) */
+    this.b = new Array(C4_W * C4_H).fill('.'); this.t = 'r'; this.n = 0;
+    this.last = null; this.win = null; this.over = false; this.res = null; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.t === 'r' ? this.r : 1 - this.r; }
+  setStart(s) { this.r = s; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, r: this.r, b: this.b, t: this.t, n: this.n, last: this.last, win: this.win, over: this.over, res: this.res, seq: this.seq })); }
+  color(i) { return i === this.r ? 'r' : 'y'; }
+  finish(win, why) { this.over = true; this.res = { w: win, why }; }
+  drop(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (this.color(i) !== this.t) return { ok: false, err: 'No es tu turno' };
+    const c = a && Number.isInteger(a.c) ? a.c : -1;
+    if (c < 0 || c >= C4_W) return { ok: false, err: 'Columna no válida' };
+    const s = c4Free(this.b, c);
+    if (s < 0) return { ok: false, err: 'Esa columna está llena' };
+    this.b[s] = this.t; this.n++;
+    this.last = { s, c, r: s / C4_W | 0, p: this.t };
+    const w = c4WinAt(this.b, s, this.t);
+    if (w) { this.win = w; this.finish(i, 'cuatro en raya'); }
+    else if (this.n >= C4_W * C4_H) this.finish(-1, 'tablero lleno');
+    else this.t = this.t === 'r' ? 'y' : 'r';
+    this.seq++;
+    return { ok: true };
+  }
+  act(i, a) {
+    if (!a) return { ok: false, err: 'Acción no válida' };
+    if (a.t === 'dr') return this.drop(i, a);
+    if (a.t === 'rs') { if (this.over) return { ok: false, err: 'La partida ha terminado' }; this.finish(1 - i, 'rendición'); this.seq++; return { ok: true }; }
+    return { ok: false, err: 'Acción no válida' };
+  }
+  view() {
+    return { pub: { b: this.b.join(''), t: this.t, r: this.r, n: this.players.map(p => p.name), last: this.last, win: this.win, over: this.over, res: this.res, seq: this.seq, cnt: this.n }, priv: {} };
+  }
+  botSeat() { return (!this.over && this.players[this.turn].bot) ? this.turn : -1; }
+  bot(i) {
+    if (this.over || this.turn !== i) return;
+    let c = -1;
+    try { c = c4Pick(this.b, this.t, this.players[i].lv == null ? 1 : this.players[i].lv, Math.random); } catch (e) { c = -1; }
+    if (c < 0) { const l = []; for (let k = 0; k < C4_W; k++) if (c4Free(this.b, k) >= 0) l.push(k); c = l[Math.floor(Math.random() * l.length)]; }
+    if (c >= 0) this.drop(i, { c });
+  }
+  toHuman(i, name) { const p = this.players[i]; p.bot = false; p.lv = undefined; p.name = name; }
+  toBot(i, lv) { const p = this.players[i]; p.bot = true; p.lv = lv; if (!/\(IA\)$/.test(p.name)) p.name = p.name.slice(0, 9) + ' (IA)'; }
+  result() {
+    const r = this.res || { w: -1, why: '' }, tie = r.w < 0;
+    return {
+      win: tie ? 0 : r.w, winners: tie ? [] : [r.w], tie,
+      rows: this.players.map((p, i) => ({ name: p.name, note: (i === this.r ? 'rojas' : 'amarillas') + (tie ? '' : i === r.w ? ' · ' + r.why : ''), pts: tie ? 0 : i === r.w ? 1 : 0, txt: tie ? '½' : i === r.w ? '1' : '0' }))
+    };
+  }
+}
+
+/* ----- Pantalla ----- */
+function cuatroMount(el, ctx) {
+  const V = { pub: null, pending: false, sure: 0, sureT: 0 };
+  el.innerHTML = '<div class="c4"><div class="c4-bar" id="c4Top"></div><div class="c4-board" id="c4Board"></div><div class="c4-bar" id="c4Bot"></div><div class="c4-st" id="c4St"></div><div class="c4-acts"><button class="btn" data-c4="rs" id="c4Rs">Rendirse</button></div></div>';
+  const q = s => el.querySelector(s), bd = q('#c4Board');
+  const snd = k => {
+    const T = ctx.tone;
+    if (k === 'drop') { T(330, .05, 'triangle', 0, .06); T(220, .08, 'square', .06, .05); }
+    else if (k === 'bad') T(150, .2, 'sawtooth', 0, .05);
+  };
+  const cells = [];
+  for (let i = 0; i < C4_W * C4_H; i++) { const c = document.createElement('button'); c.dataset.c = i % C4_W; c.className = 'c4-c'; c.innerHTML = '<i class="c4-d"></i>'; bd.appendChild(c); cells.push(c); }
+  const myColor = () => V.pub.r === ctx.me ? 'r' : 'y';
+  const myTurn = () => !!V.pub && !V.pub.over && V.pub.t === myColor() && !V.pending;
+  function bar(seat, mine) {
+    const P = V.pub, col = seat === P.r ? 'r' : 'y', on = !P.over && P.t === col;
+    return '<div class="c4-who' + (on ? ' on' : '') + '"><i class="c4-dot ' + col + '"></i><b>' + (mine ? 'Tú' : esc(P.n[seat])) + '</b></div>';
+  }
+  function render(anim) {
+    const P = V.pub; if (!P) return;
+    const win = new Set(P.win || []);
+    cells.forEach((c, s) => {
+      const ch = P.b[s], d = c.firstChild;
+      d.className = 'c4-d' + (ch === 'r' ? ' r' : ch === 'y' ? ' y' : '') + (win.has(s) ? ' w' : '') + (anim && P.last && P.last.s === s ? ' drop' : '');
+      if (anim && P.last && P.last.s === s) d.style.setProperty('--d', P.last.r + 1);
+      const col = s % C4_W;
+      c.classList.toggle('can', myTurn() && P.b[col] === '.');
+      c.disabled = !!P.over;
+      c.setAttribute('aria-label', 'Columna ' + (col + 1) + (ch === 'r' ? ', ficha roja' : ch === 'y' ? ', ficha amarilla' : ''));
+    });
+    q('#c4Top').innerHTML = bar(1 - ctx.me, false);
+    q('#c4Bot').innerHTML = bar(ctx.me, true);
+    let msg;
+    if (P.over) msg = P.res.w < 0 ? 'Tablas: ' + P.res.why : (P.res.w === ctx.me ? '¡Ganas por ' : 'Pierdes por ') + P.res.why + (P.res.w === ctx.me ? '!' : '');
+    else if (P.t === myColor()) msg = 'Tu turno' + (V.pending ? '…' : ': toca una columna');
+    else msg = 'Juega ' + esc(P.n[1 - ctx.me]) + '…';
+    q('#c4St').innerHTML = msg;
+    const rs = q('#c4Rs'); rs.disabled = !!P.over; rs.textContent = V.sure ? '¿Seguro? Toca para rendirte' : 'Rendirse';
+  }
+  function onClick(e) {
+    const ax = e.target.closest('[data-c4]');
+    if (ax) {
+      if (!V.pub || V.pub.over) return;
+      if (V.sure) { V.sure = 0; clearTimeout(V.sureT); V.pending = true; ctx.send({ t: 'rs' }); render(); }
+      else { V.sure = 1; V.sureT = setTimeout(() => { V.sure = 0; render(); }, 3000); render(); }
+      return;
+    }
+    const c = e.target.closest('button.c4-c');
+    if (!c || !V.pub || !myTurn()) return;
+    const col = +c.dataset.c;
+    if (V.pub.b[col] !== '.') { snd('bad'); return; }
+    V.pending = true; ctx.send({ t: 'dr', c: col }); if (V.pending) render();
+  }
+  el.addEventListener('click', onClick);
+  return {
+    update(st) {
+      const prev = V.pub;
+      V.pub = st.pub; V.pending = false;
+      const fresh = !!prev && st.pub.seq !== prev.seq && !!st.pub.last;
+      render(fresh);
+      if (fresh) snd('drop');
+    },
+    rejected(err) { V.pending = false; ctx.toast(String(err || 'Jugada no válida')); snd('bad'); render(); },
+    destroy() { clearTimeout(V.sureT); el.removeEventListener('click', onClick); el.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'cuatro', name: '4 en raya', blurb: 'Clásico · 2 jugadores', min: 2, max: 2,
+  bots: { min: 1, max: 1, levels: ['Fácil', 'Normal', 'Difícil'] },
+  rules: '<ul>' +
+    '<li>El tablero tiene 7 columnas y 6 filas. Cada jugador tiene fichas de un color (el color se sortea; las <b>rojas</b> empiezan).</li>' +
+    '<li>En tu turno toca una <b>columna</b>: tu ficha cae hasta la casilla libre más baja de esa columna.</li>' +
+    '<li>Gana quien consigue <b>cuatro fichas seguidas</b> de su color en horizontal, vertical o diagonal; las cuatro ganadoras se resaltan.</li>' +
+    '<li>Si se llena el tablero sin que nadie haya alineado cuatro, son tablas.</li>' +
+    '<li>Puedes rendirte con el botón de abajo.</li></ul>',
+  createEngine: (players, saved) => new C4Game(players, saved),
+  mount: cuatroMount
+});
+
+})();
+Mods.ok("cuatro");
+
+</script>
+<script type="text/plain" data-mod="mahjong" data-deps="">
+/* CTX mahjong: Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. */
+(function(){const s=document.createElement("style");s.textContent="/* Mahjong: fichas con glifos Unicode; todo bajo .mj */\n#stage > .mj{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}\n.mj-row button,.mj-act button,.mj-card button,.mj select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}\n.mj select{flex:1;min-width:0}\n.mj-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}\n.mj-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}\n.mj-hud{display:flex;gap:12px;align-items:center;font:600 .9rem var(--f-mono)}\n.mj-go{font-weight:700}\n.mj-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;border-radius:14px;background:radial-gradient(ellipse at 50% 40%,#2f8a63,#1c6246);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),var(--shadow);overflow:hidden}\n:root[data-theme=\"dark\"] .mj-area{background:radial-gradient(ellipse at 50% 40%,#1f5e45,#0f3a2a)}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .mj-area{background:radial-gradient(ellipse at 50% 40%,#1f5e45,#0f3a2a)}}\n.mj-board{position:relative;flex:none;isolation:isolate;z-index:0}\n.mj-t{position:absolute;padding:0;margin:0;border:0;border-radius:calc(var(--u)*.38);display:grid;place-items:center;overflow:hidden;\n  background:linear-gradient(155deg,#fffdf3,#efe5c4);color:#1a1f2e;\n  box-shadow:calc(var(--u)*.2) calc(var(--u)*.26) 0 #2b8c63,calc(var(--u)*.28) calc(var(--u)*.4) calc(var(--u)*.34) rgba(0,0,0,.45),inset 0 0 0 1px rgba(120,100,50,.3);\n  transition:transform .12s,filter .12s}\nbody[data-assist] .mj-t.bl{filter:brightness(.74) saturate(.8)}\n.mj-t.fr:active{transform:translateY(1px)}\n.mj-t.sel{transform:translate(-2px,-3px);filter:none;box-shadow:0 0 0 3px var(--accent),calc(var(--u)*.2) calc(var(--u)*.26) 0 #2b8c63,0 6px 12px rgba(0,0,0,.5);background:linear-gradient(155deg,#fff,#e6f0ff)}\n.mj-t.hint{animation:mjh .6s ease-in-out infinite;box-shadow:0 0 0 3px #ffd34d,calc(var(--u)*.2) calc(var(--u)*.26) 0 #2b8c63}\n@keyframes mjh{50%{transform:translateY(-3px)}}\n.mj-t.shake{animation:mjs .3s}\n@keyframes mjs{25%{translate:-3px 0}75%{translate:3px 0}}\n.mj-t[hidden]{display:none}\n@media (prefers-reduced-motion: reduce){.mj-t,.mj-t.hint,.mj-t.shake{animation:none;transition:none}}\n.mj-g{font-family:'Noto Sans Symbols 2','FreeSerif','Segoe UI Symbol','Apple Symbols','DejaVu Sans',serif;font-size:calc(var(--u)*2.45);line-height:1;display:block;font-variant-emoji:text}\n.mj-l{display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:calc(var(--u)*.1);font-size:calc(var(--u)*1.25);font-weight:800}\n.mj-l i{font-style:normal;font-size:1.1em}.mj-l b{font-size:1em}\n.mj-t.wd{color:#1b2a4a}\n.mj-t.dr{color:#c8242e}.mj-t.dg{color:#1a7a43}.mj-t.db{color:#2a4fa8}\n.mj-t.ch{color:#b3262d}.mj-t.bm{color:#1c7a45}.mj-t.ci{color:#2150b4}\n.mj-t.fl{color:#b0338a}.mj-t.se{color:#c26a0a}\n.mj-st{min-height:20px;text-align:center;font-weight:600;font-size:13px;color:var(--bad)}\n.mj-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px;flex:none}\n.mj-act button{padding:6px 2px;font-size:.66rem;display:flex;flex-direction:column;align-items:center;gap:1px}\n.mj-act button:disabled{opacity:.45}\n.mj-act b{font-size:1.1rem;font-weight:400}\n.mj-act .pulse{animation:mjp 1s ease-in-out infinite;background:var(--accent);color:var(--accent-ink)}\n@keyframes mjp{50%{opacity:.6}}\n.mj-ov{position:fixed;inset:0;background:rgba(10,25,45,.55);display:none;align-items:center;justify-content:center;z-index:15}\n.mj-ov.show{display:flex}\n.mj-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:26px 30px;text-align:center;max-width:88vw}\n.mj-card h2{color:var(--accent);margin:0 0 8px;font-size:1.3rem}.mj-card p{color:var(--muted);margin:0 0 16px}\n";document.head.appendChild(s)})();
+(function(){
+/* ===== Mahjong (solitario «Shanghái») · un jugador, fichas con los caracteres Unicode U+1F000… =====
+   Quita parejas de fichas iguales que estén LIBRES (sin ficha encima y con un lado izquierdo o derecho despejado). Flores y estaciones casan entre sí.
+   Fichas: tipo 0-33 (vientos 0-3, dragones 4-6, caracteres 7-15, bambús 16-24, círculos 25-33), flores 34-37, estaciones 38-41 → carácter String.fromCodePoint(0x1F000 + tipo).
+   Posiciones {x,y,z} en medias fichas (una ficha ocupa 2×2); una ficha de z+1 tapa las de z que solape. Los tableros se reparten generando la partida AL REVÉS
+   (se quitan parejas de posiciones libres asignándoles pares iguales), así que siempre tienen solución; «Barajar» repite lo mismo con lo que queda.
+   Si el dispositivo no tiene glifos Unicode de mahjong se dibujan etiquetas (5萬, 東, 中…). */
+const MJ_GLYPH = t => String.fromCodePoint(0x1F000 + t) + '︎';
+const mjGroup = t => t < 34 ? t : t < 38 ? 34 : 35;
+const mjRange = (a, b, s) => { const r = []; for (let v = a; v <= b; v += s) r.push(v); return r; };
+const MJ_LV = [
+  { n: 'Fácil', d: 'pirámide · 40 fichas', types: 10, layers: [[0, mjRange(0, 10, 2), mjRange(0, 6, 2)], [1, mjRange(1, 9, 2), mjRange(1, 5, 2)], [2, [4], [4]]] },
+  { n: 'Normal', d: 'torre · 72 fichas', types: 18, layers: [[0, mjRange(0, 14, 2), mjRange(0, 10, 2)], [1, mjRange(3, 11, 2), mjRange(3, 7, 2)], [2, mjRange(4, 10, 2), [4, 6]], [3, [7], [5]]] },
+  { n: 'Difícil', d: 'ciudadela · 116 fichas', types: 36, layers: [[0, mjRange(0, 14, 2), mjRange(0, 12, 2)], [1, mjRange(1, 13, 2), mjRange(1, 11, 2)], [2, mjRange(4, 10, 2), [4, 6, 8]], [3, [5, 7, 9], [5, 7]]] }
+];
+const MJ_POS = MJ_LV.map(L => { const o = []; for (const [z, xs, ys] of L.layers) for (const y of ys) for (const x of xs) o.push({ x, y, z }); return o; });
+/* vecinos de cada posición: tapan por encima, bloquean por la izquierda / por la derecha */
+const MJ_NB = MJ_POS.map(P => P.map((p, i) => {
+  const above = [], left = [], right = [];
+  P.forEach((q, j) => {
+    if (j === i) return;
+    if (q.z === p.z + 1 && Math.abs(q.x - p.x) < 2 && Math.abs(q.y - p.y) < 2) above.push(j);
+    if (q.z === p.z && Math.abs(q.y - p.y) < 2) { if (q.x < p.x && p.x - q.x <= 2) left.push(j); else if (q.x > p.x && q.x - p.x <= 2) right.push(j); }
+  });
+  return { above, left, right };
+}));
+const mjFreeIn = (nb, i, gone) => nb[i].above.every(j => gone[j]) && (nb[i].left.every(j => gone[j]) || nb[i].right.every(j => gone[j]));
+const mjShuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+/* reparte las parejas (array de [tipoA,tipoB]) por las posiciones `idx` quitando siempre dos libres: devuelve {i: tipo} o null */
+function mjDeal(nb, idx, pairs, gone0) {
+  for (let tries = 0; tries < 60; tries++) {
+    const gone = gone0.slice(), left = new Set(idx), out = {}, q = mjShuffle(pairs.slice());
+    while (left.size) {
+      const free = [...left].filter(i => mjFreeIn(nb, i, gone));
+      if (free.length < 2) break;
+      const a = free.splice(Math.random() * free.length | 0, 1)[0], b = free[Math.random() * free.length | 0], pr = q.pop();
+      out[a] = pr[0]; out[b] = pr[1]; gone[a] = gone[b] = 1; left.delete(a); left.delete(b);
+    }
+    if (!left.size) return out;
+  }
+  return null;
+}
+/* parejas de una partida nueva: `types` grupos × 2 parejas (flores y estaciones cuentan como un grupo cada una) */
+function mjPairs(L) {
+  const groups = mjShuffle(Array.from({ length: 36 }, (_, i) => i)).slice(0, L.types), want = MJ_POS[MJ_LV.indexOf(L)].length / 2, pr = [];
+  const fl = mjShuffle([34, 35, 36, 37]), se = mjShuffle([38, 39, 40, 41]);
+  for (const g of groups) {
+    if (g < 34) pr.push([g, g], [g, g]);
+    else if (g === 34) pr.push([fl[0], fl[1]], [fl[2], fl[3]]);
+    else pr.push([se[0], se[1]], [se[2], se[3]]);
+  }
+  return mjShuffle(pr).slice(0, want);
+}
+const mjFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+const MJ_SUITS = ['東南西北', '中發白'];
+function mjLabel(t) {
+  if (t < 4) return '<b>' + '東南西北'[t] + '</b>';
+  if (t < 7) return '<b>' + '中發白'[t - 4] + '</b>';
+  if (t < 16) return '<i>' + (t - 6) + '</i><b>萬</b>';
+  if (t < 25) return '<i>' + (t - 15) + '</i><b>索</b>';
+  if (t < 34) return '<i>' + (t - 24) + '</i><b>筒</b>';
+  if (t < 38) return '<b>' + '梅蘭菊竹'[t - 34] + '</b>';
+  return '<b>' + '春夏秋冬'[t - 38] + '</b>';
+}
+const mjCls = t => t < 4 ? 'wd' : t === 4 ? 'dr' : t === 5 ? 'dg' : t === 6 ? 'db' : t < 16 ? 'ch' : t < 25 ? 'bm' : t < 34 ? 'ci' : t < 38 ? 'fl' : 'se';
+/* ¿tiene este navegador glifos de mahjong? (dos fichas distintas deben dibujarse distinto) */
+function mjHasGlyphs() {
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 48; const g = c.getContext('2d'); g.font = '34px "Noto Sans Symbols 2","FreeSerif","Segoe UI Symbol","Apple Symbols",serif'; g.textBaseline = 'top';
+    const px = ch => { g.clearRect(0, 0, 48, 48); g.fillText(ch, 4, 2); return c.toDataURL(); };
+    const a = px(MJ_GLYPH(8)), b = px(MJ_GLYPH(20)), miss = px(String.fromCodePoint(0x10FFFE));
+    return a !== b && a !== miss && b !== miss;
+  } catch (e) { return true; }
+}
+
+function mahjongMount(el, ctx) {
+  el.innerHTML = '<div class="mj">' +
+    '<div class="mj-row"><div class="mj-lvn"></div><div class="mj-hud"><span class="mj-tm">00:00</span><span class="mj-left"></span></div></div>' +
+    '<div class="mj-row"><select class="mj-lv">' + MJ_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.n + ' · ' + l.d + '</option>').join('') + '</select><button class="mj-go">Nuevo</button></div>' +
+    '<div class="mj-area"><div class="mj-board"></div></div><div class="mj-st"></div>' +
+    '<div class="mj-act"><button data-a="undo"><b>↶</b>Deshacer</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="shuf"><b>🔀</b>Barajar</button></div>' +
+    '<div class="mj-ov mj-msg"><div class="mj-card"><h2>¡Tablero despejado!</h2><p class="mj-md"></p><button class="mj-again">Jugar de nuevo</button></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), board = q('.mj-board'), area = q('.mj-area');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    tap: () => tone(640, .04), match: () => { tone(520, .09, 'triangle', .3); tone(780, .12, 'triangle', .3, .07); }, bad: () => tone(170, .12, 'square', .13),
+    shuf: () => [300, 380, 460, 560].forEach((f, i) => tone(f, .06, 'sine', .2, i * .05)), hint: () => tone(900, .08, 'sine', .2),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
+  };
+  const glyphs = mjHasGlyphs();
+  let S = null, tiles = [], timerId = 0, dead = false, recorded = false, hintT = 0;
+  const POS = () => MJ_POS[S.lv], NB = () => MJ_NB[S.lv];
+  const free = i => !S.gone[i] && mjFreeIn(NB(), i, S.gone);
+  const freeList = () => POS().map((_, i) => i).filter(free);
+  function moves() { /* parejas disponibles ahora */
+    const f = freeList(), out = [];
+    for (let a = 0; a < f.length; a++) for (let b = a + 1; b < f.length; b++) if (mjGroup(S.type[f[a]]) === mjGroup(S.type[f[b]])) out.push([f[a], f[b]]);
+    return out;
+  }
+  const left = () => S.gone.reduce((s, v) => s + (v ? 0 : 1), 0);
+  function save() { if (!S) return; ctx.save(S.over ? null : S); }
+  function build() {
+    board.innerHTML = ''; tiles = [];
+    POS().forEach((p, i) => {
+      const b = document.createElement('button'); b.className = 'mj-t'; b.dataset.i = i; board.appendChild(b); tiles.push(b);
+    });
+    place(); paint();
+  }
+  function place() {
+    const P = POS(), maxX = Math.max(...P.map(p => p.x)) + 2, maxY = Math.max(...P.map(p => p.y)) + 2, zmax = Math.max(...P.map(p => p.z));
+    const w = area.clientWidth - 8, h = area.clientHeight - 8, K = 1.3;
+    let u = Math.min(w / (maxX + zmax * .5 + .4), h / (maxY * K + zmax * .5 + .4), 30);
+    u = Math.max(8, Math.floor(u * 2) / 2);
+    const d = u * .28, W = maxX * u + zmax * d, Hh = maxY * u * K + zmax * d;
+    board.style.width = W + 'px'; board.style.height = Hh + 'px'; board.style.setProperty('--u', u + 'px');
+    P.forEach((p, i) => {
+      const t = tiles[i]; t.style.left = (p.x * u + (zmax - p.z) * 0 + p.z * d) + 'px'; t.style.top = (p.y * u * K + (zmax - p.z) * d) + 'px';
+      t.style.width = 2 * u + 'px'; t.style.height = 2 * u * K + 'px'; t.style.zIndex = p.z * 1000 + p.y * 20 + p.x;
+    });
+  }
+  function paint() {
+    S.type.forEach((ty, i) => {
+      const t = tiles[i]; if (!t) return;
+      const g = mjGroup(ty);
+      if (t.dataset.ty !== String(ty)) { t.dataset.ty = ty; t.innerHTML = glyphs ? '<span class="mj-g">' + MJ_GLYPH(ty) + '</span>' : '<span class="mj-l">' + mjLabel(ty) + '</span>'; t.className = 'mj-t ' + mjCls(ty); }
+      t.classList.toggle('gone', !!S.gone[i]); t.hidden = !!S.gone[i];
+      const fr = !S.gone[i] && free(i);
+      t.classList.toggle('fr', fr); t.classList.toggle('bl', !S.gone[i] && !fr); t.classList.toggle('sel', S.sel === i);
+      t.setAttribute('aria-label', 'Ficha ' + g);
+    });
+    q('.mj-lvn').textContent = 'Mahjong · ' + MJ_LV[S.lv].n;
+    q('.mj-left').textContent = left() + ' fichas';
+    q('[data-a=hint]').innerHTML = '<b>💡</b>Pista ' + S.hints;
+    q('[data-a=shuf]').innerHTML = '<b>🔀</b>Barajar ' + S.shuf;
+    q('[data-a=undo]').disabled = !S.hist.length;
+    const mv = S.over ? [1] : moves();
+    q('.mj-st').textContent = S.over ? '' : mv.length ? '' : 'No quedan jugadas: baraja las fichas o deshaz una jugada';
+    q('[data-a=shuf]').classList.toggle('pulse', !S.over && !mv.length && S.shuf > 0);
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && !document.hidden) { S.t++; q('.mj-tm').textContent = mjFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function newGame(lv) {
+    clearInterval(timerId); recorded = false; q('.mj-msg').classList.remove('show'); store.set('mahjong-lv', lv);
+    let deal = null;
+    for (let k = 0; k < 40 && !deal; k++) { deal = mjDeal(MJ_NB[lv], MJ_POS[lv].map((_, i) => i), mjPairs(MJ_LV[lv]), new Array(MJ_POS[lv].length).fill(0)); }
+    const type = MJ_POS[lv].map((_, i) => deal[i]);
+    S = { lv, type, gone: new Array(type.length).fill(0), sel: -1, hist: [], hints: 3, shuf: 3, t: 0, moves: 0, over: false };
+    q('.mj-lv').value = lv; build(); q('.mj-tm').textContent = '00:00'; startTimer(); save();
+  }
+  function end() {
+    S.over = true; clearInterval(timerId); S.sel = -1; paint();
+    const bt = store.get('mahjong-best') || {}; let t = MJ_LV[S.lv].n + ' · ' + mjFmt(S.t);
+    if (!bt[S.lv] || S.t < bt[S.lv]) { bt[S.lv] = S.t; store.set('mahjong-best', bt); t += ' · ¡Nuevo récord!'; }
+    q('.mj-md').textContent = t; setTimeout(() => { if (!dead) q('.mj-msg').classList.add('show'); }, 700); setTimeout(SFX.win, 200); ctx.save(null);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: 'Mahjong ' + MJ_LV[S.lv].n + ' · despejado en ' + mjFmt(S.t) + (S.hints < 3 ? ' · ' + (3 - S.hints) + ' pistas' : '') + (S.shuf < 3 ? ' · ' + (3 - S.shuf) + ' barajados' : '') }); }
+  }
+  function tap(i) {
+    if (!S || S.over || S.gone[i]) return;
+    if (!free(i)) { SFX.bad(); const t = tiles[i]; t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake'); return; }
+    clearTimeout(hintT); tiles.forEach(t => t.classList.remove('hint'));
+    if (S.sel === i) { S.sel = -1; SFX.tap(); paint(); return; }
+    if (S.sel >= 0 && mjGroup(S.type[S.sel]) === mjGroup(S.type[i])) {
+      const a = S.sel; S.gone[a] = S.gone[i] = 1; S.hist.push([a, i, S.type[a], S.type[i]]); S.sel = -1; S.moves++; SFX.match(); paint();
+      if (left() === 0) end(); else save();
+      return;
+    }
+    S.sel = i; SFX.tap(); paint();
+  }
+  function undo() {
+    if (!S || S.over || !S.hist.length) return;
+    const [a, b, ta, tb] = S.hist.pop(); S.gone[a] = S.gone[b] = 0; S.type[a] = ta; S.type[b] = tb; S.sel = -1; SFX.tap(); paint(); save();
+  }
+  function hint() {
+    if (!S || S.over || S.hints <= 0) return;
+    const m = moves(); if (!m.length) { SFX.bad(); return; }
+    const [a, b] = m[Math.random() * m.length | 0]; S.hints--; SFX.hint(); S.sel = -1; paint();
+    tiles[a].classList.add('hint'); tiles[b].classList.add('hint'); clearTimeout(hintT); hintT = setTimeout(() => { tiles[a].classList.remove('hint'); tiles[b].classList.remove('hint'); }, 1800); save();
+  }
+  /* baraja lo que queda (de forma que siga habiendo solución) */
+  function shuffle() {
+    if (!S || S.over || S.shuf <= 0) return;
+    const idx = S.gone.map((g, i) => g ? -1 : i).filter(i => i >= 0), by = {}, pairs = [];
+    idx.forEach(i => { const g = mjGroup(S.type[i]); (by[g] = by[g] || []).push(S.type[i]); });
+    for (const g in by) { const l = mjShuffle(by[g]); while (l.length > 1) pairs.push([l.pop(), l.pop()]); }
+    const deal = mjDeal(NB(), idx, pairs, S.gone.slice());
+    if (!deal) { SFX.bad(); return; }
+    idx.forEach(i => { S.type[i] = deal[i]; }); S.shuf--; S.sel = -1; SFX.shuf(); tiles.forEach(t => t.classList.remove('hint')); paint(); save();
+  }
+  board.addEventListener('click', e => { const t = e.target.closest('.mj-t'); if (t) tap(+t.dataset.i); });
+  q('.mj-go').onclick = () => { SFX.tap(); newGame(+q('.mj-lv').value); };
+  q('.mj-again').onclick = () => newGame(+q('.mj-lv').value);
+  q('.mj-lv').onchange = SFX.tap;
+  q('.mj-act').onclick = e => { const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a; if (a === 'undo') undo(); else if (a === 'hint') hint(); else if (a === 'shuf') shuffle(); };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => { if (S) place(); };
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(MJ_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && sv.type && sv.gone && sv.type.length === MJ_POS[sv.lv].length) { S = sv; q('.mj-lv').value = S.lv; build(); q('.mj-tm').textContent = mjFmt(S.t); startTimer(); } else newGame(LV0);
+  requestAnimationFrame(() => { if (S && !dead) place(); });
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); clearTimeout(hintT); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'mahjong', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas',
+  single: {
+    levels: MJ_LV.map(l => l.n + ' · ' + l.d), def: 1,
+    info: i => { const b = (store.get('mahjong-best') || {})[i]; return b ? 'Tu mejor tiempo: ' + mjFmt(b) : 'Aún sin récord en este nivel'; }
+  },
+  rules: '<ul>' +
+    '<li>Despeja el tablero quitando <b>parejas de fichas iguales</b>. Toca una ficha y luego otra igual para retirarlas.</li>' +
+    '<li>Solo se pueden mover fichas <b>libres</b>: sin ninguna ficha encima y con el lado izquierdo o el derecho despejado. Las libres se ven más claras; las bloqueadas, más apagadas.</li>' +
+    '<li>Las cuatro <b>flores</b> casan entre sí aunque sean distintas, y las cuatro <b>estaciones</b> también.</li>' +
+    '<li>Palos: <b>caracteres</b> (萬), <b>bambús</b>, <b>círculos</b>, cuatro <b>vientos</b> (东 南 西 北) y tres <b>dragones</b> (rojo, verde y blanco).</li>' +
+    '<li><b>Deshacer</b> vuelve atrás sin límite. <b>Pista</b> te enseña una pareja posible (tres). <b>Barajar</b> recoloca las fichas que quedan, siempre dejando solución (tres veces).</li>' +
+    '<li>Cada tablero se reparte de forma que siempre tiene solución; si te quedas sin jugadas, deshaz o baraja.</li></ul>',
+  mountSingle: mahjongMount
+});
+
+})();
+Mods.ok("mahjong");
 
 </script>
 </body></html>

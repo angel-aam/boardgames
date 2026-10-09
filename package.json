@@ -1,5 +1,5 @@
 {
-  "name": "mesa-de-juegos-server",
+  "name": "boardgames",
   "private": true,
   "type": "module",
   "scripts": {
