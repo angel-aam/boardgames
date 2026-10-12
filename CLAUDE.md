@@ -28,7 +28,7 @@ Suite de juegos de mesa/cartas/puzles en **un solo HTML** (UI en español, móvi
 
 ## Carga y offline (build dividido)
 - Con `MJ_MODS` presente, `Mods.load(id)` descarga `/m/<id>.<hash>.js` bajo demanda (el diccionario `scdict`, 360 KB, solo para scrabble/wordle/ahorcado). Sin `MJ_MODS` (fuente, `offline.html`, artefacto) los módulos van en línea en `<script type="text/plain" data-mod>`.
-- El service worker solo se registra en modo ruta (`MJ_PATHS`): `/` y `/game/*` red primero con respaldo en caché; `/m/*` caché primero; no toca `/ws/*` ni `/api/*`. «Guardar juegos en este dispositivo» (`ACTS.cacheall`) envía `{t:'all'}` y cachea los 28 módulos para jugar sin conexión.
+- El service worker solo se registra en modo ruta (`MJ_PATHS`): `/` y `/game/*` red primero con respaldo en caché; `/m/*` caché primero; no toca `/ws/*` ni `/api/*`. «Guardar juegos en este dispositivo» (`ACTS.cacheall`) envía `{t:'all'}` y cachea los 30 módulos para jugar sin conexión.
 - Salvedad: una pestaña abierta antes de un despliegue puede dar 404 en módulos con hash antiguo hasta recargar.
 
 ## Worker (`src/worker.js`)
@@ -50,7 +50,7 @@ Rutas: `GET /` y `GET /game/<id>` (`[a-z0-9-]{1,24}`) → `index.html` con `wind
 - Cliente → servidor: `SrvNet` (en `net.js`) actúa como backend de `ClaudeNet` cuando no existe la capacidad `room` de claude.ai (`ClaudeNet.srv=true`). Descubre la URL del servidor por orden: `?srv=URL` (se guarda en `localStorage hub.srv`) → `MJ_SERVER_URL` (build: `MJ_SERVER=https://… node build.js`) → mismo origen.
 - Transportes intercambiables (`send, broadcast, close, onmsg, onleave, hostId`): `ClaudeNet`/`SrvNet` (online) y `LocalNet` (WebRTC sin conexión, emparejado por QR/código).
 - Arquitectura del HTML: `<style>` → `<body>` (pantallas `#home #gmenu #lobby #pair #stage`) → `<script>` núcleo (core/base, modules, sound, theme, history, saves, net, rooms, lobby, session, hub, games/catalog; acaba en `bootHub()`) → bloques `<script type="text/plain" data-mod="X" data-deps="a,b">` perezosos (`Mods.load('X')`; deben terminar con `Mods.ok("X")`).
-- Catálogo: tablero (ajedrez, damas, backgammon, dominó, hundir la flota, hive, parchís, rummi, scrabble), cartas (brisca, chinchón, tute, solitario, texas = Texas Hold'em torneo 2–8 con IA, baraja `poker`), puzles (sudoku, nonogramas, wordle, ahorcado); también existen tangram, cuatro (4 en raya) y mahjong en el HTML. Compartidos: baraja, poker, qr, pair, scdict, teclado, dados.
+- Catálogo: tablero (ajedrez, damas, backgammon, dominó, hundir la flota, hive, parchís, rummi, scrabble), cartas (brisca, chinchón, tute, solitario, texas = Texas Hold'em torneo 2–8 con IA, baraja `poker`), puzles (sudoku, nonogramas, wordle, ahorcado, hanoi = Torres de Hanoi 3–7 discos, atasco = bloques deslizantes 6×6 con puzzles generados); también existen tangram, cuatro (4 en raya) y mahjong en el HTML. Compartidos: baraja, poker, qr, pair, scdict, teclado, dados.
 - Contrato de juego: `Hub.register({id,name,blurb,min,max,bots,options,rules,createEngine(players,saved,opts),mount(el,ctx)})`; un jugador: `single`+`mountSingle`. Motor puro JSON (`turn, over, view(i), act(i,a), bot, save, result`); toda regla vive en el motor del anfitrión.
 - Estilo: tema azul, variables CSS (claro/oscuro con `data-theme`), prefijo de clases por juego, sin scroll en pantalla de juego. `localStorage` siempre vía `store.get/set`.
 - Para tocar un módulo del HTML: buscar `data-mod="ID"` (perezosos) o `/* CTX ARCHIVO:` (núcleo). Detalle completo en el comentario de cabecera de `public/mesa-de-juegos.html` (§1–§11).

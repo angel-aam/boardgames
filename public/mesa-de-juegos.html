@@ -48,13 +48,13 @@ Registrar en `src/games/catalog.js`: `Hub.catalog.push({id, cat:'tablero'|'carta
 ## 5. Catálogo (id · categoría · módulo/deps · notas)
 - tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub), scrabble (scdict; español, IA por frecuencia de palabras).
 - cartas: brisca, chinchon, tute (los tres con baraja española), solitario (Klondike, un jugador; poker = baraja inglesa de 52), texas (Texas Hold'em sin límite, torneo de 2–8 con ciegas crecientes; también usa poker).
-- puzzles (un jugador): mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
+- puzzles (un jugador): atasco (bloques deslizantes 6×6 estilo «atasco de coches»; puzzles generados al vuelo con escalada y BFS exacto `atSolve` = mínimo de movimientos y pista; arrastre horizontal/vertical con límites; estadísticas `atasco-stats`), hanoi (Torres de Hanoi, 3–7 discos; DOM+CSS, mover tocando o arrastrando, animación FLIP con WAAPI, pista óptima `hnNext`, estrellas por mínimo 2^n−1, récords `hanoi-best`), mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
 - Compartidos: `baraja` (cartas españolas, SVG), `poker`, `qr` (generar QR y códigos de texto; sin lector), `pair` (emparejamiento sin conexión; dep qr), `scdict` (diccionario español ~635k palabras mayúsculas sin tildes, Ñ conservada, sin K/W; `ScDict.W`, `.lv[0|1]` = 8000/20000 más comunes, `.has(w)`), `teclado` (teclado QWERTY móvil con Ñ; `Teclado.mount(el,{enter,del,onKey})`), `dados` (`Dados.roll(n,caras)/one`, `Dados.view`, tema de dado, `Dados.sound`, `Dados.PIPS`).
 
 ## 6. Estilos
 - Variables CSS (claro/oscuro, el tema se fija con `data-theme` en :root): - -bg - -surface - -ink - -muted - -line - -accent - -accent-ink - -accent-soft - -board - -set - -rack - -bad - -good - -tile - -tile-edge - -t0..t3 - -shadow - -f-ui - -f-mono. Usa SIEMPRE estas variables; añade variantes oscuras con `:root[data-theme="dark"]` y `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) … }`.
 - Ayudas visuales: lo que resalta QUÉ pieza/ficha se puede jugar (outline, pulso, atenuar las no jugables) va en CSS bajo `body[data-assist] …` (opción «Ayuda visual» del menú ☰, `hub.assist`, apagada por defecto). Lo que es retroalimentación de una selección (casillas de destino, errores) o estado funcional no se condiciona.
-- Cada juego usa un prefijo de clases propio (dm- domino, pc- parchís, bg- backgammon, wd- wordle, ah- ahorcado, tg- tangram, mj- mahjong, tx- texas, c4- 4 en raya, c4- 4 en raya, tk- teclado, dd- dados…) y cuelga su layout de `#stage > .prefijo`; el CSS de un juego va dentro de su módulo.
+- Cada juego usa un prefijo de clases propio (dm- domino, pc- parchís, bg- backgammon, wd- wordle, ah- ahorcado, tg- tangram, mj- mahjong, tx- texas, hn- hanoi, bk- atasco, c4- 4 en raya, c4- 4 en raya, tk- teclado, dd- dados…) y cuelga su layout de `#stage > .prefijo`; el CSS de un juego va dentro de su módulo.
 - Componentes comunes: `.btn` (`.primary`, `.flat`, `.danger`), `.card`, `.seg` (selector segmentado), `.gcard` (tarjeta del menú), `.panel/.sheet`, `.mnu` (menú apilado de partida), `.fld`. Tamaños con `min(...)`/`dvh` para no hacer scroll; objetivos táctiles ≥ 40px o con zona ampliada `::after{inset:-7px}`.
 
 ## 7. Reglas de implementación
@@ -112,6 +112,8 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | backgammon | juego tablero «Backgammon» | games/backgammon/backgammon.js (+backgammon.css) | dados | Backgammon 2 jugadores con dos dados d6 (módulo dados). Puntos 0..23, barra 24, fuera 100; gammon/backgammon. Motor con bgLegal/bgPlan; IA por niveles. |
 | flota | juego tablero «Hundir la flota» | games/flota/flota.js (+flota.css) | – | Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. |
 | nonograma | juego puzzles «Nonogramas» | games/nonograma/nonograma.js (+nonograma.css) | – | Nonogramas de un jugador (varios tamaños) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. |
+| hanoi | juego puzzles «Torres de Hanoi» | games/hanoi/hanoi.js (+hanoi.css) | – | Torres de Hanoi de un jugador (3 a 7 discos): toque o arrastre, estrellas según el mínimo de movimientos, pista óptima desde cualquier posición (hnNext), deshacer y récords (hanoi-best). |
+| atasco | juego puzzles «Atasco» | games/atasco/atasco.js (+atasco.css) | – | Bloques deslizantes 6×6: saca el bloque rojo arrastrando los demás; puzzles generados con BFS exacto (atSolve: mínimo de movimientos y pista óptima), estrellas y estadísticas (atasco-stats). |
 | hive | juego tablero «Hive» | games/hive/hive.js (+hive.css) | – | Hive 2 jugadores (hexágonos, piezas de insecto) con IA y deshacer contra IA. Tablero SVG; no iterar this.B mientras dests() lo modifica. |
 | scrabble | juego tablero «Scrabble» | games/scrabble/scrabble.js (+scrabble.css) | scdict | Scrabble en español (tablero 15×15, bolsa, comodines, diccionario scdict). IA por frecuencia de palabras (fácil 8000, normal 20000, difícil todas). Arrastrar o tocar para colocar, vista previa de puntos. |
 | wordle | juego puzzles «Wordle» | games/wordle/wordle.js (+wordle.css) | scdict,teclado | Wordle de 4–7 letras de un jugador con diccionario scdict, teclado compartido, animación de giro y estadísticas (wordle-stats). |
@@ -1620,6 +1622,8 @@ Hub.catalog.push({ id: 'domino', cat: 'tablero', name: 'Dominó', blurb: 'Doble 
 Hub.catalog.push({ id: 'tangram', cat: 'puzzles', name: 'Tangram', blurb: 'Un jugador · 3 niveles', mod: 'tangram' });
 Hub.catalog.push({ id: 'cuatro', cat: 'tablero', name: '4 en raya', blurb: 'Clásico · 2 jugadores', mod: 'cuatro' });
 Hub.catalog.push({ id: 'mahjong', cat: 'puzzles', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas', mod: 'mahjong' });
+Hub.catalog.push({ id: 'hanoi', cat: 'puzzles', name: 'Torres de Hanoi', blurb: 'Un jugador · 5 niveles', mod: 'hanoi' });
+Hub.catalog.push({ id: 'atasco', cat: 'puzzles', name: 'Atasco', blurb: 'Un jugador · bloques deslizantes · 5 niveles', mod: 'atasco' });
 bootHub();
 </script>
 <script type="text/plain" data-mod="qr" data-deps="">
@@ -8532,6 +8536,438 @@ Hub.register({
 })();
 Mods.ok("texas");
 
+</script>
+<script type="text/plain" data-mod="hanoi" data-deps="">
+/* CTX hanoi: Torres de Hanoi de un jugador (3 a 7 discos). Mover tocando origen y destino o arrastrando; estrellas según el mínimo de movimientos (2^n-1); pista óptima desde cualquier posición (hnNext), deshacer y récords (hanoi-best). Prefijo hn-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Torres de Hanoi: colores del hub; todo bajo .hn */
+#stage > .hn{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--dh:30px;--n:4}
+.hn button,.hn select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.hn button:active{background:var(--accent);color:var(--accent-ink)}
+.hn select{flex:1;min-width:0}
+.hn-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hn-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.hn-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}
+.hn-mv b{color:var(--accent)}.hn-go{font-weight:700}
+.hn-area{flex:1;min-height:0;width:100%;max-width:520px;display:flex;align-items:center;justify-content:center;padding-top:calc(var(--dh)*.9)}
+.hn-board{position:relative;width:100%;display:grid;grid-template-columns:repeat(3,1fr);height:calc(var(--dh)*(var(--n) + 1.6));margin-bottom:26px;border-bottom:10px solid var(--accent);border-radius:0 0 8px 8px;touch-action:none}
+.hn-p{position:relative;display:flex;flex-direction:column-reverse;align-items:center;gap:2px;cursor:pointer;border-radius:10px;transition:background .15s}
+.hn-p::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:10px;margin-left:-5px;background:color-mix(in srgb,var(--accent) 55%,var(--surface));border-radius:5px 5px 0 0}
+.hn-p::after{content:attr(data-l);position:absolute;left:0;right:0;bottom:-34px;text-align:center;font:700 .85rem var(--f-mono);color:var(--muted)}
+.hn-p.tg,.hn-p.hint{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+.hn-d{position:relative;z-index:1;height:var(--dh);border-radius:calc(var(--dh)*.5);display:flex;align-items:center;justify-content:center;color:#fff;font:800 calc(var(--dh)*.5) var(--f-mono);text-shadow:0 1px 2px rgba(0,0,0,.45);box-shadow:inset 0 3px 0 rgba(255,255,255,.35),inset 0 -4px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.25);pointer-events:none}
+.hn-d.sel{transform:translateY(calc(var(--dh)*-.9))}
+.hn-d.hint{animation:hnh .45s ease-in-out infinite alternate}
+@keyframes hnh{to{filter:brightness(1.3);outline:3px solid var(--accent);outline-offset:1px}}
+@media (prefers-reduced-motion: reduce){.hn-d.hint{animation:none;outline:3px solid var(--accent)}}
+.hn-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px}
+.hn-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.hn-act b{font-size:1.1rem}
+.hn-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.hn-ov.show{display:flex}
+.hn-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.hn-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.hn-card p{color:var(--muted);margin:0 0 14px}
+.hn-st{font-size:2.2rem;letter-spacing:.15em;color:var(--accent);line-height:1.1;margin-bottom:6px}
+.hn-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.hn-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Torres de Hanoi · un jugador, 5 niveles. Usa del hub: tema, sonido, guardado y registro de partidas. ===== */
+const HN_LV = [{ k: 'Fácil', n: 3 }, { k: 'Medio', n: 4 }, { k: 'Difícil', n: 5 }, { k: 'Experto', n: 6 }, { k: 'Maestro', n: 7 }];
+const hnFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+/* Siguiente movimiento óptimo hacia «todos en C» desde cualquier posición. P = 3 varillas, de abajo arriba; discos 1 (pequeño) a n. Devuelve [origen, destino] o null. */
+function hnNext(P, n) {
+  const where = d => P.findIndex(p => p.includes(d));
+  const go = (d, t) => {
+    if (d < 1) return null;
+    const f = where(d); if (f === t) return go(d - 1, t);
+    return go(d - 1, 3 - f - t) || [f, t];
+  };
+  return go(n, 2);
+}
+function hanoiMount(el, ctx) {
+  el.innerHTML = '<div class="hn">' +
+    '<div class="hn-row"><div class="hn-lvn"></div><div class="hn-hud"><span class="hn-mv">Mov <b>0</b>/7</span><span class="hn-tm">00:00</span></div></div>' +
+    '<div class="hn-row"><select class="hn-lv">' + HN_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.n + ' discos</option>').join('') + '</select><button class="hn-go">▶ Nuevo</button></div>' +
+    '<div class="hn-area"><div class="hn-board"></div></div>' +
+    '<div class="hn-act"><button data-a="undo"><b>↶</b>Deshacer</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="hn-ov"><div class="hn-card"><div class="hn-st"></div><h2 class="hn-mt"></h2><p class="hn-md"></p><div class="hn-btns"><button class="hn-again">Jugar de nuevo</button><button class="hn-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), qa = s => [...root.querySelectorAll(s)];
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    tap: () => tone(700, .04), mv: d => tone(260 + d * 55, .09, 'triangle', .3), ok: () => tone(520, .1, 'sine', .25),
+    bad: () => { tone(200, .15, 'square', .15); tone(150, .2, 'square', .12, .1); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
+  };
+  const board = q('.hn-board');
+  let S = null, sel = -1, timerId = 0, dead = false, recorded = false, D = [], hintT = 0, drag = null, DH = 30;
+
+  const fresh = (lv) => { const n = HN_LV[lv].n; return { lv, n, P: [Array.from({ length: n }, (_, i) => n - i), [], [], ], mv: 0, t: 0, hist: [], hints: 0, started: false, over: false }; };
+  function save() { if (!S) return; if (S.over || !S.started) { if (S.over) ctx.save(null); return; } ctx.save(S); }
+  const snap = () => { const m = []; for (let d = 1; d <= S.n; d++) m[d] = D[d].getBoundingClientRect(); return m; };
+  function layout() {
+    if (!S) return; const h = q('.hn-area').clientHeight - 40;
+    DH = Math.max(14, Math.min(54, Math.floor(h / (S.n + 1.6 + .9))));
+    root.style.setProperty('--dh', DH + 'px'); root.style.setProperty('--n', S.n);
+  }
+  function build() {
+    board.innerHTML = ''; D = [null];
+    'ABC'.split('').forEach(l => { const p = document.createElement('div'); p.className = 'hn-p'; p.dataset.l = l; board.appendChild(p); });
+    for (let d = 1; d <= S.n; d++) {
+      const e = document.createElement('div'), h = 10 + (d - 1) * (300 / S.n);
+      e.className = 'hn-d'; e.textContent = d; e.style.width = (34 + (d - 1) * (60 / Math.max(1, S.n - 1))) + '%';
+      e.style.background = 'linear-gradient(hsl(' + h + ' 82% 63%),hsl(' + h + ' 78% 46%))'; D.push(e);
+    }
+    layout(); place();
+  }
+  /* coloca los discos según el modelo; con «b» (rectángulos anteriores) anima el que se haya movido */
+  function place(b) {
+    const pegs = qa('.hn-p');
+    S.P.forEach((arr, i) => arr.forEach(d => pegs[i].appendChild(D[d])));
+    qa('.hn-d').forEach(e => e.classList.remove('sel'));
+    if (sel >= 0 && S.P[sel].length) D[S.P[sel][S.P[sel].length - 1]].classList.add('sel');
+    if (!b) return;
+    for (let d = 1; d <= S.n; d++) {
+      const r = D[d].getBoundingClientRect(), o = b[d]; if (!o) continue;
+      const dx = o.left - r.left, dy = o.top - r.top;
+      if (Math.abs(dx) + Math.abs(dy) > 1 && D[d].animate) D[d].animate([
+        { transform: 'translate(' + dx + 'px,' + dy + 'px)' },
+        { transform: 'translate(' + dx * .5 + 'px,' + (Math.min(dy, 0) - DH * 1.1) + 'px)', offset: .5 },
+        { transform: 'none' }], { duration: 240, easing: 'ease-in-out' });
+    }
+  }
+  function hud() {
+    q('.hn-lvn').textContent = 'Hanoi · ' + HN_LV[S.lv].k;
+    q('.hn-mv').innerHTML = 'Mov <b>' + S.mv + '</b>/' + (2 ** S.n - 1) + (S.hints ? ' 💡' + S.hints : '');
+    q('.hn-tm').textContent = hnFmt(S.t); q('.hn-lv').value = S.lv;
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && S.started && !document.hidden) { S.t++; q('.hn-tm').textContent = hnFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function clearHint() { clearTimeout(hintT); qa('.hint').forEach(e => e.classList.remove('hint')); }
+  function newGame(lv) {
+    clearInterval(timerId); S = fresh(lv); sel = -1; recorded = false; clearHint(); q('.hn-ov').classList.remove('show');
+    ctx.save(null); build(); hud(); startTimer();
+  }
+  const can = (f, t) => { const a = S.P[f], b = S.P[t]; return f !== t && a.length > 0 && (!b.length || b[b.length - 1] > a[a.length - 1]); };
+  function shake(i) { const p = qa('.hn-p')[i]; if (p && p.animate) p.animate([{ transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' }, { transform: 'translateX(-3px)' }, { transform: 'none' }], { duration: 220 }); }
+  function tryMove(f, t, b) {
+    b = b || snap();
+    if (f === t) { sel = -1; place(b); return; }
+    if (!can(f, t)) { SFX.bad(); shake(t); sel = -1; place(b); return; }
+    const d = S.P[f].pop(); S.P[t].push(d); S.mv++; S.started = true; S.hist.push([f, t]); sel = -1; clearHint();
+    place(b); SFX.mv(d); hud();
+    if (S.P[2].length === S.n) end(); else save();
+  }
+  function end() {
+    S.over = true; clearInterval(timerId);
+    const opt = 2 ** S.n - 1; let st = S.mv <= opt ? 3 : S.mv <= Math.ceil(opt * 1.5) ? 2 : 1; if (S.hints && st > 2) st = 2;
+    const bt = store.get('hanoi-best') || {}, o = bt[S.lv]; let extra = '';
+    if (!o || S.mv < o.mv || (S.mv === o.mv && S.t < o.t)) { bt[S.lv] = { mv: S.mv, t: S.t }; store.set('hanoi-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.hn-st').textContent = '★'.repeat(st) + '☆'.repeat(3 - st);
+    q('.hn-mt').textContent = st === 3 ? '¡Perfecto!' : '¡Torre completada!';
+    q('.hn-md').textContent = S.mv + ' movimientos (mínimo ' + opt + ') · ' + hnFmt(S.t) + extra;
+    q('.hn-next').style.display = S.lv < HN_LV.length - 1 ? '' : 'none';
+    for (let d = 1; d <= S.n; d++) if (D[d].animate) D[d].animate([{ transform: 'none' }, { transform: 'translateY(-14px) scale(1.07)' }, { transform: 'none' }], { duration: 420, delay: d * 70 });
+    setTimeout(() => q('.hn-ov').classList.add('show'), 900); setTimeout(SFX.win, 150); ctx.save(null);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: HN_LV[S.lv].k + ' · ' + S.n + ' discos · ' + S.mv + ' movimientos' + (S.mv === opt ? ' (perfecto)' : '') + ' en ' + hnFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  function tap(i) {
+    if (sel < 0) { if (S.P[i].length) { sel = i; place(); SFX.tap(); } else { SFX.bad(); shake(i); } }
+    else if (sel === i) { sel = -1; place(); SFX.tap(); }
+    else tryMove(sel, i);
+  }
+  const pegAt = x => { const r = board.getBoundingClientRect(); return Math.max(0, Math.min(2, Math.floor((x - r.left) / r.width * 3))); };
+  const untg = () => qa('.hn-p.tg').forEach(e => e.classList.remove('tg'));
+  board.onpointerdown = e => {
+    if (!S || S.over) return; e.preventDefault(); const i = pegAt(e.clientX), L = S.P[i];
+    drag = { i, x: e.clientX, y: e.clientY, mv: false, d: L.length ? L[L.length - 1] : 0 };
+    try { board.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
+  };
+  board.onpointermove = e => {
+    if (!drag || !drag.d) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.mv) { if (Math.hypot(dx, dy) < 8) return; drag.mv = true; sel = -1; clearHint(); qa('.hn-d.sel').forEach(x => x.classList.remove('sel')); D[drag.d].style.zIndex = 5; SFX.tap(); }
+    D[drag.d].style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    untg(); const j = pegAt(e.clientX); if (j !== drag.i && can(drag.i, j)) qa('.hn-p')[j].classList.add('tg');
+  };
+  const drop = (e, cancel) => {
+    if (!drag) return; const g = drag; drag = null; untg();
+    if (g.mv) { const b = snap(), de = D[g.d]; de.style.transform = ''; de.style.zIndex = ''; tryMove(g.i, cancel ? g.i : pegAt(e.clientX), b); }
+    else if (!cancel) tap(g.i);
+  };
+  board.onpointerup = e => drop(e, false); board.onpointercancel = e => drop(e, true);
+  q('.hn-go').onclick = () => { SFX.tap(); newGame(+q('.hn-lv').value); };
+  q('.hn-again').onclick = () => newGame(S.lv);
+  q('.hn-next').onclick = () => newGame(Math.min(HN_LV.length - 1, S.lv + 1));
+  q('.hn-lv').onchange = () => { SFX.tap(); newGame(+q('.hn-lv').value); };
+  q('.hn-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S || S.over) return; const a = b.dataset.a;
+    if (a === 'undo') {
+      if (!S.hist.length) return; const [f, t] = S.hist.pop(), bb = snap(); S.P[f].push(S.P[t].pop()); S.mv--; sel = -1; clearHint(); place(bb); SFX.tap(); hud(); save();
+    } else if (a === 'hint') {
+      const m = hnNext(S.P, S.n); if (!m) return; S.hints++; sel = -1; place(); clearHint();
+      const L = S.P[m[0]]; D[L[L.length - 1]].classList.add('hint'); qa('.hn-p')[m[1]].classList.add('hint'); hintT = setTimeout(clearHint, 2000); SFX.ok(); hud(); save();
+    } else if (a === 'redo') { SFX.tap(); newGame(S.lv); }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => layout();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(HN_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && Array.isArray(sv.P) && sv.P.length === 3 && HN_LV[sv.lv] && HN_LV[sv.lv].n === sv.n) { S = sv; build(); hud(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); clearTimeout(hintT); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'hanoi', name: 'Torres de Hanoi', blurb: 'Un jugador · 5 niveles',
+  single: {
+    levels: HN_LV.map(l => l.k), def: 1,
+    info: i => { const n = HN_LV[i].n, b = (store.get('hanoi-best') || {})[i]; return n + ' discos · mínimo ' + (2 ** n - 1) + ' movimientos' + (b ? ' · Tu mejor: ' + b.mv + ' mov. en ' + hnFmt(b.t) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Lleva <b>toda la torre</b> de la varilla A a la varilla C.</li>' +
+    '<li>Mueve <b>un disco cada vez</b>: toca la varilla de origen (el disco superior sube) y luego la de destino, o arrástralo con el dedo.</li>' +
+    '<li>Nunca puedes poner un disco <b>grande sobre uno más pequeño</b>.</li>' +
+    '<li>Con <b>n</b> discos el mínimo es 2<sup>n</sup>−1 movimientos. ★★★ si lo logras en el mínimo, ★★ hasta un 50 % más y ★ si necesitas más. Usar <b>Pista</b> limita a ★★.</li>' +
+    '<li>Truco: para mover una torre de n discos, pasa primero los n−1 de arriba a la varilla libre, mueve el grande y vuelve a colocar los n−1 encima.</li></ul>',
+  mountSingle: hanoiMount
+});
+
+})();
+Mods.ok("hanoi");
+</script>
+<script type="text/plain" data-mod="atasco" data-deps="">
+/* CTX atasco: «Atasco», puzzle de bloques deslizantes de un jugador (estilo atasco de coches, 6×6). Saca el bloque rojo por la salida de la derecha arrastrando los demás. Los puzzles se generan al vuelo: colocación aleatoria + escalada de dificultad medida con un BFS exacto (atSolve = mínimo de movimientos, también da la pista óptima). Prefijo bk-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Atasco: colores del hub; todo bajo .bk */
+#stage > .bk{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:52px}
+.bk button,.bk select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.bk button:active{background:var(--accent);color:var(--accent-ink)}
+.bk select{flex:1;min-width:0}
+.bk-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bk-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.bk-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}
+.bk-mv b{color:var(--accent)}.bk-go{font-weight:700}
+.bk-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.bk-board{box-sizing:content-box;position:relative;width:calc(var(--cs)*6);height:calc(var(--cs)*6);background:
+ linear-gradient(var(--line) 1px,transparent 1px) 0 0/var(--cs) var(--cs),linear-gradient(90deg,var(--line) 1px,transparent 1px) 0 0/var(--cs) var(--cs),var(--surface);
+ border:6px solid var(--accent);border-right:0;border-radius:12px 0 0 12px;box-shadow:var(--shadow);touch-action:none}
+.bk-exit{position:absolute;left:100%;top:calc(var(--cs)*2);width:14px;height:var(--cs);display:flex;align-items:center;color:var(--accent);font-size:1.2rem}
+.bk-exit::before{content:"";position:absolute;left:-6px;top:0;bottom:0;width:6px;background:var(--surface)}
+.bk-exit i{position:relative;font-style:normal;margin-left:2px;animation:bkx 1s ease-in-out infinite alternate}
+@keyframes bkx{to{transform:translateX(4px)}}
+.bk-b{position:absolute;box-sizing:border-box;padding:3px;cursor:grab;transition:left .12s ease-out,top .12s ease-out,opacity .35s}
+.bk-b.dr{transition:none;z-index:3;cursor:grabbing}
+.bk-b>div{width:100%;height:100%;border-radius:9px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font-size:calc(var(--cs)*.45);box-shadow:inset 0 3px 0 rgba(255,255,255,.3),inset 0 -4px 0 rgba(0,0,0,.2),0 2px 4px rgba(0,0,0,.25)}
+.bk-b.hint>div{animation:bkh .45s ease-in-out infinite alternate}
+@keyframes bkh{to{filter:brightness(1.3);outline:3px solid var(--accent);outline-offset:1px}}
+.bk-gh{position:absolute;box-sizing:border-box;border:3px dashed var(--accent);border-radius:11px;pointer-events:none;z-index:2}
+@media (prefers-reduced-motion: reduce){.bk-b{transition:none}.bk-b.hint>div,.bk-exit i{animation:none}}
+.bk-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px}
+.bk-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.bk-act b{font-size:1.1rem}
+.bk-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.bk-ov.show{display:flex}
+.bk-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.bk-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.bk-card p{color:var(--muted);margin:0 0 14px}
+.bk-st{font-size:2.2rem;letter-spacing:.15em;color:var(--accent);line-height:1.1;margin-bottom:6px}
+.bk-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.bk-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Atasco · un jugador, 5 niveles. Usa del hub: tema, sonido, guardado y registro de partidas. =====
+   Pieza = [fijo, variable, largo, horizontal(1)|vertical(0)]: en horizontales fijo = fila y variable = columna; en verticales al revés.
+   La pieza 0 es el bloque rojo (fila 2, horizontal, largo 2). Un movimiento = deslizar un bloque cualquier distancia. Se gana con el rojo en la columna 4. */
+const BK_LV = [
+  { k: 'Fácil', lo: 5, hi: 8, nb: 6 }, { k: 'Medio', lo: 9, hi: 13, nb: 8 }, { k: 'Difícil', lo: 14, hi: 19, nb: 9 },
+  { k: 'Experto', lo: 20, hi: 26, nb: 10 }, { k: 'Maestro', lo: 27, hi: 99, nb: 11 }
+];
+const bkFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+const bkCell = (p, v, k) => p[3] ? p[0] * 6 + v + k : (v + k) * 6 + p[0];
+function bkOcc(P, pos, skip) {
+  const g = new Int8Array(36).fill(-1);
+  for (let i = 0; i < P.length; i++) if (i !== skip) for (let k = 0; k < P[i][2]; k++) g[bkCell(P[i], pos[i], k)] = i;
+  return g;
+}
+/* Rango libre [min,max] del bloque i en la posición actual */
+function bkRange(P, pos, i) {
+  const g = bkOcc(P, pos, i), p = P[i], l = p[2]; let lo = pos[i], hi = pos[i];
+  while (lo > 0 && g[bkCell(p, lo - 1, 0)] === -1) lo--;
+  while (hi + l < 6 && g[bkCell(p, hi + 1, l - 1)] === -1) hi++;
+  return [lo, hi];
+}
+/* BFS exacto: mínimo de movimientos hasta que el rojo llega a la columna 4. Devuelve {d, path:[[pieza,destino,origen]...]} o null (sin solución o demasiado grande). */
+function atSolve(P, pos0, wantPath, cap) {
+  const n = P.length, enc = p => { let k = 0; for (let i = 0; i < n; i++) k = k * 6 + p[i]; return k; };
+  if (pos0[0] === 4) return { d: 0, path: [] };
+  const seen = new Map(); seen.set(enc(pos0), null); let cur = [pos0], d = 0;
+  while (cur.length) {
+    d++; const nxt = [];
+    for (const p of cur) {
+      const g = bkOcc(P, p, -1), pk = wantPath ? enc(p) : 0;
+      for (let i = 0; i < n; i++) {
+        const pc = P[i], l = pc[2], v = p[i];
+        for (let dir = -1; dir <= 1; dir += 2) for (let s = 1; ; s++) {
+          const nv = v + dir * s; if (nv < 0 || nv + l > 6) break;
+          if (g[bkCell(pc, nv, dir < 0 ? 0 : l - 1)] !== -1) break;
+          const q = p.slice(); q[i] = nv; const k = enc(q); if (seen.has(k)) continue;
+          seen.set(k, wantPath ? { pk, i, to: nv, from: v } : 1);
+          if (i === 0 && nv === 4) {
+            if (!wantPath) return { d };
+            const path = []; let c = seen.get(k); while (c) { path.push([c.i, c.to, c.from]); c = seen.get(c.pk); } return { d, path: path.reverse() };
+          }
+          nxt.push(q);
+        }
+      }
+    }
+    if (seen.size > (cap || 60000)) return null; cur = nxt;
+  }
+  return null;
+}
+/* Genera un puzzle del nivel: aleatorio + escalada (se recoloca una pieza al azar y se conserva si no baja la dificultad ni se pasa del máximo). */
+function atGen(lv) {
+  const L = BK_LV[lv], t0 = Date.now(), R = n => Math.random() * n | 0;
+  const place = (P, pos, occ) => {  // coloca una pieza aleatoria libre; devuelve [pieza,pos] o null
+    for (let a = 0; a < 40; a++) {
+      const h = R(2), l = Math.random() < .72 ? 2 : 3, f = R(6), v = R(7 - l); if (h && f === 2) continue;   // la fila 2 solo para el rojo (y verticales)
+      const pc = [f, v, l, h]; let ok = true; for (let k = 0; k < l; k++) if (occ[bkCell(pc, v, k)] !== -1) { ok = false; break; }
+      if (ok) return pc;
+    }
+    return null;
+  };
+  const mk = () => {
+    const P = [[2, R(2), 2, 1]], occ = new Int8Array(36).fill(-1);
+    for (let k = 0; k < 2; k++) occ[2 * 6 + P[0][1] + k] = 0;
+    for (let a = 0; a < 200 && P.length < L.nb + 1; a++) { const pc = place(P, null, occ); if (!pc) continue; P.push(pc); for (let k = 0; k < pc[2]; k++) occ[bkCell(pc, pc[1], k)] = P.length - 1; }
+    return P;
+  };
+  const ev = P => { const r = atSolve(P, P.map(p => p[1]), false, 25000); return r ? r.d : -1; };
+  let best = null, bd = -1, P = mk(), cd = ev(P);
+  while (Date.now() - t0 < 2200) {
+    if (cd >= L.lo && cd <= L.hi) return { P, d: cd };
+    if (cd >= 0 && (bd < 0 || (cd <= L.hi && cd > bd) || bd > L.hi)) { best = P; bd = cd; }
+    if (cd < 0 && R(8) === 0) { P = mk(); cd = ev(P); continue; }
+    const Q = P.map(p => p.slice()), i = 1 + R(Q.length - 1), occ = bkOcc(Q, Q.map(p => p[1]), i), pc = place(Q, null, occ);
+    if (!pc) continue; Q[i] = pc; const d = ev(Q);
+    if (d >= 0 && d <= L.hi && d >= cd) { P = Q; cd = d; } else if (cd < 0 && d >= 0) { P = Q; cd = d; }
+  }
+  if (cd >= 0 && (bd < 0 || cd > bd)) { best = P; bd = cd; }
+  if (best) return { P: best, d: bd };
+  const P2 = [[2, 0, 2, 1], [3, 0, 2, 0], [4, 2, 3, 0], [1, 3, 2, 1]]; return { P: P2, d: atSolve(P2, P2.map(p => p[1]), false).d };
+}
+function atascoMount(el, ctx) {
+  el.innerHTML = '<div class="bk">' +
+    '<div class="bk-row"><div class="bk-lvn"></div><div class="bk-hud"><span class="bk-mv">Mov <b>0</b></span><span class="bk-tm">00:00</span></div></div>' +
+    '<div class="bk-row"><select class="bk-lv">' + BK_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + '</option>').join('') + '</select><button class="bk-go">▶ Nuevo</button></div>' +
+    '<div class="bk-area"><div class="bk-board"><div class="bk-exit"><i>▶</i></div></div></div>' +
+    '<div class="bk-act"><button data-a="undo"><b>↶</b>Deshacer</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="bk-ov bk-load show"><div class="bk-card"><p style="margin:0">Generando puzzle…</p></div></div>' +
+    '<div class="bk-ov bk-msg"><div class="bk-card"><div class="bk-st"></div><h2 class="bk-mt"></h2><p class="bk-md"></p><div class="bk-btns"><button class="bk-again">Otro puzzle</button><button class="bk-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), qa = s => [...root.querySelectorAll(s)];
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    pick: () => tone(640, .04), slide: () => tone(330, .07, 'triangle', .28), ok: () => tone(520, .1, 'sine', .25), bad: () => tone(180, .12, 'square', .12),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
+  };
+  const board = q('.bk-board');
+  let S = null, B = [], CS = 52, timerId = 0, dead = false, recorded = false, hintT = 0, drag = null, genSeq = 0;
+
+  function save() { if (!S) return; if (S.over) { ctx.save(null); return; } if (S.started) ctx.save(S); }
+  function layout() {
+    const A = q('.bk-area'); CS = Math.max(28, Math.min(84, Math.floor(Math.min((A.clientWidth - 30) / 6, (A.clientHeight - 6) / 6))));
+    root.style.setProperty('--cs', CS + 'px'); if (S) B.forEach((e, i) => style(e, i, S.pos[i]));
+  }
+  function style(e, i, v) {
+    const p = S.P[i], h = p[3]; e.style.width = (h ? p[2] : 1) * CS + 'px'; e.style.height = (h ? 1 : p[2]) * CS + 'px';
+    e.style.left = (h ? v : p[0]) * CS + 'px'; e.style.top = (h ? p[0] : v) * CS + 'px';
+  }
+  function build() {
+    qa('.bk-b,.bk-gh').forEach(e => e.remove()); B = [];
+    S.P.forEach((p, i) => {
+      const e = document.createElement('div'), c = document.createElement('div'); e.className = 'bk-b'; e.dataset.i = i; e.appendChild(c);
+      if (i === 0) { c.style.background = 'linear-gradient(#ef6b5e,#c93a2e)'; c.textContent = '▶'; }
+      else { const h = (i * 47 + 190) % 360 | 0; c.style.background = 'linear-gradient(hsl(' + h + ' 55% 62%),hsl(' + h + ' 50% 46%))'; }
+      board.appendChild(e); B.push(e);
+    });
+    layout(); hud();
+  }
+  function hud() {
+    q('.bk-lvn').textContent = 'Atasco · ' + BK_LV[S.lv].k; q('.bk-lv').value = S.lv;
+    q('.bk-mv').innerHTML = 'Mov <b>' + S.mv + '</b> · Mín ' + S.d + (S.hints ? ' 💡' + S.hints : ''); q('.bk-tm').textContent = bkFmt(S.t);
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && S.started && !document.hidden) { S.t++; q('.bk-tm').textContent = bkFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function clearHint() { clearTimeout(hintT); qa('.bk-b.hint').forEach(e => e.classList.remove('hint')); qa('.bk-gh').forEach(e => e.remove()); }
+  function fresh(lv, P, d) { return { lv, P, d, pos: P.map(p => p[1]), mv: 0, t: 0, hist: [], hints: 0, started: false, over: false }; }
+  function newGame(lv) {
+    clearInterval(timerId); ctx.save(null); S = null; recorded = false; clearHint(); q('.bk-msg').classList.remove('show'); q('.bk-load').classList.add('show'); const my = ++genSeq;
+    requestAnimationFrame(() => setTimeout(() => {
+      if (dead || my !== genSeq) return; const g = atGen(lv); S = fresh(lv, g.P, g.d); q('.bk-load').classList.remove('show'); build(); startTimer();
+    }, 30));
+  }
+  function restart() { clearInterval(timerId); clearHint(); q('.bk-msg').classList.remove('show'); recorded = false; S = fresh(S.lv, S.P, S.d); ctx.save(null); build(); startTimer(); }
+  function commit(i, nv) {
+    const ov = S.pos[i]; if (nv === ov) return; S.hist.push([i, ov]); S.pos[i] = nv; S.mv++; S.started = true; clearHint(); SFX.slide(); hud();
+    if (i === 0 && nv === 4) win(); else save();
+  }
+  function win() {
+    S.over = true; clearInterval(timerId); ctx.save(null);
+    const st0 = S.mv <= S.d ? 3 : S.mv <= Math.ceil(S.d * 1.3) ? 2 : 1, st = S.hints && st0 > 2 ? 2 : st0;
+    const stt = store.get('atasco-stats') || {}, g = stt[S.lv] || (stt[S.lv] = { n: 0, p: 0 }); g.n++; if (st0 === 3 && !S.hints) g.p++; store.set('atasco-stats', stt);
+    q('.bk-st').textContent = '★'.repeat(st) + '☆'.repeat(3 - st); q('.bk-mt').textContent = st === 3 ? '¡Perfecto!' : '¡Salida libre!';
+    q('.bk-md').textContent = S.mv + ' movimientos (mínimo ' + S.d + ') · ' + bkFmt(S.t); q('.bk-next').style.display = S.lv < BK_LV.length - 1 ? '' : 'none';
+    setTimeout(() => { if (dead) return; B[0].style.left = 6.2 * CS + 'px'; B[0].style.opacity = 0; SFX.ok(); }, 250);
+    setTimeout(() => q('.bk-msg').classList.add('show'), 950); setTimeout(SFX.win, 450);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: BK_LV[S.lv].k + ' · ' + S.mv + ' movimientos (mín. ' + S.d + ') en ' + bkFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  board.onpointerdown = e => {
+    if (!S || S.over) return; const b = e.target.closest('.bk-b'); if (!b) return; e.preventDefault();
+    const i = +b.dataset.i, [lo, hi] = bkRange(S.P, S.pos, i); clearHint();
+    drag = { i, b, lo, hi, x: e.clientX, y: e.clientY, v0: S.pos[i], cur: S.pos[i] }; b.classList.add('dr'); SFX.pick();
+    try { board.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
+  };
+  board.onpointermove = e => {
+    if (!drag) return; const p = S.P[drag.i], d = (p[3] ? e.clientX - drag.x : e.clientY - drag.y) / CS;
+    drag.cur = Math.max(drag.lo, Math.min(drag.hi, drag.v0 + d)); style(drag.b, drag.i, drag.cur);
+  };
+  const end = cancel => {
+    if (!drag) return; const g = drag; drag = null; g.b.classList.remove('dr'); const nv = cancel ? g.v0 : Math.round(g.cur);
+    style(g.b, g.i, nv); commit(g.i, nv);
+  };
+  board.onpointerup = () => end(false); board.onpointercancel = () => end(true);
+  q('.bk-go').onclick = () => { SFX.pick(); newGame(+q('.bk-lv').value); };
+  q('.bk-lv').onchange = () => { SFX.pick(); newGame(+q('.bk-lv').value); };
+  q('.bk-again').onclick = () => newGame(S.lv);
+  q('.bk-next').onclick = () => newGame(Math.min(BK_LV.length - 1, S.lv + 1));
+  q('.bk-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S || S.over) return; const a = b.dataset.a;
+    if (a === 'undo') { if (!S.hist.length) return; const [i, v] = S.hist.pop(); S.pos[i] = v; S.mv--; clearHint(); style(B[i], i, v); SFX.pick(); hud(); save(); }
+    else if (a === 'hint') {
+      const r = atSolve(S.P, S.pos, true, 120000); if (!r || !r.path.length) return; const [i, to] = r.path[0]; S.hints++; clearHint();
+      B[i].classList.add('hint'); const p = S.P[i], h = p[3], gh = document.createElement('div'); gh.className = 'bk-gh';
+      gh.style.width = (h ? p[2] : 1) * CS + 'px'; gh.style.height = (h ? 1 : p[2]) * CS + 'px'; gh.style.left = (h ? to : p[0]) * CS + 'px'; gh.style.top = (h ? p[0] : to) * CS + 'px'; board.appendChild(gh);
+      hintT = setTimeout(clearHint, 2200); SFX.ok(); hud(); save();
+    } else if (a === 'redo') { SFX.pick(); restart(); }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => layout();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(BK_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && Array.isArray(sv.P) && Array.isArray(sv.pos) && sv.P.length === sv.pos.length && BK_LV[sv.lv]) { S = sv; q('.bk-load').classList.remove('show'); build(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); clearTimeout(hintT); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'atasco', name: 'Atasco', blurb: 'Un jugador · bloques deslizantes · 5 niveles',
+  single: {
+    levels: BK_LV.map(l => l.k), def: 1,
+    info: i => { const g = (store.get('atasco-stats') || {})[i]; return 'Puzzles nuevos en cada partida' + (g ? ' · Resueltos: ' + g.n + ' · Perfectos: ' + g.p : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Saca el <b>bloque rojo</b> por la salida de la derecha (la flecha ▶).</li>' +
+    '<li>Arrastra los bloques con el dedo: los horizontales solo se mueven a izquierda y derecha, y los verticales arriba y abajo. No pueden saltar sobre otros ni salirse del tablero.</li>' +
+    '<li>Deslizar un bloque, a la distancia que sea, cuenta <b>un movimiento</b>. Arriba ves tus movimientos y el <b>mínimo</b> posible.</li>' +
+    '<li>★★★ si lo resuelves en el mínimo, ★★ hasta un 30 % más y ★ si necesitas más. Usar <b>Pista</b> limita a ★★.</li>' +
+    '<li>Cada puzzle se genera al momento y tiene solución garantizada. <b>Deshacer</b> vuelve atrás y <b>Reiniciar</b> repite el mismo puzzle.</li></ul>',
+  mountSingle: atascoMount
+});
+
+})();
+Mods.ok("atasco");
 </script>
 <script type="text/plain" data-mod="tangram" data-deps="">
 /* CTX tangram: Tangram de un jugador (3 niveles). Puzzles generados ensamblando las 7 piezas por aristas (tgGen, siempre con solución); tablero SVG 12×16 (silueta arriba, bandeja abajo); arrastrar, girar 45°, voltear, imán a vértices; victoria por superficie cubierta (tgSolved), no por posición; pista. */
