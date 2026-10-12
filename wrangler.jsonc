@@ -17,5 +17,11 @@
     // Orígenes que pueden abrir salas (separados por comas). Vacío = cualquiera.
     // Para GitHub Pages: "https://TU_USUARIO.github.io,null"  («null» = el archivo abierto sin conexión desde el móvil)
     "ALLOWED_ORIGINS": ""
+  },
+    "observability": {
+    "logs": {
+      "enabled": false,
+      "invocation_logs": true
+    }
   }
 }
