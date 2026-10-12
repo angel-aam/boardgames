@@ -1,0 +1,68 @@
+// Build de «Mesa de Juegos». Fuente: public/mesa-de-juegos.html (archivo único con módulos <script type="text/plain" data-mod>, sin tocar).
+// Genera (todo en public/, ignorado por git):
+//   index.html        núcleo + estilos + manifiesto window.MJ_MODS (lo que carga el navegador; sin módulos)
+//   m/<id>.<hash>.js  un fichero por módulo, con hash del contenido (caché inmutable, ver _headers)
+//   sw.js             service worker (plantilla src/sw.tpl.js): núcleo y módulos en caché para jugar sin conexión
+//   offline.html      todo en uno minificado = lo que baja «Descarga offline» (funciona sin servidor)
+// Uso: node build.js (lo ejecuta `wrangler deploy`/`wrangler dev` por el hook "build" de wrangler.jsonc).
+// Quita TODOS los comentarios (también los de contexto para IA): el fuente sin minificar conserva todo.
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
+import { minify as minHtml } from 'html-minifier-terser';
+import { minify as minJs } from 'terser';
+
+const SRC = 'public/mesa-de-juegos.html';
+const html = readFileSync(SRC, 'utf8');
+const before = Buffer.byteLength(html);
+const sha = s => createHash('sha256').update(s).digest('hex');
+const kb = n => (n / 1024).toFixed(1) + ' KB';
+
+const jsOpts = { compress: true, mangle: true, format: { comments: false } };
+const cmts = [...html.matchAll(/<!--[\s\S]*?-->/g)].map(m => [m.index, m.index + m[0].length]);
+const inCmt = i => cmts.some(([a, b]) => i >= a && i < b); // el comentario de contexto cita <script …> como texto
+const blocks = [...html.matchAll(/(<script type="text\/plain"([^>]*)>)([\s\S]*?)(<\/script>)/g)].filter(m => !inCmt(m.index));
+
+// 1) Módulos: minificados con terser (html-minifier no toca los text/plain)
+const mods = [];
+for (const m of blocks) {
+  const id = (m[2].match(/data-mod="([^"]+)"/) || [])[1];
+  const deps = ((m[2].match(/data-deps="([^"]*)"/) || [])[1] || '').split(',').filter(Boolean);
+  if (!id) throw new Error('módulo sin data-mod: ' + m[1]);
+  const r = await minJs(m[3], jsOpts);
+  if (r.error || typeof r.code !== 'string') throw new Error('terser falló en ' + id + ' ' + (r.error || ''));
+  mods.push({ id, deps, code: r.code, m, hash: sha(r.code).slice(0, 10) });
+}
+const rebuild = fn => { let out = '', last = 0; for (const x of mods) { out += html.slice(last, x.m.index) + fn(x); last = x.m.index + x.m[0].length; } return out + html.slice(last); };
+const htmlOpts = { collapseWhitespace: true, conservativeCollapse: false, removeComments: true, minifyCSS: true, minifyJS: jsOpts };
+
+// 2) offline.html: todo en uno, con los módulos inline ya minificados
+const all = await minHtml(rebuild(x => x.m[1] + x.code + x.m[4]), htmlOpts);
+writeFileSync('public/offline.html', all);
+
+// 3) módulos sueltos con hash + manifiesto
+rmSync('public/m', { recursive: true, force: true });
+mkdirSync('public/m', { recursive: true });
+const manifest = {};
+for (const x of mods) {
+  const u = `/m/${x.id}.${x.hash}.js`;
+  writeFileSync('public' + u, x.code);
+  manifest[x.id] = { u, d: x.deps };
+}
+
+// 4) index.html: núcleo sin módulos + manifiesto en <head> (se lee al cargar un juego, no al arrancar)
+let core = rebuild(() => '');
+const hi = core.indexOf('<head>', core.lastIndexOf('-->', core.indexOf('<html')) + 1);
+if (hi < 0) throw new Error('no se encontró <head> en el fuente');
+core = core.slice(0, hi + 6) + '<script>window.MJ_MODS=' + JSON.stringify(manifest) + '</script>' + core.slice(hi + 6);
+const index = await minHtml(core, htmlOpts);
+writeFileSync('public/index.html', index);
+
+// 5) service worker: la versión cambia con cualquier cambio de núcleo o de módulos
+const urls = Object.values(manifest).map(v => v.u).sort();
+const version = sha(index + urls.join()).slice(0, 10);
+const sw = readFileSync('src/sw.tpl.js', 'utf8').replace('__VERSION__', version).replace('__MODS__', JSON.stringify(urls));
+writeFileSync('public/sw.js', sw);
+
+const big = mods.slice().sort((a, b) => b.code.length - a.code.length).slice(0, 3).map(x => `${x.id} ${kb(x.code.length)}`).join(', ');
+console.log(`${SRC} ${kb(before)} -> index.html ${kb(Buffer.byteLength(index))} (gzip ${kb(gzipSync(index).length)}) + ${mods.length} módulos (mayores: ${big}) · offline.html ${kb(Buffer.byteLength(all))} · sw ${version}`);

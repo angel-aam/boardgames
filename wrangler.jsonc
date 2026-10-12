@@ -3,8 +3,11 @@
   "name": "boardgames",
   "main": "src/worker.js",
   "compatibility_date": "2025-09-01",
-  // Páginas estáticas (index.html y mesa-de-juegos.html se copian a ./public con `npm run build`)
-  "assets": { "directory": "./public", "binding": "ASSETS" },
+  // Se ejecuta antes de `wrangler deploy` y `wrangler dev` (también en el build automático de Cloudflare): genera public/index.html, public/m/*, public/sw.js y public/offline.html
+  "build": { "command": "node build.js" },
+  // Páginas estáticas: public/index.html se GENERA desde public/mesa-de-juegos.html (no se versiona)
+  // run_worker_first: «/» y «/game/*» pasan por el worker (que inyecta window.MJ_PATHS y da enlaces directos a cada juego); el resto se sirve como estático
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/", "/game/*"] },
   "durable_objects": {
     "bindings": [
       { "name": "ROOM", "class_name": "Room" },
@@ -13,15 +16,15 @@
   },
   // El plan gratuito exige Durable Objects con almacenamiento SQLite
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room", "Lobby"] }],
+  // Observabilidad: logs (de invocación y console.*) y trazas, con muestreo completo
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "invocation_logs": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 1 }
+  },
   "vars": {
     // Orígenes que pueden abrir salas (separados por comas). Vacío = cualquiera.
     // Para GitHub Pages: "https://TU_USUARIO.github.io,null"  («null» = el archivo abierto sin conexión desde el móvil)
     "ALLOWED_ORIGINS": ""
-  },
-    "observability": {
-    "logs": {
-      "enabled": false,
-      "invocation_logs": true
-    }
   }
 }

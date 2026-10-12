@@ -4,6 +4,8 @@
      GET /api/ping            -> "mesa-ok" (el cliente comprueba que el servidor existe)
      GET /ws/room/<codigo>    -> WebSocket de una sala (un Durable Object por código)
      GET /ws/lobby            -> WebSocket del listado de salas abiertas (un único Durable Object)
+     GET /game/<id>           -> el mismo index.html (enlace directo a un juego para marcadores); el cliente abre <id>
+     GET /                    -> index.html
      resto                    -> páginas estáticas de ./public
    Protocolo de sala (JSON):
      servidor -> cliente  {t:'hello', me, peers:[ids]} | {t:'join', peer} | {t:'leave', peer} | {t:'m', from, to, m}
@@ -25,10 +27,27 @@ const okOrigin = (req, env) => {
 };
 const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-store' };
 
+/* Enlaces directos: «/» y «/game/<id>» devuelven el index con window.MJ_PATHS=1, la señal que usa el cliente para
+   mantener la URL como /game/<id> (sin ella usaría el hash #/game/<id>). El id lo valida el cliente. */
+const GAME_PATH = /^\/game\/[a-z0-9-]{1,24}\/?$/;
+const withPaths = res => new HTMLRewriter().on('head', { element(e) { e.prepend('<script>window.MJ_PATHS=1</script>', { html: true }); } }).transform(res);
+async function page(req, env) {
+  const url = new URL('/', req.url);
+  const res = await env.ASSETS.fetch(new Request(url, { method: 'GET', headers: req.headers }));
+  if (!res.ok) return res;
+  const h = new Headers(res.headers);
+  h.set('cache-control', 'no-cache');           /* el index cambia con cada despliegue */
+  return withPaths(new Response(res.body, { status: 200, headers: h }));
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (url.pathname === '/api/ping') return new Response('mesa-ok', { headers: cors });
+    if ((req.method === 'GET' || req.method === 'HEAD') && env.ASSETS) {
+      if (url.pathname === '/' || GAME_PATH.test(url.pathname)) return page(req, env);
+      if (/^\/game\/?$/.test(url.pathname)) return Response.redirect(new URL('/', req.url).toString(), 302);
+    }
     const m = url.pathname.match(/^\/ws\/(?:room\/([A-Za-z]{1,8})|(lobby))$/);
     if (!m) return env.ASSETS ? env.ASSETS.fetch(req) : new Response('No encontrado', { status: 404 });
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('Se espera una conexión WebSocket', { status: 426 });

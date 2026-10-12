@@ -1,11 +1,11 @@
 {
-  "name": "boardgames",
+  "name": "mesa-de-juegos-server",
   "private": true,
   "type": "module",
   "scripts": {
-    "minify": "node minify.js",
+    "build": "node build.js",
     "dev": "wrangler dev",
-    "deploy": "node minify.js && wrangler deploy"
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
     "html-minifier-terser": "^7.2.0",
