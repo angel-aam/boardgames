@@ -19,7 +19,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
 - Enlace directo por juego: `/game/<id>` (id del catálogo: sudoku, texas, ajedrez…). El worker sirve el mismo index con `window.MJ_PATHS=1`; el hub (`urlGame/syncURL` en hub.js) abre el juego al arrancar y mantiene URL y título con replaceState. Sin esa bandera (archivo, visor, otra web) usa el hash `#/game/<id>`.
-- Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
+- Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
 
 ## 3. Globales del núcleo
 - `$(sel, root)`, `esc(s)` (escapa HTML: úsalo en todo texto de jugador), `store.get/set(clave, def)` (localStorage con JSON; SIEMPRE usarlo), `toast(msg)`, `openSheet(html)/hideSheet()`, `cleanNick`, `b64e/b64d`.
@@ -43,18 +43,19 @@ Hub.register({ id, name, blurb, min, max,
 - ctx de mount: `me` (asiento propio), `solo`, `nick`, `send(accion)` (al motor del anfitrión), `toast`, `tone`. La vista solo debe pintar `pub/priv`; toda regla vive en el motor (anfitrión autoritativo; nunca confiar en el cliente).
 - Para animar cambios, comparar `seq` (contador que el motor incrementa en cada cambio) con el estado anterior.
 Un jugador (puzles): `single:{levels:[..], def, info(i)}` + `mountSingle(el, ctx)` con ctx `{level, resume, nick, tone, toast, load(), save(d), record(r)}`; sin salas ni IA. Guarda con `ctx.save` (el motor compartido de guardado) y estadísticas con `store`.
-Registrar en `src/games/catalog.js`: `Hub.catalog.push({id, cat:'tablero'|'cartas'|'puzzles', name, blurb, mod})`; categorías en `HOME_CATS` (hub.js). El lobby ordena nombres alfabéticamente (`localeCompare 'es'`).
+Registrar en `src/games/catalog.js`: `Hub.catalog.push({id, cat:'tablero'|'cartas'|'puzzles'|'palabras', name, blurb, mod})`; categorías en `HOME_CATS` (hub.js). El lobby ordena nombres alfabéticamente (`localeCompare 'es'`).
 
 ## 5. Catálogo (id · categoría · módulo/deps · notas)
-- tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub), scrabble (scdict; español, IA por frecuencia de palabras).
+- tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub).
 - cartas: brisca, chinchon, tute (los tres con baraja española), solitario (Klondike, un jugador; poker = baraja inglesa de 52), texas (Texas Hold'em sin límite, torneo de 2–8 con ciegas crecientes; también usa poker).
-- puzzles (un jugador): atasco (bloques deslizantes 6×6 estilo «atasco de coches»; puzzles generados al vuelo con escalada y BFS exacto `atSolve` = mínimo de movimientos y pista; arrastre horizontal/vertical con límites; estadísticas `atasco-stats`), hanoi (Torres de Hanoi, 3–7 discos; DOM+CSS, mover tocando o arrastrando, animación FLIP con WAAPI, pista óptima `hnNext`, estrellas por mínimo 2^n−1, récords `hanoi-best`), mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
+- puzzles (un jugador): flechas (serpientes con punta de flecha, 6 niveles en cuadrícula 12×17 a 26×40 con scroll cuando no cabe; tocar = sale deslizándose si su camino hasta el borde está libre; generadas con `fxGen` colocando cada una con la salida libre de las ya colocadas y favoreciendo las que tapan salidas previas = siempre resolubles; fallos → estrellas, pista, deshacer, récords `flechas-best`), hilos (conectar parejas de colores sin cruzar y llenando el tablero; SVG; puzzles generados con camino hamiltoniano aleatorio `hlPath` (backbite) cortado en tramos = siempre resolubles; arrastre que corta caminos ajenos; pista = tramo de la solución; récords `hilos-best`), atasco (bloques deslizantes 6×6 estilo «atasco de coches»; puzzles generados al vuelo con escalada y BFS exacto `atSolve` = mínimo de movimientos y pista; arrastre horizontal/vertical con límites; estadísticas `atasco-stats`), hanoi (Torres de Hanoi, 3–7 discos; DOM+CSS, mover tocando o arrastrando, animación FLIP con WAAPI, pista óptima `hnNext`, estrellas por mínimo 2^n−1, récords `hanoi-best`), mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única; un botón alterna Rellenar/Marcar; niveles 4–7 = modo Color: `nnMakeC` (imagen de rectángulos de colores + comprobación con el resolutor por líneas `nnLineC`) y `nonogramaColorMount`; mismo módulo, se elige por `NN_LV[i].c`).
+- palabras (categoría `palabras`, juegos que usan el diccionario `scdict`): nudos (crucigrama sin pistas estilo Knotwords; dep scdict; zonas de colores con las letras que contienen; puzzles generados con `ndMake`: relleno por restricciones con palabras comunes + zonas + casillas dadas hasta solución única (`ndSearch`); se aceptan otras palabras de `ScDict.has`; récords `nudos-best`), scrabble (scdict; español, IA por frecuencia de palabras), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
 - Compartidos: `baraja` (cartas españolas, SVG), `poker`, `qr` (generar QR y códigos de texto; sin lector), `pair` (emparejamiento sin conexión; dep qr), `scdict` (diccionario español ~635k palabras mayúsculas sin tildes, Ñ conservada, sin K/W; `ScDict.W`, `.lv[0|1]` = 8000/20000 más comunes, `.has(w)`), `teclado` (teclado QWERTY móvil con Ñ; `Teclado.mount(el,{enter,del,onKey})`), `dados` (`Dados.roll(n,caras)/one`, `Dados.view`, tema de dado, `Dados.sound`, `Dados.PIPS`).
 
 ## 6. Estilos
 - Variables CSS (claro/oscuro, el tema se fija con `data-theme` en :root): - -bg - -surface - -ink - -muted - -line - -accent - -accent-ink - -accent-soft - -board - -set - -rack - -bad - -good - -tile - -tile-edge - -t0..t3 - -shadow - -f-ui - -f-mono. Usa SIEMPRE estas variables; añade variantes oscuras con `:root[data-theme="dark"]` y `@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) … }`.
 - Ayudas visuales: lo que resalta QUÉ pieza/ficha se puede jugar (outline, pulso, atenuar las no jugables) va en CSS bajo `body[data-assist] …` (opción «Ayuda visual» del menú ☰, `hub.assist`, apagada por defecto). Lo que es retroalimentación de una selección (casillas de destino, errores) o estado funcional no se condiciona.
-- Cada juego usa un prefijo de clases propio (dm- domino, pc- parchís, bg- backgammon, wd- wordle, ah- ahorcado, tg- tangram, mj- mahjong, tx- texas, hn- hanoi, bk- atasco, c4- 4 en raya, c4- 4 en raya, tk- teclado, dd- dados…) y cuelga su layout de `#stage > .prefijo`; el CSS de un juego va dentro de su módulo.
+- Cada juego usa un prefijo de clases propio (dm- domino, pc- parchís, bg- backgammon, wd- wordle, ah- ahorcado, tg- tangram, mj- mahjong, tx- texas, hn- hanoi, bk- atasco, hl- hilos, nd- nudos, c4- 4 en raya, c4- 4 en raya, tk- teclado, dd- dados…) y cuelga su layout de `#stage > .prefijo`; el CSS de un juego va dentro de su módulo.
 - Componentes comunes: `.btn` (`.primary`, `.flat`, `.danger`), `.card`, `.seg` (selector segmentado), `.gcard` (tarjeta del menú), `.panel/.sheet`, `.mnu` (menú apilado de partida), `.fld`. Tamaños con `min(...)`/`dvh` para no hacer scroll; objetivos táctiles ≥ 40px o con zona ampliada `::after{inset:-7px}`.
 
 ## 7. Reglas de implementación
@@ -111,13 +112,16 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | tute | juego cartas «Tute» | games/tute/tute.js (+tute.css) | baraja | Tute 3 jugadores individual / 4 por parejas, modalidad arrastrado o normal (depende de baraja). Cambio del 7 y el 2 por la muestra, cantes; orden de mano por valor/palo (tute.sort2). |
 | backgammon | juego tablero «Backgammon» | games/backgammon/backgammon.js (+backgammon.css) | dados | Backgammon 2 jugadores con dos dados d6 (módulo dados). Puntos 0..23, barra 24, fuera 100; gammon/backgammon. Motor con bgLegal/bgPlan; IA por niveles. |
 | flota | juego tablero «Hundir la flota» | games/flota/flota.js (+flota.css) | – | Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. |
-| nonograma | juego puzzles «Nonogramas» | games/nonograma/nonograma.js (+nonograma.css) | – | Nonogramas de un jugador (varios tamaños) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. |
+| nonograma | juego puzzles «Nonogramas» | games/nonograma/nonograma.js (+nonograma.css) | – | Incluye modo Color (niveles 4–7). Nonogramas de un jugador (varios tamaños) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. |
+| flechas | juego puzzles «Flechas» | games/flechas/flechas.js (+flechas.css) | – | Flechas de un jugador (6 niveles, 12×17 a 26×40): toca una serpiente para que salga por su punta si su camino está libre; generador fxGen (orden inverso de colocación = solución), SVG con animación por stroke-dashoffset, fallos/estrellas, pista, deshacer y récords (flechas-best). |
 | hanoi | juego puzzles «Torres de Hanoi» | games/hanoi/hanoi.js (+hanoi.css) | – | Torres de Hanoi de un jugador (3 a 7 discos): toque o arrastre, estrellas según el mínimo de movimientos, pista óptima desde cualquier posición (hnNext), deshacer y récords (hanoi-best). |
 | atasco | juego puzzles «Atasco» | games/atasco/atasco.js (+atasco.css) | – | Bloques deslizantes 6×6: saca el bloque rojo arrastrando los demás; puzzles generados con BFS exacto (atSolve: mínimo de movimientos y pista óptima), estrellas y estadísticas (atasco-stats). |
+| hilos | juego puzzles «Hilos» | games/hilos/hilos.js (+hilos.css) | – | Conectar parejas de colores sin cruzar y llenando todo el tablero (5×5 a 9×9); puzzles generados con hlPath (camino hamiltoniano aleatorio cortado en tramos), pista y récords (hilos-best). |
+| nudos | juego palabras «Nudos» | games/nudos/nudos.js (+nudos.css) | scdict | Crucigrama sin pistas (4×4 a 8×8): zonas de colores con sus letras en desorden; generador ndMake (relleno por restricciones, zonas conexas, solución única) y validación con scdict; pista, deshacer, teclado de zona y récords (nudos-best). |
 | hive | juego tablero «Hive» | games/hive/hive.js (+hive.css) | – | Hive 2 jugadores (hexágonos, piezas de insecto) con IA y deshacer contra IA. Tablero SVG; no iterar this.B mientras dests() lo modifica. |
-| scrabble | juego tablero «Scrabble» | games/scrabble/scrabble.js (+scrabble.css) | scdict | Scrabble en español (tablero 15×15, bolsa, comodines, diccionario scdict). IA por frecuencia de palabras (fácil 8000, normal 20000, difícil todas). Arrastrar o tocar para colocar, vista previa de puntos. |
-| wordle | juego puzzles «Wordle» | games/wordle/wordle.js (+wordle.css) | scdict,teclado | Wordle de 4–7 letras de un jugador con diccionario scdict, teclado compartido, animación de giro y estadísticas (wordle-stats). |
-| ahorcado | juego puzzles «Ahorcado» | games/ahorcado/ahorcado.js (+ahorcado.css) | scdict,teclado | Ahorcado de un jugador: 3 niveles por longitud y frecuencia de palabra, pista que cuesta una vida, teclado compartido, estadísticas (ahorcado-stats). |
+| scrabble | juego palabras «Scrabble» | games/scrabble/scrabble.js (+scrabble.css) | scdict | Scrabble en español (tablero 15×15, bolsa, comodines, diccionario scdict). IA por frecuencia de palabras (fácil 8000, normal 20000, difícil todas). Arrastrar o tocar para colocar, vista previa de puntos. |
+| wordle | juego palabras «Wordle» | games/wordle/wordle.js (+wordle.css) | scdict,teclado | Wordle de 4–7 letras de un jugador con diccionario scdict, teclado compartido, animación de giro y estadísticas (wordle-stats). |
+| ahorcado | juego palabras «Ahorcado» | games/ahorcado/ahorcado.js (+ahorcado.css) | scdict,teclado | Ahorcado de un jugador: 3 niveles por longitud y frecuencia de palabra, pista que cuesta una vida, teclado compartido, estadísticas (ahorcado-stats). |
 | parchis | juego tablero «Parchís» | games/parchis/parchis.js (+parchis.css) | dados | Parchís 2–4 jugadores con anillo circular de 68 casillas y un dado (módulo dados). Progreso k de ficha: 0 casa, 1..64 anillo, 65..71 pasillo, 72 meta. Reglas: 5 para sacar, 6 repite (7 si no hay fichas en casa), tres 6 castigan, barreras, casillas seguras, bonus 20/10. Mover = tocar ficha y confirmar. |
 | domino | juego tablero «Dominó» | games/domino/domino.js (+domino.css) | dados | Dominó doble seis 2–4 jugadores (parejas con 4; pozo con 2–3; partida a una mano, 50 o 100). Cadena lineal en el motor (line + lc = fichas añadidas por la izquierda); la vista dibuja una serpiente con dmLayout (cuadrícula de medias filas, dobles cruzados, curva con ficha vertical). |
 | tangram | juego puzzles «Tangram» | games/tangram/tangram.js (+tangram.css) | – | Tangram de un jugador (3 niveles). Puzzles generados ensamblando las 7 piezas por aristas (tgGen, siempre con solución); tablero SVG 12×16 (silueta arriba, bandeja abajo); arrastrar, girar 45°, voltear, imán a vértices; victoria por superficie cubierta (tgSolved), no por posición; pista. |
@@ -200,6 +204,7 @@ input[type=text]{width:100%;min-height:42px;padding:8px 12px;border-radius:12px;
 .seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}
 .seg button{flex:1;border:0;background:transparent;min-height:38px;font-weight:600;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg:has(button:nth-child(7)){flex-wrap:wrap}.seg:has(button:nth-child(7)) button{flex:1 0 25%}
 .codein{font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.2em;text-align:center;flex:1;min-width:0}
 .rooms{display:flex;flex-direction:column;gap:6px}
 .room{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line);text-align:left}
@@ -863,7 +868,7 @@ const CODE_CH = 'BCDFGHJKLMNPRSTVXZ';
 const genCode = () => { let c = ''; for (let i = 0; i < 4; i++) c += CODE_CH[Math.floor(Math.random() * CODE_CH.length)]; return c; };
 
 function advertise(patch) {
-  if (H.role !== 'host') return;
+  if (H.role !== 'host' || H.priv) return;
   if (H.kind === 'claude') ClaudeNet.advertise(patch);
 }
 
@@ -873,7 +878,7 @@ function resetRoom() {
   if (H.kind === 'claude' && H.role === 'host') ClaudeNet.unadvertise();
   if (H.tr) { H.tr.onmsg = null; H.tr.onleave = null; try { H.tr.close(); } catch (e) { /* ya cerrado */ } }
   if (H.view) { try { H.view.destroy(); } catch (e) { /* vista ya cerrada */ } }
-  H.tr = null; H.role = 'none'; H.kind = ''; H.code = ''; H.guests = new Map(); H.bots = []; H.lobby = null;
+  H.tr = null; H.role = 'none'; H.kind = ''; H.code = ''; H.priv = false; H.guests = new Map(); H.bots = []; H.lobby = null;
   H.eng = null; H.view = null; H.gid = ''; H.seatPeer = []; H.overKey = ''; H.resume = null;
 }
 
@@ -937,9 +942,9 @@ async function createOnline() {
   const code = genCode();
   let t;
   try { t = await ClaudeNet.open(code); } catch (e) { toast('No se pudo abrir la sala. Inténtalo de nuevo'); return; }
-  H.role = 'host'; H.kind = 'claude'; H.code = code;
+  H.role = 'host'; H.kind = 'claude'; H.code = code; H.priv = store.get('hub.vis', 0) === 1;
   setupTr(t);
-  ClaudeNet.advertise({ rk: code.toLowerCase(), hn: H.nick, c: 1, st: 0, gm: H.game.id });
+  if (!H.priv) ClaudeNet.advertise({ rk: code.toLowerCase(), hn: H.nick, c: 1, st: 0, gm: H.game.id });
   show('lobby'); renderLobby();
 }
 
@@ -1132,7 +1137,7 @@ function renderLobby() {
   if (host) pl = roster();
   else if (H.lobby) pl = H.lobby.pl.map((p, i) => ({ name: p.n, bot: !!p.b, host: !!p.h, wait: !!p.w, me: i === H.lobby.you }));
   const top = H.kind === 'claude'
-    ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><p class="muted small" style="margin:0;text-align:center">Quien tenga esta página abierta lo verá en «Sala online». También puede escribir el código.</p>'
+    ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><p class="muted small" style="margin:0;text-align:center">' + (H.priv ? 'Sala privada: no aparece en la lista. Solo entra quien tenga el código.' : 'Sala pública: quien tenga esta página abierta la verá en «Sala online». También puede escribir el código.') + '</p>' + (host ? '<button class="btn flat" data-act="togvis">' + (H.priv ? 'Hacerla pública' : 'Hacerla privada') + '</button>' : '')
     : '<h2>Sala sin conexión</h2><p class="muted small" style="margin:0">' + (host ? 'Añade a cada jugador con un código QR (lector de QR del móvil + pegar el texto). Todos deben estar en la misma red Wi-Fi o en el punto de acceso de uno de los móviles.' : 'Conectado con el anfitrión.') + '</p>';
   const rs = host && H.resume;
   let h = '<div class="card">' + (rs ? '<h2>Partida guardada</h2><p class="muted small" style="margin:0">Los jugadores deben conectarse con el mismo nombre que tenían (' + esc(Saves.humans(H.resume).join(', ')) + ').</p>' : '') + top + '</div>';
@@ -1266,7 +1271,7 @@ function segHTML(labels, cur, act, offset) {
   return labels.map((l, i) => '<button data-act="' + act + '" data-v="' + (i + (offset || 0)) + '" aria-pressed="' + ((i + (offset || 0)) === cur ? 'true' : 'false') + '">' + esc(l) + '</button>').join('');
 }
 function wordHTML(w) { return w.split('').map(ch => '<span class="t" aria-hidden="true"><span>' + ch + '</span></span>').join(''); }
-const HOME_CATS = { tablero: { name: 'Tablero' }, cartas: { name: 'Cartas' }, puzzles: { name: 'Puzzles' } };
+const HOME_CATS = { tablero: { name: 'Tablero' }, cartas: { name: 'Cartas' }, puzzles: { name: 'Puzzles' }, palabras: { name: 'Palabras' } };
 function saveOpt() { store.set('hub.opt', H.opt); if (H.game) { const m = store.get('hub.optg', {}); m[H.game.id] = { opp: H.opt.opp, lvl: H.opt.lvl, first: H.opt.first === 1 ? 1 : 0 }; store.set('hub.optg', m); } }
 function gcardHTML(g) { return '<button class="gcard" data-act="pick" data-g="' + g.id + '"><b>' + esc(g.name) + '</b><span>' + esc(g.blurb) + '</span></button>'; }
 const esSort = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' });
@@ -1335,6 +1340,7 @@ function renderGMenu() {
   if (online) {
     h += '<div class="card"><h2>Sala online</h2>' +
       '<p class="muted small" style="margin:0">Necesita internet. Pasa el código a quien quieras que juegue contigo.</p>' +
+      '<div class="seg">' + segHTML(['Pública (listada)', 'Privada (solo código)'], store.get('hub.vis', 0) === 1 ? 1 : 0, 'vis') + '</div>' +
       '<button class="btn primary" data-act="create">Crear sala</button>' +
       '<div class="row"><input type="text" id="code" class="codein" maxlength="4" placeholder="CÓDIGO" autocomplete="off" spellcheck="false" autocapitalize="characters"><button class="btn" data-act="join">Unirse</button></div>' +
       '<div class="rooms" id="rooms"></div></div>';
@@ -1524,6 +1530,13 @@ const ACTS = {
   sstart() { Saves.putSingle(H.game.id, null); startSingle(false); },
   scont() { startSingle(true); },
   create() { createOnline(); },
+  vis(b) { store.set('hub.vis', +b.dataset.v === 1 ? 1 : 0); renderGMenu(); },
+  togvis() {
+    if (H.role !== 'host' || H.kind !== 'claude') return;
+    H.priv = !H.priv;
+    if (H.priv) ClaudeNet.unadvertise(); else ClaudeNet.advertise({ rk: H.code.toLowerCase(), hn: H.nick, c: rosterCount(), st: 0, gm: H.game.id });
+    renderLobby();
+  },
   join() { const c = $('#code'); joinOnline(c ? c.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) : ''); },
   joinroom(b) { joinOnline(b.dataset.c); },
   createlocal() { createLocal(); },
@@ -1614,16 +1627,19 @@ Hub.catalog.push({ id: 'backgammon', cat: 'tablero', name: 'Backgammon', blurb: 
 Hub.catalog.push({ id: 'flota', cat: 'tablero', name: 'Hundir la flota', blurb: 'Clásico · 2 jugadores', mod: 'flota' });
 Hub.catalog.push({ id: 'nonograma', cat: 'puzzles', name: 'Nonogramas', blurb: 'Un jugador · 4 tamaños', mod: 'nonograma' });
 Hub.catalog.push({ id: 'hive', cat: 'tablero', name: 'Hive', blurb: 'Colmena de fichas · 2 jugadores', mod: 'hive' });
-Hub.catalog.push({ id: 'scrabble', cat: 'tablero', name: 'Scrabble', blurb: 'Crucigrama de fichas · 2 a 4 jugadores', mod: 'scrabble' });
-Hub.catalog.push({ id: 'wordle', cat: 'puzzles', name: 'Wordle', blurb: 'Un jugador · palabras de 4 a 7 letras', mod: 'wordle' });
-Hub.catalog.push({ id: 'ahorcado', cat: 'puzzles', name: 'Ahorcado', blurb: 'Un jugador · 3 niveles', mod: 'ahorcado' });
+Hub.catalog.push({ id: 'scrabble', cat: 'palabras', name: 'Scrabble', blurb: 'Crucigrama de fichas · 2 a 4 jugadores', mod: 'scrabble' });
+Hub.catalog.push({ id: 'wordle', cat: 'palabras', name: 'Wordle', blurb: 'Un jugador · palabras de 4 a 7 letras', mod: 'wordle' });
+Hub.catalog.push({ id: 'ahorcado', cat: 'palabras', name: 'Ahorcado', blurb: 'Un jugador · 3 niveles', mod: 'ahorcado' });
 Hub.catalog.push({ id: 'parchis', cat: 'tablero', name: 'Parchís', blurb: 'Clásico · 2 a 4 jugadores', mod: 'parchis' });
 Hub.catalog.push({ id: 'domino', cat: 'tablero', name: 'Dominó', blurb: 'Doble seis · 2 a 4 jugadores', mod: 'domino' });
 Hub.catalog.push({ id: 'tangram', cat: 'puzzles', name: 'Tangram', blurb: 'Un jugador · 3 niveles', mod: 'tangram' });
 Hub.catalog.push({ id: 'cuatro', cat: 'tablero', name: '4 en raya', blurb: 'Clásico · 2 jugadores', mod: 'cuatro' });
 Hub.catalog.push({ id: 'mahjong', cat: 'puzzles', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas', mod: 'mahjong' });
 Hub.catalog.push({ id: 'hanoi', cat: 'puzzles', name: 'Torres de Hanoi', blurb: 'Un jugador · 5 niveles', mod: 'hanoi' });
+Hub.catalog.push({ id: 'flechas', cat: 'puzzles', name: 'Flechas', blurb: 'Un jugador · 6 niveles', mod: 'flechas' });
 Hub.catalog.push({ id: 'atasco', cat: 'puzzles', name: 'Atasco', blurb: 'Un jugador · bloques deslizantes · 5 niveles', mod: 'atasco' });
+Hub.catalog.push({ id: 'hilos', cat: 'puzzles', name: 'Hilos', blurb: 'Un jugador · conecta colores · 5 niveles', mod: 'hilos' });
+Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
 bootHub();
 </script>
 <script type="text/plain" data-mod="qr" data-deps="">
@@ -6201,13 +6217,16 @@ Mods.ok("flota");
 
 </script>
 <script type="text/plain" data-mod="nonograma" data-deps="">
-/* CTX nonograma: Nonogramas de un jugador (varios tamaños) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. */
-(function(){const s=document.createElement("style");s.textContent="/* Nonogramas: colores del hub; todo bajo .nn */\n#stage > .nn{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;\n  --cs:28px;--nn-grid:color-mix(in srgb,var(--ink) 75%,var(--accent));--nn-fill:var(--accent);--nn-err:color-mix(in srgb,var(--bad) 35%,var(--surface))}\n.nn button,.nn select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}\n.nn button:active,.nn button.on{background:var(--accent);color:var(--accent-ink)}\n.nn select{flex:1;min-width:0}\n.nn-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}\n.nn-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}\n.nn-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}\n.nn-ms{color:var(--bad)}.nn-go{font-weight:700}\n.nn-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}\n.nn-grid{display:grid;gap:0;background:var(--surface);padding:2px;border-radius:6px;box-shadow:var(--shadow);touch-action:none}\n.nn-ccl{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 0 3px;font:600 calc(var(--cs)*.42) var(--f-mono);line-height:1.15;color:var(--ink)}\n.nn-rcl{display:flex;justify-content:flex-end;align-items:center;gap:calc(var(--cs)*.16);padding:0 calc(var(--cs)*.2) 0 4px;font:600 calc(var(--cs)*.42) var(--f-mono);color:var(--ink)}\n.nn-ccl i,.nn-rcl i{font-style:normal}\n.nn-ccl.ok,.nn-rcl.ok{opacity:.35}\n.nn-ccl.b5{margin-right:2px}.nn-rcl.b5{margin-bottom:2px}\n.nn-c{width:var(--cs);height:var(--cs);box-sizing:border-box;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font:600 calc(var(--cs)*.5) var(--f-mono);color:var(--muted);cursor:pointer}\n.nn-c.br{margin-right:2px}.nn-c.bb{margin-bottom:2px}\n.nn-c.f{background:var(--nn-fill);border-color:var(--nn-fill)}\n.nn-c.x{color:var(--muted)}\n.nn-c.er{animation:nnsh .45s;background:var(--nn-err);color:var(--bad)}\n@keyframes nnsh{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}\n@media (prefers-reduced-motion: reduce){.nn-c.er{animation:none}}\n.nn-act{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%;max-width:520px;flex:none}\n.nn-act button{padding:6px 2px;font-size:.66rem;display:flex;flex-direction:column;align-items:center;gap:1px}\n.nn-act b{font-size:1.1rem;font-weight:400}\n.nn-ov{position:fixed;inset:0;background:rgba(10,25,45,.55);display:none;align-items:center;justify-content:center;z-index:15}\n.nn-ov.show{display:flex}\n.nn-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:26px 30px;text-align:center;max-width:88vw}\n.nn-card h2{color:var(--accent);margin:0 0 8px;font-size:1.3rem}.nn-card p{color:var(--muted);margin:0 0 16px}\n";document.head.appendChild(s)})();
+/* CTX nonograma: Nonogramas de un jugador (varios tamaños; modo Color con nnMakeC/nnLineC y nonogramaColorMount: niveles 4–7 de NN_LV, estado con cm:1) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. */
+(function(){const s=document.createElement("style");s.textContent="/* Nonogramas: colores del hub; todo bajo .nn */\n#stage > .nn{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;\n  --cs:28px;--nn-grid:color-mix(in srgb,var(--ink) 75%,var(--accent));--nn-fill:var(--accent);--nn-err:color-mix(in srgb,var(--bad) 35%,var(--surface))}\n.nn button,.nn select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}\n.nn button:active,.nn button.on{background:var(--accent);color:var(--accent-ink)}\n.nn select{flex:1;min-width:0}\n.nn-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}\n.nn-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}\n.nn-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}\n.nn-ms{color:var(--bad)}.nn-go{font-weight:700}\n.nn-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}\n.nn-grid{display:grid;gap:0;background:var(--surface);padding:2px;border-radius:6px;box-shadow:var(--shadow);touch-action:none}\n.nn-ccl{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:0 0 3px;font:600 calc(var(--cs)*.42) var(--f-mono);line-height:1.15;color:var(--ink)}\n.nn-rcl{display:flex;justify-content:flex-end;align-items:center;gap:calc(var(--cs)*.16);padding:0 calc(var(--cs)*.2) 0 4px;font:600 calc(var(--cs)*.42) var(--f-mono);color:var(--ink)}\n.nn-ccl i,.nn-rcl i{font-style:normal}\n.nn-ccl.ok,.nn-rcl.ok{opacity:.35}\n.nn-ccl.b5{margin-right:2px}.nn-rcl.b5{margin-bottom:2px}\n.nn-c{width:var(--cs);height:var(--cs);box-sizing:border-box;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font:600 calc(var(--cs)*.5) var(--f-mono);color:var(--muted);cursor:pointer}\n.nn-c.br{margin-right:2px}.nn-c.bb{margin-bottom:2px}\n.nn-c.f{background:var(--nn-fill);border-color:var(--nn-fill)}\n.nn-c.x{color:var(--muted)}\n.nn-c.er{animation:nnsh .45s;background:var(--nn-err);color:var(--bad)}\n@keyframes nnsh{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}\n@media (prefers-reduced-motion: reduce){.nn-c.er{animation:none}}\n.nn-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px;flex:none}\n.nn-act button{padding:6px 2px;font-size:.66rem;display:flex;flex-direction:column;align-items:center;gap:1px}\n.nn-act b{font-size:1.1rem;font-weight:400}\n.nn-ov{position:fixed;inset:0;background:rgba(10,25,45,.55);display:none;align-items:center;justify-content:center;z-index:15}\n.nn-ov.show{display:flex}\n.nn-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:26px 30px;text-align:center;max-width:88vw}\n.nn-card h2{color:var(--accent);margin:0 0 8px;font-size:1.3rem}.nn-card p{color:var(--muted);margin:0 0 16px}\n.nn-pal{display:flex;gap:8px;justify-content:center;width:100%;max-width:520px;flex:none}\n.nn-pal button{width:48px;height:40px;padding:0;border:3px solid var(--line);border-radius:10px;font-size:1.1rem;color:var(--ink)}\n.nn-pal button.on{border-color:var(--ink);box-shadow:0 0 0 2px var(--surface) inset}\n.nn-act2{grid-template-columns:repeat(2,1fr)}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Nonogramas · un jugador, 4 tamaños. Usa del hub: tema, sonido, guardado y registro de partidas. ===== */
 const NN_LV = [
   { k: 'easy', n: 'Fácil', sz: 5, d: .62 }, { k: 'medium', n: 'Medio', sz: 8, d: .6 },
-  { k: 'hard', n: 'Difícil', sz: 10, d: .58 }, { k: 'expert', n: 'Experto', sz: 15, d: .56 }
+  { k: 'hard', n: 'Difícil', sz: 10, d: .58 }, { k: 'expert', n: 'Experto', sz: 15, d: .56 },
+  /* modo de colores (c = nº de colores; d = densidad de la imagen) */
+  { k: 'c-easy', n: 'Color', sz: 5, d: .5, c: 2 }, { k: 'c-medium', n: 'Color', sz: 8, d: .55, c: 3 },
+  { k: 'c-hard', n: 'Color', sz: 10, d: .55, c: 3 }, { k: 'c-expert', n: 'Color', sz: 12, d: .55, c: 4 }
 ];
 const nnFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
 function nnRuns(line) { const r = []; let c = 0; for (const v of line) { if (v === 1) c++; else if (c) { r.push(c); c = 0; } } if (c) r.push(c); return r.length ? r : [0]; }
@@ -6255,12 +6274,189 @@ function nnMake(lv) {
   return best;
 }
 
+/* ----- Nonogramas de colores: pista = [[largo, color]...] ([] = línea vacía); celda de solución: -1 vacía, 0..k-1 color ----- */
+function nnRunsC(line) { const r = []; let c = -1, n = 0; for (const v of line) { if (v >= 0 && v === c) n++; else { if (n) r.push([n, c]); c = v; n = v >= 0 ? 1 : 0; } } if (n) r.push([n, c]); return r; }
+const nnSameC = (a, b) => a.length === b.length && a.every((x, i) => x[0] === b[i][0] && x[1] === b[i][1]);
+/* Resuelve una línea con colores. dom[i] = máscara de valores posibles (bit0 vacía, bit c+1 color c). Devuelve nuevas máscaras o null si es imposible */
+function nnLineC(clue, dom) {
+  const n = dom.length, K = clue.length, W = 2;
+  const idx = (i, k, j) => (i * (K + 1) + k) * W + j, g = new Uint8Array((n + 1) * (K + 1) * W), f = new Uint8Array((n + 1) * (K + 1) * W);
+  const okRun = (i, k) => { const L = clue[k][0], bit = 1 << (clue[k][1] + 1); if (i + L > n) return false; for (let x = i; x < i + L; x++) if (!(dom[x] & bit)) return false; return true; };
+  for (let k = 0; k <= K; k++) { g[idx(n, K, 0)] = 1; g[idx(n, K, 1)] = 1; }
+  for (let i = n - 1; i >= 0; i--) for (let k = K; k >= 0; k--) for (let j = 0; j < 2; j++) {
+    let ok = 0;
+    if ((dom[i] & 1) && g[idx(i + 1, k, 0)]) ok = 1;
+    if (!ok && k < K && !(j === 1 && k > 0 && clue[k - 1][1] === clue[k][1]) && okRun(i, k) && g[idx(i + clue[k][0], k + 1, 1)]) ok = 1;
+    g[idx(i, k, j)] = ok;
+  }
+  if (!g[idx(0, 0, 0)]) return null;
+  const out = new Array(n).fill(0); f[idx(0, 0, 0)] = 1;
+  for (let i = 0; i < n; i++) for (let k = 0; k <= K; k++) for (let j = 0; j < 2; j++) if (f[idx(i, k, j)]) {
+    if ((dom[i] & 1) && g[idx(i + 1, k, 0)]) { f[idx(i + 1, k, 0)] = 1; out[i] |= 1; }
+    if (k < K && !(j === 1 && k > 0 && clue[k - 1][1] === clue[k][1]) && okRun(i, k) && g[idx(i + clue[k][0], k + 1, 1)]) {
+      f[idx(i + clue[k][0], k + 1, 1)] = 1; const bit = 1 << (clue[k][1] + 1); for (let x = i; x < i + clue[k][0]; x++) out[x] |= bit;
+    }
+  }
+  return out;
+}
+function nnCluesC(sol, n) {
+  const rows = [], cols = [];
+  for (let r = 0; r < n; r++) rows.push(nnRunsC(sol.slice(r * n, r * n + n)));
+  for (let c = 0; c < n; c++) cols.push(nnRunsC(sol.filter((_, i) => i % n === c)));
+  return { rows, cols };
+}
+/* ¿Se resuelve solo con lógica de líneas (entonces la solución es única)? */
+function nnSolvableC(cl, n, k) {
+  const full = (1 << (k + 1)) - 1, b = new Array(n * n).fill(full); let ch = true;
+  while (ch) {
+    ch = false;
+    for (let r = 0; r < n; r++) { const o = nnLineC(cl.rows[r], b.slice(r * n, r * n + n)); if (!o) return false; o.forEach((v, c) => { if (v !== b[r * n + c]) { b[r * n + c] = v; ch = true; } }); }
+    for (let c = 0; c < n; c++) { const ln = []; for (let r = 0; r < n; r++) ln.push(b[r * n + c]); const o = nnLineC(cl.cols[c], ln); if (!o) return false; o.forEach((v, r) => { if (v !== ln[r]) { b[r * n + c] = v; ch = true; } }); }
+  }
+  return b.every(v => v && !(v & (v - 1)));
+}
+/* Imagen: fondo vacío + rectángulos de colores superpuestos (más legible que el ruido y casi siempre resoluble) */
+function nnImageC(n, k, dens) {
+  const R = m => Math.random() * m | 0, g = new Array(n * n).fill(-1); let tries = 0;
+  while (g.filter(v => v >= 0).length < n * n * dens && tries++ < 60) {
+    const w = 1 + R(Math.max(1, n / 2 | 0)), h = 1 + R(Math.max(1, n / 2 | 0)), x = R(n - w + 1), y = R(n - h + 1), c = R(k);
+    for (let r = y; r < y + h; r++) for (let q = x; q < x + w; q++) if (Math.random() < .93) g[r * n + q] = c;
+  }
+  return g;
+}
+function nnMakeC(n, k, dens) {
+  const t0 = Date.now(); let best = null;
+  do {
+    const sol = nnImageC(n, k, dens);
+    for (let c = 0; c < k; c++) if (!sol.includes(c)) continue;
+    if (new Set(sol.filter(v => v >= 0)).size < k) continue;
+    const cl = nnCluesC(sol, n);
+    if (cl.rows.some(r => !r.length) || cl.cols.some(c => !c.length)) { if (n > 5) continue; }
+    if (nnSolvableC(cl, n, k)) return { sol, cl, uniq: true };
+    best = best || { sol, cl, uniq: false };
+  } while (Date.now() - t0 < 3000);
+  return best;
+}
+
+const NNC_COL = ['#2f6fe0', '#e0483c', '#2fa84f', '#f0a500'];
+/* Modo de colores: pista = [[largo, color]...]; casilla g: 0 desconocida, 2 ✕, 10+c color c; solución sol: -1 vacía o color */
+function nonogramaColorMount(el, ctx) {
+  el.innerHTML = '<div class="nn">' +
+    '<div class="nn-row"><div class="nn-lvn"></div><div class="nn-hud"><span class="nn-tm">00:00</span><span class="nn-ms">❌ 0</span></div></div>' +
+    '<div class="nn-row"><select class="nn-lv">' + NN_LV.map((l, i) => l.c ? '<option value="' + i + '">Nivel: ' + l.n + ' ' + l.sz + '×' + l.sz + '</option>' : '').join('') + '</select><button class="nn-go">▶ Nuevo</button></div>' +
+    '<div class="nn-area"><div class="nn-grid"></div></div>' +
+    '<div class="nn-pal"></div>' +
+    '<div class="nn-act nn-act2"><button data-a="hint"><b>💡</b>Pista</button><button data-a="undo"><b>↶</b>Deshacer</button></div>' +
+    '<div class="nn-ov nn-load"><div class="nn-card"><p style="margin:0">Generando puzzle…</p></div></div>' +
+    '<div class="nn-ov nn-msg"><div class="nn-card"><h2 class="nn-mt"></h2><p class="nn-md"></p><button class="nn-again">Jugar de nuevo</button></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), qa = s => [...root.querySelectorAll(s)];
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    tap: () => tone(700, .04), fill: () => tone(560, .06, 'triangle', .25), cross: () => tone(420, .05, 'sine', .2), ok: () => tone(520, .1, 'sine', .25),
+    bad: () => { tone(200, .15, 'square', .15); tone(150, .2, 'square', .12, .1); }, line: () => [523, 659, 784].forEach((f, i) => tone(f, .12, 'sine', .22, i * .07)),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
+  };
+  let S = null, tool = 0, timerId = 0, dead = false, recorded = false, cells = [], rowEls = [], colEls = [], drag = null;
+  const cv = v => v >= 10 ? v - 10 : -1, G = q('.nn-grid');
+  const pill = x => '<i style="background:' + NNC_COL[x[1]] + ';color:' + (x[1] === 3 ? '#222' : '#fff') + ';padding:0 .25em;border-radius:4px">' + x[0] + '</i>';
+  const clueHTML = cl => cl.length ? cl.map(pill).join('') : '<i>0</i>';
+  function save() { if (!S) return; if (S.over) { ctx.save(null); return; } ctx.save(S); }
+  function palette() { q('.nn-pal').innerHTML = NNC_COL.slice(0, S.k).map((c, i) => '<button data-t="' + i + '" style="background:' + c + '"' + (tool === i ? ' class="on"' : '') + '></button>').join('') + '<button data-t="-1"' + (tool === -1 ? ' class="on"' : '') + '>✕</button>'; }
+  function build() {
+    const n = S.n; G.innerHTML = ''; cells = []; rowEls = []; colEls = [];
+    S.rmax = Math.max(...S.cl.rows.map(r => r.length), 1); S.cmax = Math.max(...S.cl.cols.map(c => c.length), 1); G.style.gridTemplateColumns = 'auto repeat(' + n + ', var(--cs))';
+    G.appendChild(document.createElement('div'));
+    for (let c = 0; c < n; c++) { const d = document.createElement('div'); d.className = 'nn-ccl' + (c % 5 === 4 && c < n - 1 ? ' b5' : ''); d.innerHTML = clueHTML(S.cl.cols[c]); G.appendChild(d); colEls.push(d); }
+    for (let r = 0; r < n; r++) {
+      const d = document.createElement('div'); d.className = 'nn-rcl' + (r % 5 === 4 && r < n - 1 ? ' b5' : ''); d.innerHTML = clueHTML(S.cl.rows[r]); G.appendChild(d); rowEls.push(d);
+      for (let c = 0; c < n; c++) { const e = document.createElement('div'); e.dataset.i = r * n + c; e.className = 'nn-c' + (c % 5 === 4 && c < n - 1 ? ' br' : '') + (r % 5 === 4 && r < n - 1 ? ' bb' : ''); G.appendChild(e); cells.push(e); }
+    }
+    layout();
+  }
+  function layout() {
+    if (!S) return; const A = q('.nn-area'), n = S.n, w = A.clientWidth - 6, h = A.clientHeight - 6;
+    const cs = Math.max(10, Math.floor(Math.min(52, w / (n + .72 * S.rmax + .2), h / (n + .8 * S.cmax + .2)))); root.style.setProperty('--cs', cs + 'px');
+  }
+  const lineOK = (arr, clue) => nnSameC(nnRunsC(arr.map(cv)), clue);
+  function paint() {
+    if (!S) return; const n = S.n, g = S.g;
+    cells.forEach((e, i) => { const v = g[i]; e.className = e.className.replace(/ ?(x|er)\b/g, '') + (v === 2 ? ' x' : ''); e.style.background = v >= 10 ? NNC_COL[v - 10] : ''; e.style.borderColor = v >= 10 ? NNC_COL[v - 10] : ''; e.textContent = v === 2 ? '✕' : ''; });
+    for (let r = 0; r < n; r++) rowEls[r].classList.toggle('ok', lineOK(g.slice(r * n, r * n + n), S.cl.rows[r]));
+    for (let c = 0; c < n; c++) { const ln = []; for (let r = 0; r < n; r++) ln.push(g[r * n + c]); colEls[c].classList.toggle('ok', lineOK(ln, S.cl.cols[c])); }
+  }
+  function hud() { q('.nn-tm').textContent = nnFmt(S.t); q('.nn-ms').textContent = '❌ ' + S.mist; q('.nn-lvn').textContent = 'Nonograma · Color'; q('[data-a=hint]').innerHTML = '<b>💡</b>Pista ' + S.hints; q('.nn-lv').value = S.lv; }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && !document.hidden) { S.t++; q('.nn-tm').textContent = nnFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function newGame(lv) {
+    clearInterval(timerId); S = null; recorded = false; q('.nn-msg').classList.remove('show'); q('.nn-load').classList.add('show'); store.set('nono-lv', lv);
+    requestAnimationFrame(() => setTimeout(() => {
+      if (dead) return; const L = NN_LV[lv], n = L.sz, p = nnMakeC(n, L.c, L.d); if (tool >= L.c) tool = 0;
+      S = { cm: 1, lv, n, k: L.c, sol: p.sol, cl: p.cl, g: new Array(n * n).fill(0), mist: 0, hints: 3, t: 0, hist: [], over: false };
+      q('.nn-load').classList.remove('show'); build(); palette(); paint(); hud(); startTimer(); save();
+    }, 20));
+  }
+  function won() { const { g, cl, n } = S; for (let r = 0; r < n; r++) if (!lineOK(g.slice(r * n, r * n + n), cl.rows[r])) return false; for (let c = 0; c < n; c++) { const ln = []; for (let r = 0; r < n; r++) ln.push(g[r * n + c]); if (!lineOK(ln, cl.cols[c])) return false; } return true; }
+  function end() {
+    S.over = true; clearInterval(timerId); S.g = S.g.map(v => v >= 10 ? v : 2); paint();
+    const bt = store.get('nono-best') || {}; let t = 'Color ' + S.n + '×' + S.n + ' · ' + nnFmt(S.t);
+    if (!bt[S.lv] || S.t < bt[S.lv]) { bt[S.lv] = S.t; store.set('nono-best', bt); t += ' · ¡Nuevo récord!'; }
+    q('.nn-mt').textContent = '¡Completado!'; q('.nn-md').textContent = t; setTimeout(() => q('.nn-msg').classList.add('show'), 700); setTimeout(SFX.win, 150); ctx.save(null);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: 'Color ' + S.n + '×' + S.n + ' · completado en ' + nnFmt(S.t) + (S.mist ? ' · ' + S.mist + ' fallos' : '') + (S.hints < 3 ? ' · ' + (3 - S.hints) + ' pistas' : '') }); }
+  }
+  /* pinta una casilla; un color que no corresponde cuenta como fallo y no se aplica */
+  function setCell(i, v, batch) {
+    const old = S.g[i]; if (old === v) return false;
+    if (v >= 10 && S.sol[i] !== v - 10) { S.mist++; SFX.bad(); const e = cells[i]; e.classList.add('er'); setTimeout(() => e.classList.remove('er'), 450); hud(); return false; }
+    batch.push([i, old]); S.g[i] = v; return true;
+  }
+  function onDown(e) {
+    const c = e.target.closest('.nn-c'); if (!c || !S || S.over) return; e.preventDefault();
+    const i = +c.dataset.i, cur = S.g[i], tv = tool >= 0 ? 10 + tool : 2, pv = cur === tv ? 0 : tv;
+    drag = { pv, from: cur, first: i, last: i, axis: 0, batch: [], n: 0 };
+    try { G.setPointerCapture(e.pointerId); } catch (x) { }
+    if (setCell(i, pv, drag.batch)) { drag.n++; (pv >= 10 ? SFX.fill : SFX.cross)(); } paint();
+  }
+  function onMove(e) {
+    if (!drag) return; const t = document.elementFromPoint(e.clientX, e.clientY), c = t && t.closest && t.closest('.nn-c'); if (!c) return;
+    let i = +c.dataset.i; if (i === drag.last) return; const n = S.n;
+    if (!drag.axis) { const r0 = drag.first / n | 0, c0 = drag.first % n, r1 = i / n | 0, c1 = i % n; if (r1 === r0 && c1 !== c0) drag.axis = 1; else if (c1 === c0 && r1 !== r0) drag.axis = 2; else return; }
+    const r0 = drag.first / n | 0, c0 = drag.first % n; i = drag.axis === 1 ? r0 * n + (i % n) : (i / n | 0) * n + c0; if (i === drag.last) return; drag.last = i;
+    const cur = S.g[i]; if (drag.pv === 0 ? cur === drag.from : cur === 0) if (setCell(i, drag.pv, drag.batch)) { drag.n++; (drag.pv >= 10 ? SFX.fill : SFX.cross)(); }
+    paint();
+  }
+  function onUp() {
+    if (!drag) return; const d = drag; drag = null; if (!d.batch.length) return;
+    S.hist.push(d.batch); paint();
+    if (won()) end(); else { const n = S.n; if (d.batch.some(([i]) => { const r = i / n | 0, c = i % n; return rowEls[r].classList.contains('ok') || colEls[c].classList.contains('ok'); })) SFX.line(); }
+    save();
+  }
+  function undo() { if (!S || S.over || !S.hist.length) return; S.hist.pop().reverse().forEach(([i, v]) => { S.g[i] = v; }); SFX.tap(); paint(); save(); }
+  function hint() {
+    if (!S || S.over || S.hints <= 0) return; const bad = []; S.sol.forEach((s, i) => { const g = S.g[i]; if (s >= 0 ? g !== 10 + s : g >= 10) bad.push(i); }); if (!bad.length) return;
+    const i = bad[Math.random() * bad.length | 0]; S.hist.push([[i, S.g[i]]]); S.g[i] = S.sol[i] >= 0 ? 10 + S.sol[i] : 2; S.hints--; SFX.ok(); paint(); hud(); if (won()) end(); save();
+  }
+  G.addEventListener('pointerdown', onDown); G.addEventListener('pointermove', onMove); G.addEventListener('pointerup', onUp); G.addEventListener('pointercancel', onUp);
+  q('.nn-go').onclick = () => { SFX.tap(); newGame(+q('.nn-lv').value); };
+  q('.nn-again').onclick = () => newGame(+q('.nn-lv').value);
+  q('.nn-lv').onchange = SFX.tap;
+  q('.nn-pal').onclick = e => { const b = e.target.closest('button'); if (!b || !S) return; tool = +b.dataset.t; palette(); SFX.tap(); };
+  q('.nn-act').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a === 'undo') undo(); else if (b.dataset.a === 'hint') hint(); };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => layout();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, first = NN_LV.findIndex(l => l.c); let LV0 = ctx.level || 0; if (!NN_LV[LV0] || !NN_LV[LV0].c) LV0 = first + 1;
+  q('.nn-lv').value = LV0;
+  if (sv && sv.cm && !sv.over && sv.g) { S = sv; q('.nn-lv').value = S.lv; build(); palette(); paint(); hud(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
 function nonogramaMount(el, ctx) {
   el.innerHTML = '<div class="nn">' +
     '<div class="nn-row"><div class="nn-lvn"></div><div class="nn-hud"><span class="nn-tm">00:00</span><span class="nn-ms">❌ 0</span></div></div>' +
-    '<div class="nn-row"><select class="nn-lv">' + NN_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.n + ' ' + l.sz + '×' + l.sz + '</option>').join('') + '</select><button class="nn-go">▶ Nuevo</button></div>' +
+    '<div class="nn-row"><select class="nn-lv">' + NN_LV.map((l, i) => l.c ? '' : '<option value="' + i + '">Nivel: ' + l.n + ' ' + l.sz + '×' + l.sz + '</option>').join('') + '</select><button class="nn-go">▶ Nuevo</button></div>' +
     '<div class="nn-area"><div class="nn-grid"></div></div>' +
-    '<div class="nn-act"><button data-a="fill" class="on"><b>■</b>Rellenar</button><button data-a="cross"><b>✕</b>Marcar</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="undo"><b>↶</b>Deshacer</button></div>' +
+    '<div class="nn-act"><button data-a="tool" class="on"><b>■</b>Rellenar</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="undo"><b>↶</b>Deshacer</button></div>' +
     '<div class="nn-ov nn-load"><div class="nn-card"><p style="margin:0">Generando puzzle…</p></div></div>' +
     '<div class="nn-ov nn-msg"><div class="nn-card"><h2 class="nn-mt"></h2><p class="nn-md"></p><button class="nn-again">Jugar de nuevo</button></div></div></div>';
   const root = el.firstElementChild, q = s => root.querySelector(s), qa = s => [...root.querySelectorAll(s)];
@@ -6355,7 +6551,7 @@ function nonogramaMount(el, ctx) {
   q('.nn-lv').onchange = SFX.tap;
   q('.nn-act').onclick = e => {
     const b = e.target.closest('button'); if (!b) return; const a = b.dataset.a;
-    if (a === 'fill' || a === 'cross') { tool = a === 'fill' ? 1 : 2; qa('.nn-act [data-a=fill],.nn-act [data-a=cross]').forEach(x => x.classList.toggle('on', x === b)); SFX.tap(); }
+    if (a === 'tool') { tool = tool === 1 ? 2 : 1; b.innerHTML = tool === 1 ? '<b>■</b>Rellenar' : '<b>✕</b>Marcar'; SFX.tap(); }
     else if (a === 'undo') undo(); else if (a === 'hint') hint();
   };
   const onVis = () => { if (document.hidden) save(); }, onRs = () => layout();
@@ -6377,11 +6573,12 @@ Hub.register({
   },
   rules: '<ul>' +
     '<li>Descubre el dibujo oculto rellenando casillas. Los números a la izquierda de cada fila y encima de cada columna indican las <b>tiradas seguidas</b> de casillas llenas, en orden y separadas por al menos un hueco.</li>' +
-    '<li>Con <b>Rellenar</b> tocas una casilla para llenarla; con <b>Marcar</b> pones una ✕ donde sabes que no va nada. Arrastra el dedo por una fila o columna para pintar varias a la vez.</li>' +
+    '<li>Un solo botón alterna entre <b>Rellenar</b> (llena la casilla) y <b>Marcar</b> (pone una ✕ donde sabes que no va nada): tócalo para cambiar de modo. Arrastra el dedo por una fila o columna para pintar varias casillas a la vez.</li>' +
     '<li>Si rellenas una casilla que no corresponde, se marca como fallo y queda con ✕ (cuenta como error, pero no pierdes la partida).</li>' +
     '<li>Los números de una fila o columna se atenúan cuando ya los has cumplido. <b>Pista</b> corrige o revela una casilla (tienes tres) y <b>Deshacer</b> vuelve atrás.</li>' +
+    '<li><b>Modo Color</b>: cada número tiene el color de las casillas que indica. Elige un color en la paleta de abajo y toca o arrastra para pintar; dos tiradas del <b>mismo color</b> se separan por al menos un hueco, pero las de <b>colores distintos</b> pueden ir pegadas. La ✕ de la paleta marca casillas vacías. Pintar un color equivocado cuenta como fallo.</li>' +
     '<li>Cada puzzle se puede resolver sólo con lógica, sin adivinar (en el tamaño Experto, a veces el generador tarda y puede dar uno más difícil).</li></ul>',
-  mountSingle: nonogramaMount
+  mountSingle: (el, ctx) => { const sv = ctx.resume ? ctx.load() : null, lv = NN_LV[ctx.level || 0]; return ((sv ? !!sv.cm : !!(lv && lv.c)) ? nonogramaColorMount : nonogramaMount)(el, ctx); }
 });
 
 })();
@@ -8537,6 +8734,275 @@ Hub.register({
 Mods.ok("texas");
 
 </script>
+<script type="text/plain" data-mod="flechas" data-deps="">
+/* CTX flechas: Flechas de un jugador (6 niveles, 12×17 a 26×40; hacen scroll en el área de juego). Cuadrícula llena de serpientes con punta de flecha; al tocar una sale deslizándose en la dirección de su punta si su camino hasta el borde está libre. Puzzles generados colocando flechas una a una con el camino libre de las anteriores (siempre resoluble) y afinados (fxTune: dar la vuelta/añadir flechas con comprobación global fxEval) hasta un % de flechas libres al empezar que baja con el nivel (27 % → 3 %). Fallos → estrellas, pista, deshacer y récords (flechas-best). Prefijo fx-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Flechas: colores del hub; todo bajo .fx */
+#stage > .fx{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.fx button,.fx select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.fx button:active{background:var(--accent);color:var(--accent-ink)}
+.fx select{flex:1;min-width:0}
+.fx-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fx-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.fx-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}
+.fx-hud b{color:var(--accent)}.fx-go{font-weight:700}
+.fx-area{flex:1;min-height:0;width:100%;max-width:520px;display:flex;overflow:auto;-webkit-overflow-scrolling:touch}
+.fx-svg{display:block;flex:none;margin:auto;touch-action:manipulation;overflow:visible;background:var(--board);border-radius:10px}
+.fx-dot{fill:var(--muted);opacity:.35}
+.fx-a path{fill:none;stroke-linecap:round;stroke-linejoin:round;cursor:pointer}
+.fx-a polygon{stroke-linejoin:round}
+.fx-a.bl path{stroke:var(--bad)!important}.fx-a.bl polygon{fill:var(--bad)!important;stroke:var(--bad)!important}
+.fx-a.hint{animation:fxh .45s ease-in-out infinite alternate}
+@keyframes fxh{to{filter:brightness(1.35) drop-shadow(0 0 3px var(--accent))}}
+@media (prefers-reduced-motion: reduce){.fx-a.hint{animation:none;filter:drop-shadow(0 0 3px var(--accent))}}
+.fx-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px}
+.fx-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.fx-act b{font-size:1.1rem}
+.fx-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.fx-ov.show{display:flex}
+.fx-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.fx-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.fx-card p{color:var(--muted);margin:0 0 14px}
+.fx-st{font-size:2.2rem;letter-spacing:.15em;color:var(--accent);line-height:1.1;margin-bottom:6px}
+.fx-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.fx-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Flechas · un jugador, 6 niveles. Usa del hub: tema, sonido, guardado y registro de partidas. ===== */
+const FX_LV = [
+  { k: 'Fácil', c: 12, r: 17, len: 5, cand: 16, mr: 3, tf: 0.27 }, { k: 'Medio', c: 14, r: 20, len: 5, cand: 16, mr: 3, tf: 0.2 }, { k: 'Difícil', c: 16, r: 24, len: 5, cand: 20, mr: 3, tf: 0.15 },
+  { k: 'Experto', c: 18, r: 28, len: 5, cand: 24, mr: 3, tf: 0.1 }, { k: 'Maestro', c: 22, r: 34, len: 5, cand: 24, mr: 3, tf: 0.06 }, { k: 'Genio', c: 26, r: 40, len: 5, cand: 24, mr: 3, tf: 0.03 }
+];
+/* los niveles antiguos 4–7 (12×17 a 18×28) son ahora 0–3: se trasladan los récords una sola vez */
+try { if (!store.get('flechas-v2')) { const o = store.get('flechas-best') || {}, n = {}; for (const k in o) if (+k >= 4) n[k - 4] = o[k]; store.set('flechas-best', n); store.set('flechas-v2', 1); } } catch (e) { /* sin almacenamiento */ }
+const FX_D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const fxFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+/*GEN-START*/
+/* Genera una cuadrícula llena de serpientes. Cada una (celdas de cola a cabeza) se coloca con su camino de salida libre de lo ya colocado: la solución es el orden inverso de colocación. Entre varios candidatos se elige el que más caminos de salida previos tapa, para que haya cadenas de dependencias. */
+/* Mejora local: da la vuelta a flechas (cola↔cabeza) mientras el tablero siga resolviéndose y no suban las libres, hasta bajar al porcentaje tf de libres */
+function fxEval(A, C, R) {
+  const n = A.length, occ = new Int16Array(C * R).fill(-1); A.forEach((a, i) => a.forEach(p => { occ[p[1] * C + p[0]] = i; }));
+  const deg = new Int16Array(n), rev = Array.from({ length: n }, () => []);
+  for (let i = 0; i < n; i++) {
+    const a = A[i], h = a[a.length - 1], q = a[a.length - 2], dx = h[0] - q[0], dy = h[1] - q[1], seen = new Set();
+    for (let x = h[0] + dx, y = h[1] + dy; x >= 0 && y >= 0 && x < C && y < R; x += dx, y += dy) { const o = occ[y * C + x]; if (o >= 0 && o !== i && !seen.has(o)) { seen.add(o); deg[i]++; rev[o].push(i); } }
+  }
+  let free = 0; const st = []; for (let i = 0; i < n; i++) if (!deg[i]) { free++; st.push(i); }
+  let done = 0; while (st.length) { const i = st.pop(); done++; for (const k of rev[i]) if (--deg[k] === 0) st.push(k); }
+  return done === n ? free : -1;
+}
+function fxTune(A, C, R, tf, maxLen) {
+  const n0 = A.length; let cur = fxEval(A, C, R); if (cur < 0) return A;
+  const t0 = Date.now(), rnd = k => Math.random() * k | 0, occ = new Uint8Array(C * R); A.forEach(a => a.forEach(p => { occ[p[1] * C + p[0]] = 1; }));
+  const goal = () => Math.max(1, Math.round(A.length * tf));
+  for (let it = 0; it < 30000 && cur > goal() && Date.now() - t0 < 900; it++) {
+    if (Math.random() < .4) {   /* dar la vuelta a una flecha */
+      const i = rnd(A.length); A[i].reverse();
+      const v = fxEval(A, C, R); if (v >= 0 && v <= cur) cur = v; else A[i].reverse();
+    } else {   /* añadir una flecha nueva en huecos libres si el tablero sigue resolviéndose sin más libres */
+      let x = rnd(C), y = rnd(R); if (occ[y * C + x]) continue;
+      const cl = [[x, y]], len = 2 + rnd(maxLen - 1);
+      while (cl.length < len) { const o = []; for (const d of FX_D) { const nx = x + d[0], ny = y + d[1]; if (nx >= 0 && ny >= 0 && nx < C && ny < R && !occ[ny * C + nx] && !cl.some(p => p[0] === nx && p[1] === ny)) o.push([nx, ny]); } if (!o.length) break; [x, y] = o[rnd(o.length)]; cl.push([x, y]); }
+      if (cl.length < 2) continue; if (Math.random() < .5) cl.reverse();
+      A.push(cl); const v = fxEval(A, C, R);
+      if (v >= 0 && v <= cur) { cur = v; cl.forEach(p => { occ[p[1] * C + p[0]] = 1; }); } else A.pop();
+    }
+  }
+  return A;
+}
+function fxGen(C, R, maxLen, cand, mr, tf) {
+  const occ = new Int16Array(C * R).fill(-1), ray = new Int16Array(C * R), A = [], rnd = n => Math.random() * n | 0;
+  const inb = (x, y) => x >= 0 && y >= 0 && x < C && y < R;
+  const rayFree = (hx, hy, d, own) => { for (let x = hx + d[0], y = hy + d[1]; inb(x, y); x += d[0], y += d[1]) if (occ[y * C + x] >= 0 || own.has(y * C + x)) return false; return true; };
+  const walk = (sx, sy, target) => {
+    const cells = [[sx, sy]], own = new Set([sy * C + sx]);
+    while (cells.length < target) {
+      const [x, y] = cells[cells.length - 1], opt = [];
+      for (const d of FX_D) { const nx = x + d[0], ny = y + d[1]; if (inb(nx, ny) && occ[ny * C + nx] < 0 && !own.has(ny * C + nx)) opt.push([nx, ny]); }
+      if (!opt.length) break;
+      const p = opt[rnd(opt.length)]; cells.push(p); own.add(p[1] * C + p[0]);
+    }
+    if (cells.length < 2) return [];
+    const out = [];
+    for (const cl of [cells, cells.slice().reverse()]) {
+      const h = cl[cl.length - 1], q = cl[cl.length - 2], d = [h[0] - q[0], h[1] - q[1]];
+      if (rayFree(h[0], h[1], d, own)) out.push(cl);
+    }
+    return out;
+  };
+  for (let pass = 0; pass < 4; pass++) {
+    const order = []; for (let i = 0; i < C * R; i++) order.push(i);
+    for (let i = order.length - 1; i > 0; i--) { const j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
+    for (const i of order) {
+      if (occ[i] >= 0) continue;
+      const sx = i % C, sy = i / C | 0, MINR = pass < 2 ? mr : pass === 2 ? Math.max(1, mr - 1) : mr > 2 ? 1 : 0; let best = null, bs = -1;
+      for (let k = 0; k < cand; k++) {
+        const target = pass === 3 ? 2 : 2 + rnd(maxLen - 1);
+        for (const cl of walk(sx, sy, target)) { const h = cl[cl.length - 1], q = cl[cl.length - 2], d = [h[0] - q[0], h[1] - q[1]], rl = d[0] > 0 ? C - 1 - h[0] : d[0] < 0 ? h[0] : d[1] > 0 ? R - 1 - h[1] : h[1]; if (rl < MINR) continue; const sc = cl.reduce((s, p) => s + ray[p[1] * C + p[0]], 0) * 3 + cl.length + rl * 1.5 + Math.random() * 2; if (sc > bs) { bs = sc; best = cl; } }
+      }
+      if (best) {
+        const id = A.length, h = best[best.length - 1], q = best[best.length - 2], d = [h[0] - q[0], h[1] - q[1]];
+        best.forEach(p => { occ[p[1] * C + p[0]] = id; });
+        for (let x = h[0] + d[0], y = h[1] + d[1]; inb(x, y); x += d[0], y += d[1]) ray[y * C + x]++;
+        A.push(best);
+      }
+    }
+  }
+  return tf > 0 ? fxTune(A, C, R, tf, maxLen) : A;
+}
+/*GEN-END*/
+const fxDir = a => { const h = a[a.length - 1], q = a[a.length - 2]; return [h[0] - q[0], h[1] - q[1]]; };
+function flechasMount(el, ctx) {
+  el.innerHTML = '<div class="fx">' +
+    '<div class="fx-row"><div class="fx-lvn"></div><div class="fx-hud"><span class="fx-left">Quedan <b>0</b></span><span class="fx-fl">✗ <b>0</b></span><span class="fx-tm">00:00</span></div></div>' +
+    '<div class="fx-row"><select class="fx-lv">' + FX_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.c + '×' + l.r + '</option>').join('') + '</select><button class="fx-go">▶ Nuevo</button></div>' +
+    '<div class="fx-area"></div>' +
+    '<div class="fx-act"><button data-a="undo"><b>↶</b>Deshacer</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="fx-ov"><div class="fx-card"><div class="fx-st"></div><h2 class="fx-mt"></h2><p class="fx-md"></p><div class="fx-btns"><button class="fx-again">Jugar de nuevo</button><button class="fx-next pri">Siguiente nivel</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), qa = s => [...root.querySelectorAll(s)], area = q('.fx-area');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    tap: () => tone(700, .04), out: n => tone(380 + Math.min(n, 12) * 28, .12, 'triangle', .3), ok: () => tone(520, .1, 'sine', .25),
+    bad: () => { tone(200, .15, 'square', .15); tone(150, .2, 'square', .12, .1); },
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
+  };
+  const NS = 'http://www.w3.org/2000/svg', mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  let S = null, svg = null, G = [], occ = null, timerId = 0, recorded = false, hintT = 0, anims = new Set(), dead = false;
+
+  const fresh = lv => { const L = FX_LV[lv]; return { lv, c: L.c, r: L.r, A: fxGen(L.c, L.r, L.len, L.cand, L.mr, L.tf), gone: [], hist: [], fails: 0, t: 0, hints: 0, started: false, over: false }; };
+  function save() { if (!S) return; if (S.over || !S.started) { if (S.over) ctx.save(null); return; } ctx.save(S); }
+  const hue = i => (i * 137.5 + 20) % 360, col = i => 'hsl(' + hue(i).toFixed(0) + ' 68% 52%)';
+  function rebuildOcc() { occ = new Int16Array(S.c * S.r).fill(-1); S.A.forEach((a, i) => { if (!S.gone.includes(i)) a.forEach(p => { occ[p[1] * S.c + p[0]] = i; }); }); }
+  /* primer bloqueo en el camino de la flecha i (índice de flecha) o -1 si está libre */
+  function blocker(i) { const a = S.A[i], h = a[a.length - 1], d = fxDir(a); for (let x = h[0] + d[0], y = h[1] + d[1]; x >= 0 && y >= 0 && x < S.c && y < S.r; x += d[0], y += d[1]) { const o = occ[y * S.c + x]; if (o >= 0 && o !== i) return o; } return -1; }
+  function layout() {
+    if (!S || !svg) return; const w = area.clientWidth, h = area.clientHeight, cs = Math.max(18, Math.min(w / S.c, h / S.r));
+    svg.style.width = (cs * S.c) + 'px'; svg.style.height = (cs * S.r) + 'px';
+  }
+  function arrowEl(i) {
+    const a = S.A[i], d = fxDir(a), h = a[a.length - 1], c = col(i);
+    const g = mk('g', { class: 'fx-a', 'data-i': i });
+    g.appendChild(mk('path', { d: 'M' + a.map(p => (p[0] + .5) + ' ' + (p[1] + .5)).join('L'), stroke: c, 'stroke-width': .2 }));
+    const hx = h[0] + .5, hy = h[1] + .5, px = -d[1], py = d[0];
+    g.appendChild(mk('polygon', { points: [(hx + d[0] * .46) + ',' + (hy + d[1] * .46), (hx - d[0] * .08 + px * .3) + ',' + (hy - d[1] * .08 + py * .3), (hx - d[0] * .08 - px * .3) + ',' + (hy - d[1] * .08 - py * .3)].join(' '), fill: c, stroke: c, 'stroke-width': .06 }));
+    return g;
+  }
+  function build() {
+    area.innerHTML = ''; G = [];
+    svg = mk('svg', { class: 'fx-svg', viewBox: '0 0 ' + S.c + ' ' + S.r });
+    for (let y = 0; y < S.r; y++) for (let x = 0; x < S.c; x++) svg.appendChild(mk('circle', { class: 'fx-dot', cx: x + .5, cy: y + .5, r: .05 }));
+    S.A.forEach((a, i) => { const g = arrowEl(i); G[i] = g; if (S.gone.includes(i)) g.style.display = 'none'; svg.appendChild(g); });
+    area.appendChild(svg); rebuildOcc(); layout();
+  }
+  function hud() {
+    q('.fx-lvn').textContent = FX_LV[S.lv].k;
+    q('.fx-left').innerHTML = 'Quedan <b>' + (S.A.length - S.gone.length) + '</b>';
+    q('.fx-fl').innerHTML = '✗ <b>' + S.fails + '</b>' + (S.hints ? ' 💡' + S.hints : '');
+    q('.fx-tm').textContent = fxFmt(S.t); q('.fx-lv').value = S.lv;
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && S.started && !document.hidden) { S.t++; q('.fx-tm').textContent = fxFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function clearHint() { clearTimeout(hintT); qa('.hint').forEach(e => e.classList.remove('hint')); }
+  function newGame(lv) {
+    clearInterval(timerId); S = fresh(lv); recorded = false; clearHint(); q('.fx-ov').classList.remove('show');
+    ctx.save(null); build(); hud(); startTimer();
+  }
+  function restart() {
+    clearInterval(timerId); S.gone = []; S.hist = []; S.fails = 0; S.t = 0; S.hints = 0; S.started = false; S.over = false; recorded = false; clearHint();
+    q('.fx-ov').classList.remove('show'); ctx.save(null); build(); hud(); startTimer();
+  }
+  /* la serpiente avanza por su propio camino y sigue recto hasta salir del tablero */
+  function slideOut(i) {
+    const a = S.A[i], d = fxDir(a), g = G[i], pth = g.querySelector('path'), poly = g.querySelector('polygon');
+    const h = a[a.length - 1], dist = (d[0] ? (d[0] > 0 ? S.c - h[0] : h[0] + 1) : (d[1] > 0 ? S.r - h[1] : h[1] + 1)) + a.length + 1;
+    const pts = a.map(p => [p[0] + .5, p[1] + .5]); pts.push([h[0] + .5 + d[0] * dist, h[1] + .5 + d[1] * dist]);
+    pth.setAttribute('d', 'M' + pts.map(p => p.join(' ')).join('L'));
+    let lb = 0; for (let k = 1; k < a.length; k++) lb += Math.abs(a[k][0] - a[k - 1][0]) + Math.abs(a[k][1] - a[k - 1][1]);
+    pth.style.strokeDasharray = lb + ' ' + (lb + dist + 4);
+    const ext = dist, dur = Math.min(520, 170 + ext * 28), t0 = performance.now(); anims.add(g);
+    const step = now => {
+      if (dead) return; const k = Math.min(1, (now - t0) / dur), e = k * k * (.4 + .6 * k) / 1, s = e * ext;
+      pth.style.strokeDashoffset = -s; poly.setAttribute('transform', 'translate(' + (d[0] * s) + ' ' + (d[1] * s) + ')');
+      if (k < 1) requestAnimationFrame(step); else { g.style.display = 'none'; anims.delete(g); }
+    };
+    requestAnimationFrame(step);
+  }
+  function popIn(i) {
+    const g = G[i], a = S.A[i], pth = g.querySelector('path'), poly = g.querySelector('polygon');
+    pth.setAttribute('d', 'M' + a.map(p => (p[0] + .5) + ' ' + (p[1] + .5)).join('L')); pth.style.strokeDasharray = ''; pth.style.strokeDashoffset = ''; poly.removeAttribute('transform');
+    g.style.display = ''; if (g.animate) g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250 });
+  }
+  function shake(i, bl) {
+    const g = G[i], d = fxDir(S.A[i]); if (g.animate) g.animate([{ transform: 'translate(0,0)' }, { transform: 'translate(' + (-d[0] * .12) + 'px,' + (-d[1] * .12) + 'px)' }, { transform: 'translate(' + (d[0] * .14) + 'px,' + (d[1] * .14) + 'px)' }, { transform: 'none' }], { duration: 260 });
+    if (bl >= 0) { G[bl].classList.add('bl'); setTimeout(() => G[bl] && G[bl].classList.remove('bl'), 600); }
+  }
+  function tapArrow(i) {
+    if (!S || S.over || S.gone.includes(i)) return; clearHint();
+    const b = blocker(i);
+    if (b >= 0) { S.fails++; S.started = true; SFX.bad(); shake(i, b); hud(); save(); return; }
+    S.started = true; S.gone.push(i); S.hist.push(i); S.A[i].forEach(p => { occ[p[1] * S.c + p[0]] = -1; });
+    slideOut(i); SFX.out(S.A[i].length); hud();
+    if (S.gone.length === S.A.length) end(); else save();
+  }
+  function end() {
+    S.over = true; clearInterval(timerId);
+    let st = S.fails === 0 ? 3 : S.fails <= 2 ? 2 : 1; if (S.hints > 2 && st > 2) st = 2;
+    const bt = store.get('flechas-best') || {}, o = bt[S.lv]; let extra = '';
+    if (!o || S.t < o.t) { bt[S.lv] = { t: S.t, f: S.fails }; store.set('flechas-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.fx-st').textContent = '★'.repeat(st) + '☆'.repeat(3 - st);
+    q('.fx-mt').textContent = st === 3 ? '¡Sin un fallo!' : '¡Tablero despejado!';
+    q('.fx-md').textContent = S.A.length + ' flechas · ' + S.fails + ' fallos · ' + fxFmt(S.t) + extra;
+    q('.fx-next').style.display = S.lv < FX_LV.length - 1 ? '' : 'none';
+    setTimeout(() => q('.fx-ov').classList.add('show'), 700); setTimeout(SFX.win, 200); ctx.save(null);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: FX_LV[S.lv].k + ' · ' + S.A.length + ' flechas · ' + S.fails + ' fallos en ' + fxFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  svg = null;
+  area.onpointerdown = e => {
+    if (!S || S.over || !svg) return; const r = svg.getBoundingClientRect(), x = Math.floor((e.clientX - r.left) / r.width * S.c), y = Math.floor((e.clientY - r.top) / r.height * S.r);
+    if (x < 0 || y < 0 || x >= S.c || y >= S.r) return; e.preventDefault();
+    let i = occ[y * S.c + x];
+    if (i < 0) { /* margen de error: la celda vecina más cercana al dedo */
+      const fx = (e.clientX - r.left) / r.width * S.c - x - .5, fy = (e.clientY - r.top) / r.height * S.r - y - .5, nx = x + (Math.abs(fx) > Math.abs(fy) ? Math.sign(fx) : 0), ny = y + (Math.abs(fx) > Math.abs(fy) ? 0 : Math.sign(fy));
+      if (Math.max(Math.abs(fx), Math.abs(fy)) > .3 && nx >= 0 && ny >= 0 && nx < S.c && ny < S.r) i = occ[ny * S.c + nx];
+    }
+    if (i >= 0) tapArrow(i);
+  };
+  q('.fx-go').onclick = () => { SFX.tap(); newGame(+q('.fx-lv').value); };
+  q('.fx-again').onclick = () => newGame(S.lv);
+  q('.fx-next').onclick = () => newGame(Math.min(FX_LV.length - 1, S.lv + 1));
+  q('.fx-lv').onchange = () => { SFX.tap(); newGame(+q('.fx-lv').value); };
+  q('.fx-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S || S.over) return; const a = b.dataset.a;
+    if (a === 'undo') {
+      if (!S.hist.length) return; const i = S.hist.pop(); S.gone.splice(S.gone.indexOf(i), 1); S.A[i].forEach(p => { occ[p[1] * S.c + p[0]] = i; }); popIn(i); clearHint(); SFX.tap(); hud(); save();
+    } else if (a === 'hint') {
+      const fr = []; S.A.forEach((_, i) => { if (!S.gone.includes(i) && blocker(i) < 0) fr.push(i); }); if (!fr.length) return;
+      S.hints++; clearHint(); const i = fr[Math.random() * fr.length | 0]; G[i].classList.add('hint'); hintT = setTimeout(clearHint, 2200); SFX.ok(); hud(); save();
+    } else if (a === 'redo') { SFX.tap(); restart(); }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => layout();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(FX_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && Array.isArray(sv.A) && FX_LV[sv.lv] && FX_LV[sv.lv].c === sv.c && FX_LV[sv.lv].r === sv.r) { S = sv; build(); hud(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); clearTimeout(hintT); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'flechas', name: 'Flechas', blurb: 'Un jugador · 6 niveles',
+  single: {
+    levels: FX_LV.map(l => l.k), def: 1,
+    info: i => { const L = FX_LV[i], b = (store.get('flechas-best') || {})[i]; return L.c + '×' + L.r + ' casillas · serpientes de hasta ' + L.len + ' casillas' + (b ? ' · Tu mejor: ' + fxFmt(b.t) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Cada serpiente termina en una <b>punta de flecha</b> que indica hacia dónde sale.</li>' +
+    '<li><b>Toca</b> una flecha para que se deslice hacia fuera del tablero siguiendo su dirección. Solo sale si <b>nada se cruza</b> en su camino hasta el borde.</li>' +
+    '<li>Si algo la bloquea, la flecha que estorba se marca en rojo y cuenta un <b>fallo</b>. No hay vidas: puedes seguir jugando.</li>' +
+    '<li>Despeja todo el tablero. ★★★ sin fallos, ★★ hasta 2 fallos y ★ con más. Usar más de 2 <b>Pistas</b> limita a ★★.</li>' +
+    '<li>Truco: empieza por las flechas cuyo camino ya está vacío; al quitarlas se liberan otras. Cualquier flecha libre se puede quitar sin riesgo.</li></ul>',
+  mountSingle: flechasMount
+});
+
+})();
+Mods.ok("flechas");
+</script>
 <script type="text/plain" data-mod="hanoi" data-deps="">
 /* CTX hanoi: Torres de Hanoi de un jugador (3 a 7 discos). Mover tocando origen y destino o arrastrando; estrellas según el mínimo de movimientos (2^n-1); pista óptima desde cualquier posición (hnNext), deshacer y récords (hanoi-best). Prefijo hn-. */
 (function(){const s=document.createElement("style");s.textContent=`/* Torres de Hanoi: colores del hub; todo bajo .hn */
@@ -8968,6 +9434,526 @@ Hub.register({
 
 })();
 Mods.ok("atasco");
+</script>
+<script type="text/plain" data-mod="hilos" data-deps="">
+/* CTX hilos: «Hilos», puzzle de conectar parejas de colores sin cruzar caminos y llenando todo el tablero (estilo flow/pipes, versión libre propia). Los puzzles se generan al vuelo: camino hamiltoniano aleatorio (algoritmo backbite, hlPath) cortado en tramos; cada tramo da una pareja de extremos, así siempre tienen solución. SVG; arrastre con corte de caminos ajenos. Prefijo hl-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Hilos: colores del hub; todo bajo .hl */
+#stage > .hl{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.hl button,.hl select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.hl button:active{background:var(--accent);color:var(--accent-ink)}
+.hl select{flex:1;min-width:0}
+.hl-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.hl-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.hl-hud{display:flex;gap:12px;align-items:center;font:600 .9rem var(--f-mono)}
+.hl-hud b{color:var(--accent)}.hl-go{font-weight:700}
+.hl-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.hl-svg{display:block;background:var(--surface);border:3px solid var(--accent);border-radius:12px;box-shadow:var(--shadow);touch-action:none}
+.hl-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px}
+.hl-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.hl-act b{font-size:1.1rem}
+.hl-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.hl-ov.show{display:flex}
+.hl-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.hl-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.hl-card p{color:var(--muted);margin:0 0 14px}
+.hl-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.hl-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Hilos · un jugador, 5 niveles. Usa del hub: tema, sonido, guardado y registro de partidas. =====
+   Estado: ends[c] = [celdaA, celdaB]; paths[c] = celdas del camino del color c, empezando por un extremo; sol[c] = una solución; celda = fila*n+col. */
+const HL_LV = [{ k: 'Fácil', n: 5, c: 5 }, { k: 'Medio', n: 6, c: 6 }, { k: 'Difícil', n: 7, c: 7 }, { k: 'Experto', n: 8, c: 8 }, { k: 'Maestro', n: 9, c: 9 }];
+const HL_COL = ['#e24b4b', '#3b6fe0', '#2fa84f', '#e8b600', '#f08a24', '#1fb0c8', '#8e55d6', '#e75fa8', '#8a5a3c'];
+const hlFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+/* Camino hamiltoniano aleatorio de n×n: serpiente + movimientos «backbite» (se reconecta un extremo con un vecino y se invierte el tramo) */
+function hlPath(n) {
+  const M = n * n, R = k => Math.random() * k | 0; let p = [];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) p.push(r * n + (r % 2 ? n - 1 - c : c));
+  const nb = x => { const r = x / n | 0, c = x % n, o = []; if (r > 0) o.push(x - n); if (r < n - 1) o.push(x + n); if (c > 0) o.push(x - 1); if (c < n - 1) o.push(x + 1); return o; };
+  for (let s = 0; s < M * 40; s++) {
+    if (R(2)) { const o = nb(p[0]).filter(x => x !== p[1]), j = p.indexOf(o[R(o.length)]); p = p.slice(0, j).reverse().concat(p.slice(j)); }
+    else { const o = nb(p[M - 1]).filter(x => x !== p[M - 2]), j = p.indexOf(o[R(o.length)]); p = p.slice(0, j + 1).concat(p.slice(j + 1).reverse()); }
+  }
+  return p;
+}
+/* Puzzle: el camino se corta en k tramos de al menos 3 celdas; los extremos de cada tramo son una pareja */
+function hlGen(lv) {
+  const { n, c: k } = HL_LV[lv], p = hlPath(n), M = n * n, len = new Array(k).fill(3);
+  for (let r = M - 3 * k; r > 0; r--) len[Math.random() * k | 0]++;
+  const sol = [], ends = []; let i = 0;
+  for (let c = 0; c < k; c++) { const seg = p.slice(i, i + len[c]); i += len[c]; sol.push(seg); ends.push([seg[0], seg[seg.length - 1]]); }
+  return { n, ends, sol };
+}
+function hilosMount(el, ctx) {
+  el.innerHTML = '<div class="hl">' +
+    '<div class="hl-row"><div class="hl-lvn"></div><div class="hl-hud"><span class="hl-cn"></span><span class="hl-fl"></span><span class="hl-tm">00:00</span></div></div>' +
+    '<div class="hl-row"><select class="hl-lv">' + HL_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.n + '×' + l.n + '</option>').join('') + '</select><button class="hl-go">▶ Nuevo</button></div>' +
+    '<div class="hl-area"><svg class="hl-svg" xmlns="http://www.w3.org/2000/svg"></svg></div>' +
+    '<div class="hl-act"><button data-a="undo"><b>↶</b>Deshacer</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="hl-ov hl-msg"><div class="hl-card"><h2 class="hl-mt"></h2><p class="hl-md"></p><div class="hl-btns"><button class="hl-again">Otro puzzle</button><button class="hl-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), svg = q('.hl-svg');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { tap: () => tone(620, .04), step: () => tone(380, .03, 'triangle', .18), done: c => { tone(520 + c * 40, .08, 'sine', .25); tone(780 + c * 40, .1, 'sine', .22, .07); }, cut: () => tone(220, .08, 'square', .1),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i])) };
+  let S = null, own = null, timerId = 0, dead = false, recorded = false, drag = null, CS = 50, flash = -1;
+
+  const nc = () => S.ends.length, adj = (a, b) => Math.abs((a / S.n | 0) - (b / S.n | 0)) + Math.abs(a % S.n - b % S.n) === 1;
+  const isEnd = x => { for (let c = 0; c < nc(); c++) if (S.ends[c][0] === x || S.ends[c][1] === x) return c; return -1; };
+  const done = c => { const P = S.paths[c]; return P.length > 1 && ((P[0] === S.ends[c][0] && P[P.length - 1] === S.ends[c][1]) || (P[0] === S.ends[c][1] && P[P.length - 1] === S.ends[c][0])); };
+  function reown() { own = new Int8Array(S.n * S.n).fill(-1); S.paths.forEach((P, c) => P.forEach(x => { own[x] = c; })); }
+  const counts = () => { let cn = 0, fl = 0; for (let c = 0; c < nc(); c++) if (done(c)) cn++; for (let i = 0; i < own.length; i++) if (own[i] >= 0) fl++; return { cn, fl }; };
+  function save() { if (!S) return; if (S.over) { ctx.save(null); return; } if (S.started) ctx.save(S); }
+  function layout() {
+    const A = q('.hl-area'), px = Math.max(150, Math.floor(Math.min(A.clientWidth - 8, A.clientHeight - 8, 520)));
+    svg.style.width = px + 'px'; svg.style.height = px + 'px'; CS = px / (S ? S.n : 5);
+  }
+  function draw() {
+    const n = S.n, u = 100; let h = '';
+    for (let c = 0; c < nc(); c++) { const col = HL_COL[c]; S.paths[c].forEach(x => { h += '<rect x="' + (x % n) * u + '" y="' + (x / n | 0) * u + '" width="' + u + '" height="' + u + '" fill="' + col + '" opacity=".2"/>'; }); }
+    for (let i = 1; i < n; i++) h += '<path d="M' + i * u + ' 0V' + n * u + 'M0 ' + i * u + 'H' + n * u + '" stroke="var(--line)" stroke-width="2" fill="none"/>';
+    for (let c = 0; c < nc(); c++) {
+      const P = S.paths[c]; if (!P.length) continue; const col = HL_COL[c];
+      const pts = P.map(x => ((x % n) * u + 50) + ',' + ((x / n | 0) * u + 50)).join(' ');
+      h += P.length > 1 ? '<polyline points="' + pts + '" fill="none" stroke="' + col + '" stroke-width="' + (flash === c ? 46 : 36) + '" stroke-linecap="round" stroke-linejoin="round"/>' : '';
+    }
+    for (let c = 0; c < nc(); c++) S.ends[c].forEach(x => {
+      h += '<circle cx="' + ((x % n) * u + 50) + '" cy="' + ((x / n | 0) * u + 50) + '" r="' + (done(c) ? 34 : 30) + '" fill="' + HL_COL[c] + '" stroke="rgba(0,0,0,.25)" stroke-width="3"/>' +
+        '<text x="' + ((x % n) * u + 50) + '" y="' + ((x / n | 0) * u + 63) + '" text-anchor="middle" font-size="38" font-weight="800" fill="#fff" font-family="monospace">' + (c + 1) + '</text>';
+    });
+    if (drag) { const P = S.paths[drag.c], x = P[P.length - 1]; h += '<circle cx="' + ((x % n) * u + 50) + '" cy="' + ((x / n | 0) * u + 50) + '" r="22" fill="none" stroke="#fff" stroke-width="5" opacity=".9"/>'; }
+    svg.setAttribute('viewBox', '0 0 ' + n * u + ' ' + n * u); svg.innerHTML = h;
+  }
+  function hud() {
+    const { cn, fl } = counts(), tot = S.n * S.n;
+    q('.hl-lvn').textContent = 'Hilos · ' + HL_LV[S.lv].k; q('.hl-lv').value = S.lv;
+    q('.hl-cn').innerHTML = 'Pares <b>' + cn + '</b>/' + nc(); q('.hl-fl').innerHTML = 'Lleno <b>' + Math.round(fl * 100 / tot) + '%</b>' + (S.hints ? ' 💡' + S.hints : ''); q('.hl-tm').textContent = hlFmt(S.t);
+  }
+  function refresh() { reown(); draw(); hud(); }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && S.started && !document.hidden) { S.t++; q('.hl-tm').textContent = hlFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function fresh(lv, g) { return { lv, n: g.n, ends: g.ends, sol: g.sol, paths: g.ends.map(() => []), hist: [], t: 0, hints: 0, started: false, over: false }; }
+  function newGame(lv) { clearInterval(timerId); ctx.save(null); recorded = false; q('.hl-msg').classList.remove('show'); S = fresh(lv, hlGen(lv)); layout(); refresh(); startTimer(); }
+  const snapshot = () => JSON.stringify(S.paths);
+  /* ----- reglas de dibujo ----- */
+  function begin(x) {
+    reown(); const e = isEnd(x), o = own[x];
+    if (e >= 0) { S.paths[e] = [x]; return e; }
+    if (o >= 0) { const P = S.paths[o], i = P.indexOf(x); S.paths[o] = P.slice(0, i + 1); return o; }
+    return -1;
+  }
+  function stepTo(c, y) {
+    const P = S.paths[c], last = P[P.length - 1]; if (y === last || !adj(last, y)) return false;
+    if (P.length >= 2 && y === P[P.length - 2]) { P.pop(); return true; }
+    if (done(c)) return false;
+    const i = P.indexOf(y); if (i >= 0) { P.length = i + 1; return true; }
+    reown(); const o = own[y], e = isEnd(y);
+    if (e >= 0 && e !== c) return false;
+    if (o >= 0 && o !== c) { if (e < 0) { const Q = S.paths[o]; S.paths[o] = Q.slice(0, Q.indexOf(y)); SFX.cut(); } else return false; }
+    P.push(y); return true;
+  }
+  function moveTo(c, y) {      // si el puntero salta varias celdas, avanza paso a paso en línea recta
+    for (let g = 0; g < 24; g++) {
+      const P = S.paths[c], last = P[P.length - 1]; if (last === y) return; const n = S.n, lr = last / n | 0, lc = last % n, yr = y / n | 0, yc = y % n;
+      const next = Math.abs(yr - lr) >= Math.abs(yc - lc) ? (yr > lr ? last + n : last - n) : (yc > lc ? last + 1 : last - 1);
+      const was = P.length; if (!stepTo(c, next)) return; if (S.paths[c].length > was && done(c)) SFX.done(c); else SFX.step();
+    }
+  }
+  const cellAt = e => { const r = svg.getBoundingClientRect(), x = Math.floor((e.clientX - r.left - 3) / (r.width - 6) * S.n), y = Math.floor((e.clientY - r.top - 3) / (r.height - 6) * S.n); return x < 0 || y < 0 || x >= S.n || y >= S.n ? -1 : y * S.n + x; };
+  svg.onpointerdown = e => {
+    if (!S || S.over) return; e.preventDefault(); const x = cellAt(e); if (x < 0) return; const snap = snapshot(), c = begin(x); if (c < 0) { S.paths = JSON.parse(snap); return; }
+    drag = { c, snap }; SFX.tap(); try { svg.setPointerCapture(e.pointerId); } catch (z) { /* sin captura */ } refresh();
+  };
+  svg.onpointermove = e => { if (!drag) return; const y = cellAt(e); if (y < 0) return; moveTo(drag.c, y); refresh(); };
+  const up = () => {
+    if (!drag) return; const g = drag; drag = null;
+    if (snapshot() !== g.snap) { S.hist.push(g.snap); if (S.hist.length > 80) S.hist.shift(); S.started = true; reown(); check(); } refresh(); save();
+  };
+  svg.onpointerup = up; svg.onpointercancel = up;
+  function check() {
+    const { cn, fl } = counts(); if (cn !== nc() || fl !== S.n * S.n) return;
+    S.over = true; clearInterval(timerId); ctx.save(null);
+    const bt = store.get('hilos-best') || {}; let extra = ''; if (!bt[S.lv] || S.t < bt[S.lv]) { bt[S.lv] = S.t; store.set('hilos-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.hl-mt').textContent = '¡Todo conectado!'; q('.hl-md').textContent = HL_LV[S.lv].k + ' ' + S.n + '×' + S.n + ' · ' + hlFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') + extra;
+    q('.hl-next').style.display = S.lv < HL_LV.length - 1 ? '' : 'none'; setTimeout(() => q('.hl-msg').classList.add('show'), 700); setTimeout(SFX.win, 150);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: HL_LV[S.lv].k + ' ' + S.n + '×' + S.n + ' · ' + nc() + ' pares en ' + hlFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  q('.hl-go').onclick = () => { SFX.tap(); newGame(+q('.hl-lv').value); };
+  q('.hl-lv').onchange = () => { SFX.tap(); newGame(+q('.hl-lv').value); };
+  q('.hl-again').onclick = () => newGame(S.lv);
+  q('.hl-next').onclick = () => newGame(Math.min(HL_LV.length - 1, S.lv + 1));
+  q('.hl-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S || S.over) return; const a = b.dataset.a;
+    if (a === 'undo') { if (!S.hist.length) return; S.paths = JSON.parse(S.hist.pop()); SFX.tap(); refresh(); save(); }
+    else if (a === 'redo') { if (!S.paths.some(p => p.length)) return; S.hist.push(snapshot()); S.paths = S.ends.map(() => []); SFX.tap(); refresh(); save(); }
+    else if (a === 'hint') {
+      reown(); const bad = []; for (let c = 0; c < nc(); c++) { const P = S.paths[c], sP = S.sol[c]; if (!(P.length === sP.length && (P.every((x, i) => x === sP[i]) || P.every((x, i) => x === sP[sP.length - 1 - i])))) bad.push(c); }
+      if (!bad.length) return; const c = bad.find(k => !done(k)) ?? bad[0], sp = S.sol[c];
+      S.hist.push(snapshot()); S.paths[c] = sp.slice();
+      for (let o = 0; o < nc(); o++) if (o !== c) { const i = S.paths[o].findIndex(x => sp.includes(x)); if (i >= 0) S.paths[o] = S.paths[o].slice(0, i); }
+      S.hints++; S.started = true; flash = c; SFX.done(c); reown(); check(); refresh(); setTimeout(() => { flash = -1; if (S && !dead) draw(); }, 700); save();
+    }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => { layout(); };
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(HL_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && sv.ends && sv.paths && sv.sol && HL_LV[sv.lv] && sv.n === HL_LV[sv.lv].n) { S = sv; layout(); refresh(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'hilos', name: 'Hilos', blurb: 'Un jugador · conecta colores · 5 niveles',
+  single: {
+    levels: HL_LV.map(l => l.k), def: 1,
+    info: i => { const l = HL_LV[i], b = (store.get('hilos-best') || {})[i]; return l.n + '×' + l.n + ' · ' + l.c + ' pares' + (b ? ' · Tu mejor tiempo: ' + hlFmt(b) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Une con un hilo cada pareja de círculos del mismo color. Empieza en un círculo y arrastra el dedo: el hilo avanza celda a celda.</li>' +
+    '<li>Los hilos <b>no pueden cruzarse</b>. Si pasas por encima de otro hilo, lo <b>cortas</b> y tendrás que volver a unirlo.</li>' +
+    '<li>Para ganar hay que conectar todas las parejas y <b>llenar todas las casillas</b> del tablero.</li>' +
+    '<li>Para rehacer un tramo, toca cualquier punto de un hilo y continúa desde ahí, o vuelve atrás sobre él mismo. Tocar un círculo empieza ese color de nuevo.</li>' +
+    '<li><b>Pista</b> coloca bien un color completo (cortando lo que lo estorbe). <b>Deshacer</b> revierte el último trazo.</li>' +
+    '<li>Cada puzzle se genera al momento y tiene solución garantizada. Los números dentro de los círculos ayudan a distinguir colores.</li></ul>',
+  mountSingle: hilosMount
+});
+
+})();
+Mods.ok("hilos");
+</script>
+<script type="text/plain" data-mod="nudos" data-deps="scdict">
+/* CTX nudos: «Nudos», crucigrama sin pistas en español (versión libre inspirada en Knotwords). Tablero con casillas negras; cada ZONA de color lista las letras que contiene (en desorden) y el jugador las reparte para que todas las palabras horizontales y verticales (≥3 letras) estén en el diccionario scdict. Algunas casillas vienen dadas. Puzzles generados al vuelo: relleno por restricciones (ndSearch, palabras comunes lv[0|1]) + zonas conexas + casillas dadas añadidas hasta que la solución sea única. Prefijo nd-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Nudos: colores del hub; todo bajo .nd */
+#stage > .nd{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:48px}
+.nd button,.nd select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.nd button:active{background:var(--accent);color:var(--accent-ink)}
+.nd select{flex:1;min-width:0}
+.nd-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.nd-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.nd-hud{display:flex;gap:12px;align-items:center;font:600 .9rem var(--f-mono)}
+.nd-hud b{color:var(--accent)}.nd-go{font-weight:700}
+.nd-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.nd-grid{display:grid;border:3px solid var(--ink);border-radius:6px;box-shadow:var(--shadow);background:var(--ink)}
+.nd-c{position:relative;width:var(--cs);height:var(--cs);box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:solid var(--line);cursor:pointer;font:700 calc(var(--cs)*.56) var(--f-mono);color:var(--ink)}
+.nd-c.b{background:var(--ink)!important;border:0;cursor:default}
+.nd-c.hl{box-shadow:inset 0 0 0 100px color-mix(in srgb,var(--accent) 18%,transparent)}
+.nd-c.sel{box-shadow:inset 0 0 0 3px var(--accent),inset 0 0 0 100px color-mix(in srgb,var(--accent) 28%,transparent)}
+.nd-c.fx{font-weight:800}
+.nd-c.fx::after{content:"";position:absolute;right:3px;bottom:3px;width:5px;height:5px;border-radius:50%;background:var(--ink);opacity:.45}
+.nd-c.bad{color:var(--bad)}
+.nd-zl{position:absolute;left:2px;top:1px;font:600 calc(var(--cs)*.2)/1 var(--f-mono);color:var(--muted);letter-spacing:.02em;pointer-events:none}
+.nd-kb{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;width:100%;max-width:520px;min-height:46px;align-items:center}
+.nd-kb button{min-width:40px;height:42px;padding:0 8px;font:800 1.15rem var(--f-mono)}
+.nd-kb button.used{opacity:.3}
+.nd-kb .hintx{color:var(--muted);font-size:.8rem}
+.nd-act{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%;max-width:520px}
+.nd-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:.72rem}.nd-act b{font-size:1.05rem}
+.nd-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.nd-ov.show{display:flex}
+.nd-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.nd-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.nd-card p{color:var(--muted);margin:0 0 14px}
+.nd-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.nd-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Nudos · un jugador, 5 niveles. Usa del hub: tema, sonido, guardado y registro de partidas; diccionario scdict. =====
+   Estado: sol[i] = letra de la solución o '#' (bloque); zone[i] = zona (−1 bloque); fixed = casillas dadas; cur[i] = letra puesta por el jugador ('' vacía). */
+/*GEN-START*/
+const ND_LV = [
+  { k: 'Fácil', n: 4, bl: .12, zs: [3, 4], extra: .15, src: 0, mx: 4 },
+  { k: 'Medio', n: 5, bl: .16, zs: [3, 5], extra: .15, src: 0, mx: 5 },
+  { k: 'Difícil', n: 6, bl: .17, zs: [3, 5], extra: .1, src: 1, mx: 6 },
+  { k: 'Experto', n: 7, bl: .19, zs: [3, 5], extra: .05, src: 1, mx: 6 },
+  { k: 'Maestro', n: 8, bl: .2, zs: [3, 5], extra: 0, src: 1, mx: 6 }
+];
+const ndR = k => Math.random() * k | 0;
+function ndShuf(a) { for (let i = a.length - 1; i > 0; i--) { const j = ndR(i + 1), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+function ndNb(n, i) { const r = i / n | 0, c = i % n, o = []; if (r > 0) o.push(i - n); if (r < n - 1) o.push(i + n); if (c > 0) o.push(i - 1); if (c < n - 1) o.push(i + 1); return o; }
+/* Palabras (huecos de ≥3 letras) de un patrón; null si hay un hueco de 2 letras, una casilla sin palabra, tramos demasiado largos o blancas desconectadas. blk[i]=1 bloque */
+function ndSlots(n, blk, mx) {
+  const slots = [], cover = new Uint8Array(n * n);
+  for (let dir = 0; dir < 2; dir++) for (let a = 0; a < n; a++) {
+    let run = [];
+    const flush = () => { if (run.length === 2 || run.length > mx) return false; if (run.length >= 3) { slots.push({ cells: run, dir }); run.forEach(c => { cover[c] = 1; }); } run = []; return true; };
+    for (let b = 0; b < n; b++) { const i = dir ? b * n + a : a * n + b; if (blk[i]) { if (!flush()) return null; } else run.push(i); }
+    if (!flush()) return null;
+  }
+  const whites = []; for (let i = 0; i < n * n; i++) if (!blk[i]) { if (!cover[i]) return null; whites.push(i); }
+  if (!whites.length) return null;
+  const seen = new Set([whites[0]]), st = [whites[0]];
+  while (st.length) for (const d of ndNb(n, st.pop())) if (!blk[d] && !seen.has(d)) { seen.add(d); st.push(d); }
+  return seen.size === whites.length ? { slots, whites } : null;
+}
+function ndPattern(n, bl) {
+  const blk = new Uint8Array(n * n), M = n * n, want = Math.round(M * bl);
+  let c = 0; for (let g = 0; g < 60 && c < want; g++) { const i = ndR(M), j = M - 1 - i; if (!blk[i]) { blk[i] = 1; c++; } if (!blk[j]) { blk[j] = 1; c++; } }
+  return blk;
+}
+/* Búsqueda con restricciones sobre las palabras. L = letras ('' vacío); zrem = por zona {letra: cuántas quedan} (o null); devuelve soluciones (máx. lim) y si se agotó el tiempo */
+function ndSearch(G, L, zrem, lim, rnd, dl) {
+  const out = []; let nodes = 0, timeout = false;
+  const cands = s => {
+    const cl = s.cells, len = cl.length; let base = null;
+    for (let p = 0; p < len; p++) { const ch = L[cl[p]]; if (ch) { const a = G.idx(len, p, ch); if (!base || a.length < base.length) base = a; } }
+    if (!base) base = G.words(len);
+    const res = [], tmp = [];
+    for (const w of base) {
+      let ok = true; tmp.length = 0;
+      for (let p = 0; p < len; p++) {
+        const ch = w[p], cur = L[cl[p]];
+        if (cur) { if (cur !== ch) { ok = false; break; } }
+        else if (zrem) { const z = zrem[G.zone[cl[p]]]; if (!(z[ch] > 0)) { ok = false; break; } z[ch]--; tmp.push(z, ch); }
+      }
+      for (let k = 0; k < tmp.length; k += 2) tmp[k][tmp[k + 1]]++;
+      if (ok) res.push(w);
+    }
+    return res;
+  };
+  const rec = () => {
+    if (timeout) return; if ((++nodes & 127) === 0 && Date.now() > dl) { timeout = true; return; }
+    let bs = null, bc = null;
+    for (const s of G.slots) {
+      if (s.cells.every(c => L[c])) { if (!G.has(s.cells.map(c => L[c]).join(''))) return; continue; }
+      const c = cands(s); if (!c.length) return; if (!bc || c.length < bc.length) { bs = s; bc = c; if (c.length === 1) break; }
+    }
+    if (!bs) { out.push(L.slice()); return; }
+    if (rnd) ndShuf(bc);
+    for (const w of bc) {
+      const set = [];
+      for (let p = 0; p < w.length; p++) { const i = bs.cells[p]; if (!L[i]) { L[i] = w[p]; set.push(i); if (zrem) zrem[G.zone[i]][w[p]]--; } }
+      rec();
+      for (const i of set) { if (zrem) zrem[G.zone[i]][L[i]]++; L[i] = ''; }
+      if (out.length >= lim || timeout) return;
+    }
+  };
+  rec(); return { sols: out, timeout };
+}
+/* Reparte las casillas blancas en zonas conexas de 2 a zs[1] casillas */
+function ndZones(n, whites, zs) {
+  const z = new Int16Array(n * n).fill(-1), W = new Uint8Array(n * n); whites.forEach(i => { W[i] = 1; }); let zc = 0;
+  for (const s of ndShuf(whites.slice())) {
+    if (z[s] >= 0) continue; const tgt = zs[0] + ndR(zs[1] - zs[0] + 1), cl = [s]; z[s] = zc;
+    while (cl.length < tgt) { const nb = []; for (const c of cl) for (const d of ndNb(n, c)) if (W[d] && z[d] < 0 && !nb.includes(d)) nb.push(d); if (!nb.length) break; const d = nb[ndR(nb.length)]; z[d] = zc; cl.push(d); }
+    zc++;
+  }
+  for (let again = true; again;) {   // une las zonas de 1 casilla con la vecina más pequeña
+    again = false; const sz = new Map(); whites.forEach(i => sz.set(z[i], (sz.get(z[i]) || 0) + 1));
+    for (const [k, v] of sz) if (v < 2) {
+      let best = -1, bs = 99; whites.forEach(i => { if (z[i] === k) ndNb(n, i).forEach(d => { if (z[d] >= 0 && z[d] !== k && sz.get(z[d]) < bs) { bs = sz.get(z[d]); best = z[d]; } }); });
+      if (best >= 0) { whites.forEach(i => { if (z[i] === k) z[i] = best; }); again = true; break; }
+    }
+  }
+  const map = new Map(); whites.forEach(i => { if (!map.has(z[i])) map.set(z[i], map.size); z[i] = map.get(z[i]); });
+  return z;
+}
+function ndGame(n, blk, mx, src) {
+  const sl = ndSlots(n, blk, mx); if (!sl) return null;
+  const lists = {}, ix = {}, sets = {}, base = src === 0 ? ScDict.lv[0] : ScDict.lv[1];
+  const G = { n, slots: sl.slots, whites: sl.whites, zone: null,
+    has: w => (sets[w.length] || (sets[w.length] = new Set(G.words(w.length)))).has(w),
+    words: len => lists[len] || (lists[len] = base.filter(w => w.length === len)),
+    idx: (len, p, ch) => { const k = len + '|' + p + '|' + ch; return ix[k] || (ix[k] = G.words(len).filter(w => w[p] === ch)); } };
+  return G;
+}
+function ndMake(lv) {
+  const C = ND_LV[lv], n = C.n, M = n * n, t0 = Date.now(); let tries = 0;
+  for (let att = 0; att < 100000 && Date.now() - t0 < 7000; att++) {
+    const blk = ndPattern(n, C.bl), G = ndGame(n, blk, C.mx, C.src); if (!G) continue;
+    const L = new Array(M).fill(''); for (let i = 0; i < M; i++) if (blk[i]) L[i] = '#';
+    const f = ndSearch(G, L, null, 1, true, Date.now() + 700); if (!f.sols.length) continue;
+    tries++; const sol = f.sols[0]; G.zone = ndZones(n, G.whites, C.zs);
+    const zc = Math.max(...G.whites.map(i => G.zone[i])) + 1;
+    const fixed = new Set(); ndShuf(G.whites.slice()).slice(0, Math.round(G.whites.length * .08)).forEach(i => fixed.add(i));
+    const cap = Math.round(G.whites.length * .42);
+    let unique = false;
+    for (let it = 0; it < 40; it++) {
+      const L2 = new Array(M).fill(''), zrem = Array.from({ length: zc }, () => ({}));
+      for (const i of G.whites) { if (fixed.has(i)) L2[i] = sol[i]; else zrem[G.zone[i]][sol[i]] = (zrem[G.zone[i]][sol[i]] || 0) + 1; }
+      const r = ndSearch(G, L2, zrem, 2, false, Date.now() + 700);
+      if (r.sols.length === 1 && !r.timeout) { unique = true; break; }
+      if (fixed.size >= cap) break;
+      let cell; const alt = r.sols.find(s => G.whites.some(i => s[i] !== sol[i]));
+      if (alt) { const d = G.whites.filter(i => alt[i] !== sol[i] && !fixed.has(i)); cell = d[ndR(d.length)]; }
+      if (cell === undefined) { const d = G.whites.filter(i => !fixed.has(i)); cell = d[ndR(d.length)]; }
+      fixed.add(cell);
+    }
+    if (!unique && tries < 30 && Date.now() - t0 < 5000) continue;
+    if (unique && fixed.size > G.whites.length * .3 && tries < 12) continue;
+    const extra = Math.round(G.whites.length * C.extra), pool = G.whites.filter(i => !fixed.has(i)); ndShuf(pool).slice(0, extra).forEach(i => fixed.add(i));
+    return { n, sol, zone: Array.from(G.zone), fixed: [...fixed], unique };
+  }
+  return null;
+}
+/*GEN-END*/
+
+const ND_HUE = [210, 28, 140, 285, 350, 175, 55, 320];
+const ndFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+function nudosMount(el, ctx) {
+  el.innerHTML = '<div class="nd">' +
+    '<div class="nd-row"><div class="nd-lvn"></div><div class="nd-hud"><span class="nd-fl"></span><span class="nd-tm">00:00</span></div></div>' +
+    '<div class="nd-row"><select class="nd-lv">' + ND_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.n + '×' + l.n + '</option>').join('') + '</select><button class="nd-go">▶ Nuevo</button></div>' +
+    '<div class="nd-area"><div class="nd-grid"></div></div>' +
+    '<div class="nd-kb"></div>' +
+    '<div class="nd-act"><button data-a="undo"><b>↶</b>Deshacer</button><button data-a="del"><b>⌫</b>Borrar</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="nd-ov nd-load show"><div class="nd-card"><p style="margin:0">Generando puzzle…</p></div></div>' +
+    '<div class="nd-ov nd-msg"><div class="nd-card"><h2 class="nd-mt"></h2><p class="nd-md"></p><div class="nd-btns"><button class="nd-again">Otro puzzle</button><button class="nd-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), grid = q('.nd-grid'), kb = q('.nd-kb');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { tap: () => tone(620, .04), put: () => tone(440, .05, 'triangle', .25), del: () => tone(300, .05, 'sine', .2), bad: () => tone(180, .12, 'square', .1), ok: () => tone(520, .1, 'sine', .25),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i])) };
+  let S = null, G = null, cells = [], sel = -1, dir = 0, timerId = 0, dead = false, recorded = false, genSeq = 0, bad = new Set(), CS = 48;
+
+  const save = () => { if (!S) return; if (S.over) { ctx.save(null); return; } if (S.started) ctx.save(S); };
+  /* geometría derivada de sol (ndSlots solo mira bloques) */
+  function geo() {
+    const n = S.n, blk = new Uint8Array(n * n); S.sol.forEach((c, i) => { if (c === '#') blk[i] = 1; });
+    const r = ndSlots(n, blk, 99); G = { n, slots: r.slots, whites: r.whites, zc: Math.max(...r.whites.map(i => S.zone[i])) + 1, zlist: [] };
+    for (let z = 0; z < G.zc; z++) G.zlist.push(r.whites.filter(i => S.zone[i] === z));
+    const adjz = Array.from({ length: G.zc }, () => new Set()); r.whites.forEach(i => ndNb(n, i).forEach(d => { if (!blk[d] && S.zone[d] !== S.zone[i]) adjz[S.zone[i]].add(S.zone[d]); }));
+    G.col = []; for (let z = 0; z < G.zc; z++) { let c = 0; while ([...adjz[z]].some(o => G.col[o] === c)) c++; G.col[z] = c % ND_HUE.length; }
+  }
+  const slotAt = (i, d) => G.slots.find(s => s.dir === d && s.cells.includes(i));
+  const isFix = i => S.fixed.includes(i);
+  const pool = z => G.zlist[z].filter(i => !isFix(i)).map(i => S.sol[i]).sort((a, b) => a.localeCompare(b, 'es'));
+  const placed = (z, ch, skip) => G.zlist[z].filter(i => i !== skip && !isFix(i) && S.cur[i] === ch).length;
+  function layout() {
+    const A = q('.nd-area'), n = S ? S.n : 5; CS = Math.max(26, Math.min(64, Math.floor(Math.min((A.clientWidth - 10) / n, (A.clientHeight - 10) / n)))); root.style.setProperty('--cs', CS + 'px');
+  }
+  function build() {
+    const n = S.n; grid.innerHTML = ''; cells = []; grid.style.gridTemplateColumns = 'repeat(' + n + ',var(--cs))';
+    for (let i = 0; i < n * n; i++) {
+      const e = document.createElement('div'); e.dataset.i = i;
+      if (S.sol[i] === '#') e.className = 'nd-c b';
+      else {
+        const z = S.zone[i], bd = ni => (ni < 0 || S.sol[ni] === '#' || S.zone[ni] !== z) ? '2.5px' : '1px', r = i / n | 0, c = i % n;
+        e.className = 'nd-c'; e.style.background = 'color-mix(in srgb,hsl(' + ND_HUE[G.col[z]] + ' 70% 52%) 24%,var(--surface))';
+        e.style.borderWidth = [r > 0 ? bd(i - n) : '2.5px', c < n - 1 ? bd(i + 1) : '2.5px', r < n - 1 ? bd(i + n) : '2.5px', c > 0 ? bd(i - 1) : '2.5px'].join(' ');
+        e.style.borderColor = 'var(--ink)';
+        const sides = [r > 0 ? i - n : -1, c < n - 1 ? i + 1 : -1, r < n - 1 ? i + n : -1, c > 0 ? i - 1 : -1];
+        e.style.borderColor = sides.map(ni => (ni < 0 || S.sol[ni] === '#' || S.zone[ni] !== z) ? 'var(--ink)' : 'var(--line)').join(' ');
+        if (G.zlist[z][0] === i) { const l = document.createElement('span'); l.className = 'nd-zl'; l.dataset.z = z; e.appendChild(l); }
+        const t = document.createElement('span'); t.className = 'nd-t'; e.appendChild(t);
+      }
+      grid.appendChild(e); cells.push(e);
+    }
+    layout();
+  }
+  function paint() {
+    const n = S.n; bad = new Set();
+    G.slots.forEach(s => { if (s.cells.every(c => S.cur[c] || isFix(c))) { const w = s.cells.map(c => isFix(c) ? S.sol[c] : S.cur[c]).join(''); if (!ScDict.has(w)) s.cells.forEach(c => bad.add(c)); } });
+    const hl = new Set(); if (sel >= 0) { const s = slotAt(sel, dir); if (s) s.cells.forEach(c => hl.add(c)); }
+    for (let i = 0; i < n * n; i++) {
+      if (S.sol[i] === '#') continue; const e = cells[i], fx = isFix(i);
+      e.classList.toggle('fx', fx); e.classList.toggle('bad', !fx && bad.has(i)); e.classList.toggle('hl', hl.has(i) && i !== sel); e.classList.toggle('sel', i === sel);
+      e.querySelector('.nd-t').textContent = fx ? S.sol[i] : S.cur[i];
+    }
+    qaZ().forEach(l => { const z = +l.dataset.z, p = pool(z), left = p.slice(); G.zlist[z].forEach(i => { if (!isFix(i) && S.cur[i]) { const k = left.indexOf(S.cur[i]); if (k >= 0) left.splice(k, 1); } }); l.textContent = left.join(''); l.style.opacity = left.length ? 1 : .35; });
+    keys(); hud();
+  }
+  const qaZ = () => [...grid.querySelectorAll('.nd-zl')];
+  function keys() {
+    kb.innerHTML = ''; if (sel < 0) { kb.innerHTML = '<span class="hintx">Toca una casilla para elegir letra</span>'; return; }
+    const z = S.zone[sel], p = pool(z), fx = isFix(sel), seen = {};
+    p.forEach(ch => {
+      seen[ch] = (seen[ch] || 0) + 1; const used = placed(z, ch, -1) >= seen[ch], b = document.createElement('button'); b.textContent = ch; b.dataset.ch = ch;
+      if (used) b.classList.add('used'); if (fx) b.disabled = true; kb.appendChild(b);
+    });
+  }
+  function hud() {
+    const tot = G.whites.length; let fl = 0; G.whites.forEach(i => { if (isFix(i) || S.cur[i]) fl++; });
+    q('.nd-lvn').textContent = 'Nudos · ' + ND_LV[S.lv].k; q('.nd-lv').value = S.lv; q('.nd-fl').innerHTML = 'Casillas <b>' + fl + '</b>/' + tot + (S.hints ? ' 💡' + S.hints : ''); q('.nd-tm').textContent = ndFmt(S.t);
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && S.started && !document.hidden) { S.t++; q('.nd-tm').textContent = ndFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function pickFirst() { const f = G.whites.find(i => !isFix(i) && !S.cur[i]) ?? G.whites.find(i => !isFix(i)) ?? G.whites[0]; sel = f; dir = slotAt(f, 0) ? 0 : 1; }
+  function newGame(lv) {
+    clearInterval(timerId); ctx.save(null); recorded = false; S = null; q('.nd-msg').classList.remove('show'); q('.nd-load').classList.add('show'); const my = ++genSeq;
+    requestAnimationFrame(() => setTimeout(() => {
+      if (dead || my !== genSeq) return; const g = ndMake(lv);
+      if (!g) { q('.nd-load .nd-card').innerHTML = '<p style="margin:0 0 12px">No se pudo generar el puzzle.</p><button class="nd-retry">Reintentar</button>'; q('.nd-retry').onclick = () => { q('.nd-load .nd-card').innerHTML = '<p style="margin:0">Generando puzzle…</p>'; newGame(lv); }; return; }
+      S = { lv, n: g.n, sol: g.sol, zone: g.zone, fixed: g.fixed, cur: g.sol.map(() => ''), hist: [], t: 0, hints: 0, started: false, over: false };
+      q('.nd-load').classList.remove('show'); geo(); build(); pickFirst(); paint(); startTimer();
+    }, 30));
+  }
+  function setLetter(i, ch, noAdv) {
+    if (isFix(i) || S.sol[i] === '#') return; const old = S.cur[i]; if (old === ch) return;
+    if (ch && placed(S.zone[i], ch, i) >= pool(S.zone[i]).filter(x => x === ch).length) {   // sin copias libres: se mueve una ya colocada (la letra que había en esta casilla vuelve a quedar libre)
+      const src = G.zlist[S.zone[i]].filter(c => c !== i && !isFix(c) && S.cur[c] === ch); if (!src.length) { SFX.bad(); return; }
+      const from = src.find(c => bad.has(c)) ?? src[0]; S.hist.push([from, ch]); S.cur[from] = '';
+    }
+    S.hist.push([i, old]); if (S.hist.length > 200) S.hist.shift(); S.cur[i] = ch; S.started = true; ch ? SFX.put() : SFX.del();
+    if (ch && !noAdv) advance(); paint(); check(); save();
+  }
+  function advance() {
+    const s = slotAt(sel, dir) || slotAt(sel, 1 - dir); if (!s) return; const k = s.cells.indexOf(sel);
+    for (let d = 1; d < s.cells.length; d++) { const c = s.cells[(k + d) % s.cells.length]; if (!isFix(c) && !S.cur[c]) { sel = c; return; } }
+  }
+  function select(i) {
+    if (S.sol[i] === '#') return;
+    if (i === sel) { if (slotAt(i, 1 - dir)) dir = 1 - dir; } else { sel = i; if (!slotAt(i, dir)) dir = 1 - dir; }
+    SFX.tap(); paint();
+  }
+  function check() {
+    if (S.over) return; if (!G.whites.every(i => isFix(i) || S.cur[i]) || bad.size) return;
+    S.over = true; clearInterval(timerId); ctx.save(null);
+    const bt = store.get('nudos-best') || {}; let extra = ''; if (!bt[S.lv] || S.t < bt[S.lv]) { bt[S.lv] = S.t; store.set('nudos-best', bt); extra = ' · ¡Nuevo récord!'; }
+    const words = G.slots.map(s => s.cells.map(c => isFix(c) ? S.sol[c] : S.cur[c]).join(''));
+    q('.nd-mt').textContent = '¡Resuelto!'; q('.nd-md').textContent = ND_LV[S.lv].k + ' ' + S.n + '×' + S.n + ' · ' + ndFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') + extra;
+    q('.nd-next').style.display = S.lv < ND_LV.length - 1 ? '' : 'none'; setTimeout(() => q('.nd-msg').classList.add('show'), 700); setTimeout(SFX.win, 150);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: ND_LV[S.lv].k + ' ' + S.n + '×' + S.n + ' · ' + words.length + ' palabras en ' + ndFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  /* ----- eventos ----- */
+  grid.onclick = e => { if (!S || S.over) return; const c = e.target.closest('.nd-c'); if (c && !c.classList.contains('b')) select(+c.dataset.i); };
+  kb.onclick = e => { const b = e.target.closest('button'); if (!b || !S || S.over || sel < 0 || b.disabled) return; setLetter(sel, b.dataset.ch); };
+  q('.nd-go').onclick = () => { SFX.tap(); newGame(+q('.nd-lv').value); };
+  q('.nd-lv').onchange = () => { SFX.tap(); newGame(+q('.nd-lv').value); };
+  q('.nd-again').onclick = () => newGame(S.lv);
+  q('.nd-next').onclick = () => newGame(Math.min(ND_LV.length - 1, S.lv + 1));
+  q('.nd-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S || S.over) return; const a = b.dataset.a;
+    if (a === 'undo') { if (!S.hist.length) return; const [i, ch] = S.hist.pop(); S.cur[i] = ch; sel = i; SFX.tap(); paint(); save(); }
+    else if (a === 'del') { if (sel >= 0) setLetter(sel, '', true); }
+    else if (a === 'redo') { S.hist.push(...S.cur.map((c, i) => c ? [i, c] : null).filter(Boolean).map(([i, c]) => [i, c])); S.cur = S.sol.map(() => ''); SFX.tap(); paint(); save(); }
+    else if (a === 'hint') {
+      let i = sel; if (i < 0 || isFix(i) || S.cur[i] === S.sol[i]) { const c = G.whites.filter(x => !isFix(x) && S.cur[x] !== S.sol[x]); if (!c.length) return; i = c.find(x => !S.cur[x]) ?? c[0]; sel = i; }
+      const ch = S.sol[i]; S.fixed.push(i); S.cur[i] = ''; S.hints++; S.started = true;
+      const z = S.zone[i], over = placed(z, ch, -1) - pool(z).filter(x => x === ch).length;      // la pista fija una letra: si sobra alguna igual en la zona, se quita
+      for (let k = 0, left = over; left > 0 && k < G.zlist[z].length; k++) { const c = G.zlist[z][k]; if (!isFix(c) && S.cur[c] === ch) { S.cur[c] = ''; left--; } }
+      SFX.ok(); advance(); paint(); check(); save();
+    }
+  };
+  const onKey = e => {
+    if (!S || S.over || e.ctrlKey || e.metaKey || e.altKey || !root.isConnected) return; const k = e.key;
+    if (/^[a-zñA-ZÑ]$/.test(k) && sel >= 0) { setLetter(sel, k.toUpperCase()); e.preventDefault(); }
+    else if (k === 'Backspace' || k === 'Delete') { if (sel >= 0) setLetter(sel, '', true); e.preventDefault(); }
+    else if (k.startsWith('Arrow')) {
+      const n = S.n, dd = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -n, ArrowDown: n }[k]; let j = sel; for (let g = 0; g < n; g++) { j += dd; const r = sel / n | 0; if (j < 0 || j >= n * n || (Math.abs(dd) === 1 && (j / n | 0) !== r)) break; if (S.sol[j] !== '#') { select(j); break; } } e.preventDefault();
+    } else if (k === ' ' || k === 'Tab') { if (sel >= 0 && slotAt(sel, 1 - dir)) { dir = 1 - dir; paint(); } e.preventDefault(); }
+  };
+  document.addEventListener('keydown', onKey);
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => { if (S) layout(); };
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(ND_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && sv.sol && sv.zone && sv.cur && ND_LV[sv.lv] && sv.n === ND_LV[sv.lv].n) { S = sv; q('.nd-load').classList.remove('show'); geo(); build(); pickFirst(); paint(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { dead = true; save(); clearInterval(timerId); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'nudos', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles',
+  single: {
+    levels: ND_LV.map(l => l.k), def: 1,
+    info: i => { const l = ND_LV[i], b = (store.get('nudos-best') || {})[i]; return l.n + '×' + l.n + ' · palabras de 3 a ' + l.mx + ' letras' + (b ? ' · Tu mejor tiempo: ' + ndFmt(b) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Es un <b>crucigrama sin pistas</b>: hay que rellenar el tablero con palabras españolas, horizontales y verticales, de 3 o más letras.</li>' +
+    '<li>El tablero está dividido en <b>zonas de colores</b>. Cada zona muestra en su esquina las letras que lleva, <b>en desorden</b>: cada una se usa exactamente una vez dentro de esa zona.</li>' +
+    '<li>Toca una casilla y elige una letra del teclado de abajo: solo salen las letras de su zona. Si una letra ya está colocada (se ve atenuada), puedes tocarla igualmente: se <b>mueve</b> a la casilla elegida y la letra que había allí vuelve a quedar libre, lo que facilita corregir errores. Tocar de nuevo la misma casilla cambia entre horizontal y vertical. También puedes escribir con el teclado del ordenador.</li>' +
+    '<li>Las casillas con un punto vienen dadas (o reveladas con una pista). Una palabra completa que no está en el diccionario se marca en rojo.</li>' +
+    '<li>Ganas cuando todas las palabras del tablero son válidas. <b>Pista</b> revela la letra de la casilla elegida; <b>Deshacer</b> y <b>Borrar</b> ayudan a corregir.</li>' +
+    '<li>Cada puzzle se genera al momento y tiene una única solución con palabras comunes (se aceptan otras palabras válidas del diccionario que también encajen).</li></ul>',
+  mountSingle: nudosMount
+});
+
+})();
+Mods.ok("nudos");
 </script>
 <script type="text/plain" data-mod="tangram" data-deps="">
 /* CTX tangram: Tangram de un jugador (3 niveles). Puzzles generados ensamblando las 7 piezas por aristas (tgGen, siempre con solución); tablero SVG 12×16 (silueta arriba, bandeja abajo); arrastrar, girar 45°, voltear, imán a vértices; victoria por superficie cubierta (tgSolved), no por posición; pista. */
