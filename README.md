@@ -14,7 +14,7 @@ Al terminar muestra `https://boardgames.<tu-subdominio>.workers.dev`. Ábrelo: y
 
 ## Enlaces directos a cada juego
 `https://<tu-dominio>/game/<id>` abre ese juego directamente (por ejemplo `/game/sudoku`, `/game/texas`, `/game/ajedrez`), ideal para marcadores. El worker sirve el mismo `index.html` para `/` y `/game/*` (`run_worker_first` en `wrangler.jsonc`) e inyecta `window.MJ_PATHS=1`; el cliente abre el juego y mantiene la URL y el título de la pestaña. Un id desconocido lleva al inicio. Sin servidor (archivo abierto, visor de Claude) el mismo enlace se escribe como `#/game/<id>`.
-Ids: ajedrez, ahorcado, atasco, backgammon, brisca, chinchon, cuatro, damas, domino, flechas, flota, hanoi, hilos, hive, mahjong, nonograma, nudos, parchis, rummi, scrabble, solitario, sudoku, tangram, texas, tute, wordle.
+Ids: ajedrez, ahorcado, atasco, backgammon, brisca, chinchon, cuatro, damas, domino, flechas, flota, hanoi, hilos, hive, mahjong, nonograma, nudos, parejas, parchis, rummi, scrabble, solitario, sudoku, tangram, texas, tute, wordle.
 
 ## Actualizar el juego
 El código fuente sin minificar vive en `public/mesa-de-juegos.html` (no se publica: lo excluye `public/.assetsignore`). Para actualizar:

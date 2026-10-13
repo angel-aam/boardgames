@@ -47,7 +47,7 @@ Registrar en `src/games/catalog.js`: `Hub.catalog.push({id, cat:'tablero'|'carta
 
 ## 5. Catálogo (id · categoría · módulo/deps · notas)
 - tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub).
-- cartas: brisca, chinchon, tute (los tres con baraja española), solitario (Klondike, un jugador; poker = baraja inglesa de 52), texas (Texas Hold'em sin límite, torneo de 2–8 con ciegas crecientes; también usa poker).
+- cartas: parejas (memoria 2–4 jugadores, sala o IA; cartas con emojis, tablero 4×4 a 6×8; turno = dos cartas, acierto repite, fallo queda visible hasta {t:'h'}; deck secreto en el anfitrión, la vista solo da valores visibles; IA con memoria 35/70/100 %), brisca, chinchon, tute (los tres con baraja española), solitario (Klondike, un jugador; poker = baraja inglesa de 52), texas (Texas Hold'em sin límite, torneo de 2–8 con ciegas crecientes; también usa poker).
 - puzzles (un jugador): flechas (serpientes con punta de flecha, 6 niveles en cuadrícula 12×17 a 26×40 con scroll cuando no cabe; tocar = sale deslizándose si su camino hasta el borde está libre; generadas con `fxGen` colocando cada una con la salida libre de las ya colocadas y favoreciendo las que tapan salidas previas = siempre resolubles; fallos → estrellas, pista, deshacer, récords `flechas-best`), hilos (conectar parejas de colores sin cruzar y llenando el tablero; SVG; puzzles generados con camino hamiltoniano aleatorio `hlPath` (backbite) cortado en tramos = siempre resolubles; arrastre que corta caminos ajenos; pista = tramo de la solución; récords `hilos-best`), atasco (bloques deslizantes 6×6 estilo «atasco de coches»; puzzles generados al vuelo con escalada y BFS exacto `atSolve` = mínimo de movimientos y pista; arrastre horizontal/vertical con límites; estadísticas `atasco-stats`), hanoi (Torres de Hanoi, 3–7 discos; DOM+CSS, mover tocando o arrastrando, animación FLIP con WAAPI, pista óptima `hnNext`, estrellas por mínimo 2^n−1, récords `hanoi-best`), mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única; un botón alterna Rellenar/Marcar; niveles 4–7 = modo Color: `nnMakeC` (imagen de rectángulos de colores + comprobación con el resolutor por líneas `nnLineC`) y `nonogramaColorMount`; mismo módulo, se elige por `NN_LV[i].c`).
 - palabras (categoría `palabras`, juegos que usan el diccionario `scdict`): nudos (crucigrama sin pistas estilo Knotwords; dep scdict; zonas de colores con las letras que contienen; puzzles generados con `ndMake`: relleno por restricciones con palabras comunes + zonas + casillas dadas hasta solución única (`ndSearch`); se aceptan otras palabras de `ScDict.has`; récords `nudos-best`), scrabble (scdict; español, IA por frecuencia de palabras), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
 - Compartidos: `baraja` (cartas españolas, SVG), `poker`, `qr` (generar QR y códigos de texto; sin lector), `pair` (emparejamiento sin conexión; dep qr), `scdict` (diccionario español ~635k palabras mayúsculas sin tildes, Ñ conservada, sin K/W; `ScDict.W`, `.lv[0|1]` = 8000/20000 más comunes, `.has(w)`), `teclado` (teclado QWERTY móvil con Ñ; `Teclado.mount(el,{enter,del,onKey})`), `dados` (`Dados.roll(n,caras)/one`, `Dados.view`, tema de dado, `Dados.sound`, `Dados.PIPS`).
@@ -114,6 +114,7 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | flota | juego tablero «Hundir la flota» | games/flota/flota.js (+flota.css) | – | Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. |
 | nonograma | juego puzzles «Nonogramas» | games/nonograma/nonograma.js (+nonograma.css) | – | Incluye modo Color (niveles 4–7). Nonogramas de un jugador (varios tamaños) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. |
 | flechas | juego puzzles «Flechas» | games/flechas/flechas.js (+flechas.css) | – | Flechas de un jugador (6 niveles, 12×17 a 26×40): toca una serpiente para que salga por su punta si su camino está libre; generador fxGen (orden inverso de colocación = solución), SVG con animación por stroke-dashoffset, fallos/estrellas, pista, deshacer y récords (flechas-best). |
+| parejas | juego cartas «Parejas» | games/parejas/parejas.js (+parejas.css) | – | Memoria de parejas 2–4 jugadores (sala o IA). Motor PaGame: deck secreto, acciones {t:'f',i} y {t:'h'}; tras un fallo las cartas quedan visibles y los clientes mandan {t:'h'} (idempotente) tras ~1,3 s; opción de tablero 4×4–6×8; IA con memoria por nivel. |
 | hanoi | juego puzzles «Torres de Hanoi» | games/hanoi/hanoi.js (+hanoi.css) | – | Torres de Hanoi de un jugador (3 a 7 discos): toque o arrastre, estrellas según el mínimo de movimientos, pista óptima desde cualquier posición (hnNext), deshacer y récords (hanoi-best). |
 | atasco | juego puzzles «Atasco» | games/atasco/atasco.js (+atasco.css) | – | Bloques deslizantes 6×6: saca el bloque rojo arrastrando los demás; puzzles generados con BFS exacto (atSolve: mínimo de movimientos y pista óptima), estrellas y estadísticas (atasco-stats). |
 | hilos | juego puzzles «Hilos» | games/hilos/hilos.js (+hilos.css) | – | Conectar parejas de colores sin cruzar y llenando todo el tablero (5×5 a 9×9); puzzles generados con hlPath (camino hamiltoniano aleatorio cortado en tramos), pista y récords (hilos-best). |
@@ -1637,6 +1638,7 @@ Hub.catalog.push({ id: 'cuatro', cat: 'tablero', name: '4 en raya', blurb: 'Clá
 Hub.catalog.push({ id: 'mahjong', cat: 'puzzles', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas', mod: 'mahjong' });
 Hub.catalog.push({ id: 'hanoi', cat: 'puzzles', name: 'Torres de Hanoi', blurb: 'Un jugador · 5 niveles', mod: 'hanoi' });
 Hub.catalog.push({ id: 'flechas', cat: 'puzzles', name: 'Flechas', blurb: 'Un jugador · 6 niveles', mod: 'flechas' });
+Hub.catalog.push({ id: 'parejas', cat: 'cartas', name: 'Parejas', blurb: 'Memoria · 2 a 4 jugadores', mod: 'parejas' });
 Hub.catalog.push({ id: 'atasco', cat: 'puzzles', name: 'Atasco', blurb: 'Un jugador · bloques deslizantes · 5 niveles', mod: 'atasco' });
 Hub.catalog.push({ id: 'hilos', cat: 'puzzles', name: 'Hilos', blurb: 'Un jugador · conecta colores · 5 niveles', mod: 'hilos' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
@@ -8734,6 +8736,199 @@ Hub.register({
 Mods.ok("texas");
 
 </script>
+<script type="text/plain" data-mod="parejas" data-deps="">
+/* CTX parejas: Parejas (memoria) 2–4 jugadores (sala o IA). Cartas boca abajo con símbolos; en tu turno levantas dos: si coinciden son tuyas y sigues, si no se ven un momento y pasa el turno. Acciones {t:'f',i:carta} y {t:'h'} (ocultar el fallo; la mandan los clientes tras ~1,3 s o al tocar el siguiente jugador; idempotente). Motor: deck secreto en el anfitrión, la vista solo envía valores de cartas visibles (-1 = oculta). IA con memoria por nivel (35/70/100 %). Opción de tablero 4×4 a 6×8. Prefijo pa-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Parejas: colores del hub; todo bajo .pa */
+#stage > .pa{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.pa-bar{width:100%;max-width:520px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.pa-who{display:flex;align-items:center;gap:6px;padding:5px 10px;border:2px solid var(--line);border-radius:999px;background:var(--surface);font-size:.85rem;min-width:0}
+.pa-who i{width:10px;height:10px;border-radius:50%;flex:none}
+.pa-who b{max-width:8.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pa-who em{font:700 .95rem var(--f-mono);font-style:normal;color:var(--accent)}
+.pa-who.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-soft)}
+.pa-st{min-height:1.4em;text-align:center;font-weight:600;font-size:.95rem}
+.pa-area{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.pa-board{display:grid;gap:var(--g,6px);touch-action:manipulation}
+.pa-c{position:relative;width:var(--cw);height:calc(var(--cw)*1.18);padding:0;border:0;background:none;cursor:pointer;perspective:600px;font:inherit;-webkit-tap-highlight-color:transparent}
+.pa-in{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .35s cubic-bezier(.3,.7,.3,1)}
+.pa-c.up .pa-in,.pa-c.m .pa-in{transform:rotateY(180deg)}
+.pa-b,.pa-f{position:absolute;inset:0;border-radius:calc(var(--cw)*.14);backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;align-items:center;justify-content:center}
+.pa-b{background:repeating-linear-gradient(45deg,var(--accent) 0 7px,color-mix(in srgb,var(--accent) 80%,#000) 7px 14px);border:2px solid color-mix(in srgb,var(--accent) 70%,#000);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.pa-b::after{content:"?";color:#fff;font:800 calc(var(--cw)*.42) var(--f-ui);opacity:.55}
+.pa-f{transform:rotateY(180deg);font-size:calc(var(--cw)*.58);line-height:1;border:3px solid var(--line);background:var(--tint,var(--surface))}
+.pa-c.m .pa-f{border-color:var(--own);opacity:.72}
+.pa-c.up .pa-f{border-color:var(--accent)}
+.pa-c.can:active .pa-in{transform:scale(.95)}
+.pa-c.ok .pa-f{animation:paok .5s ease}
+@keyframes paok{50%{transform:rotateY(180deg) scale(1.12)}}
+.pa-c.no .pa-f{animation:pano .45s ease}
+@keyframes pano{25%{transform:rotateY(180deg) translateX(-4px)}75%{transform:rotateY(180deg) translateX(4px)}}
+@media (prefers-reduced-motion: reduce){.pa-in{transition:none}.pa-c.ok .pa-f,.pa-c.no .pa-f{animation:none}}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Parejas · memoria para 2–4 jugadores (sala o contra la IA) =====
+   Tablero cols×rows de cartas boca abajo (cada símbolo aparece dos veces). Turno: se levantan dos cartas; si coinciden son del jugador y repite;
+   si no, se quedan visibles hasta que alguien pasa a la siguiente (acción {t:'h'}) y juega el siguiente. Gana quien reúne más parejas.
+   Motor en el anfitrión (deck secreto); view() solo envía los valores de las cartas visibles. IA con memoria: recuerda cada carta vista con probabilidad 35/70/100 %. */
+const PA_SYM = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🦆', '🦉', '🐺', '🐴', '🦄', '🐝', '🐢'];
+const PA_SZ = [{ c: 4, r: 4 }, { c: 4, r: 5 }, { c: 5, r: 6 }, { c: 6, r: 8 }];
+const PA_MEM = [.35, .7, 1];
+const paShuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0, t = a[i]; a[i] = a[j]; a[j] = t; } return a; };
+class PaGame {
+  constructor(players, saved, opts) {
+    this.players = players.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+    const z = PA_SZ[Math.max(0, Math.min(PA_SZ.length - 1, opts && opts.sz != null ? opts.sz : 1))]; this.c = z.c; this.r = z.r;
+    const n = z.c * z.r;
+    this.deck = paShuf(Array.from({ length: n }, (_, i) => i >> 1));
+    this.st = new Array(n).fill(0); this.own = new Array(n).fill(-1); this.fl = []; this.pend = false;
+    this.t = 0; this.sc = players.map(() => 0); this.over = false; this.seq = 1; this.last = null;
+    this.mem = players.map(() => ({}));
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.t; }
+  setStart(s) { this.t = s; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, c: this.c, r: this.r, deck: this.deck, st: this.st, own: this.own, fl: this.fl, pend: this.pend, t: this.t, sc: this.sc, over: this.over, seq: this.seq, last: this.last, mem: this.mem })); }
+  nextSeat() { return (this.t + 1) % this.players.length; }
+  see(idx) { this.players.forEach((p, k) => { if (p.bot && Math.random() < PA_MEM[p.lv == null ? 1 : p.lv]) this.mem[k][idx] = this.deck[idx]; }); }
+  hide() { if (!this.pend) return; this.fl.forEach(i => { this.st[i] = 0; }); this.fl = []; this.pend = false; this.t = this.nextSeat(); this.seq++; this.last = { hide: 1 }; }
+  flip(i, idx) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (this.pend) this.hide();
+    if (i !== this.t) return { ok: false, err: 'No es tu turno' };
+    if (!Number.isInteger(idx) || idx < 0 || idx >= this.deck.length) return { ok: false, err: 'Carta no válida' };
+    if (this.st[idx] !== 0) return { ok: false, err: 'Esa carta ya está levantada' };
+    this.st[idx] = 1; this.fl.push(idx); this.see(idx); this.last = { i, idx };
+    if (this.fl.length === 2) {
+      const [a, b] = this.fl;
+      if (this.deck[a] === this.deck[b]) {
+        this.st[a] = this.st[b] = 2; this.own[a] = this.own[b] = i; this.sc[i]++; this.fl = []; this.last = { i, idx, hit: [a, b] };
+        if (this.st.every(s => s === 2)) this.over = true;
+      } else { this.pend = true; this.last = { i, idx, miss: [a, b] }; }
+    }
+    this.seq++;
+    return { ok: true };
+  }
+  act(i, a) {
+    if (!a) return { ok: false, err: 'Acción no válida' };
+    if (a.t === 'h') { if (this.pend && !this.over) this.hide(); return { ok: true }; }
+    if (a.t === 'f') return this.flip(i, a.i);
+    return { ok: false, err: 'Acción no válida' };
+  }
+  view() {
+    return { pub: { c: this.c, r: this.r, v: this.deck.map((d, k) => this.st[k] ? d : -1), st: this.st.slice(), own: this.own.slice(), t: this.t, n: this.players.map(p => p.name), sc: this.sc.slice(), pend: this.pend, fl: this.fl.slice(), over: this.over, seq: this.seq, last: this.last }, priv: {} };
+  }
+  botSeat() { return (!this.over && this.players[this.t].bot) ? this.t : -1; }
+  botDelay() { return this.pend ? 1500 : 750 + Math.random() * 450; }
+  bot(i) {
+    if (this.over || this.t !== i) return;
+    if (this.pend) { this.hide(); return; }
+    const hid = []; this.st.forEach((s, k) => { if (!s) hid.push(k); });
+    const m = this.mem[i], known = hid.filter(k => m[k] !== undefined), unk = hid.filter(k => m[k] === undefined);
+    let pick = -1;
+    if (!this.fl.length) {
+      const by = {}; for (const k of known) (by[m[k]] || (by[m[k]] = [])).push(k);
+      const pr = Object.values(by).find(l => l.length >= 2);
+      pick = pr ? pr[0] : unk.length ? unk[Math.random() * unk.length | 0] : hid[Math.random() * hid.length | 0];
+    } else {
+      const v = this.deck[this.fl[0]], mt = known.find(k => k !== this.fl[0] && m[k] === v), pool = unk.filter(k => k !== this.fl[0]);
+      pick = mt !== undefined ? mt : pool.length ? pool[Math.random() * pool.length | 0] : hid.filter(k => k !== this.fl[0])[0];
+    }
+    if (pick >= 0) this.flip(i, pick);
+  }
+  toHuman(i, name) { const p = this.players[i]; p.bot = false; p.lv = undefined; p.name = name; }
+  toBot(i, lv) { const p = this.players[i]; p.bot = true; p.lv = lv; if (!/\(IA\)$/.test(p.name)) p.name = p.name.slice(0, 9) + ' (IA)'; if (!this.mem[i]) this.mem[i] = {}; }
+  result() {
+    const top = Math.max.apply(null, this.sc), winners = this.sc.map((s, i) => s === top ? i : -1).filter(i => i >= 0);
+    return {
+      win: winners[0], winners, tie: winners.length > 1,
+      rows: this.players.map((p, i) => ({ name: p.name, note: this.sc[i] + (this.sc[i] === 1 ? ' pareja' : ' parejas'), pts: this.sc[i], txt: String(this.sc[i]) }))
+    };
+  }
+}
+
+/* ----- Pantalla ----- */
+function parejasMount(el, ctx) {
+  el.innerHTML = '<div class="pa"><div class="pa-bar"></div><div class="pa-st"></div><div class="pa-area"><div class="pa-board"></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), area = q('.pa-area'), board = q('.pa-board');
+  const T = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { flip: () => T(520, .05, 'triangle', .3), hit: () => { T(660, .12, 'sine', .3); T(880, .18, 'sine', .3, .1); }, miss: () => { T(220, .15, 'square', .15); T(180, .2, 'square', .12, .1); }, bad: () => T(150, .15, 'sawtooth', .15) };
+  const COLS = ['var(--t0)', 'var(--t1)', 'var(--t2)', 'var(--t3)'];
+  const V = { pub: null, pending: false, built: '', hideT: 0, cards: [] };
+  const hue = v => (v * 47 + 15) % 360;
+  function build(P) {
+    const key = P.c + 'x' + P.r; if (V.built === key) return; V.built = key;
+    board.innerHTML = ''; V.cards = [];
+    board.style.gridTemplateColumns = 'repeat(' + P.c + ',auto)';
+    for (let i = 0; i < P.c * P.r; i++) {
+      const b = document.createElement('button'); b.className = 'pa-c'; b.dataset.i = i; b.setAttribute('aria-label', 'Carta ' + (i + 1));
+      b.innerHTML = '<div class="pa-in"><div class="pa-b"></div><div class="pa-f"></div></div>'; board.appendChild(b); V.cards.push(b);
+    }
+    layout();
+  }
+  function layout() {
+    const P = V.pub; if (!P) return; const w = area.clientWidth, h = area.clientHeight, g = P.c >= 6 ? 4 : 6;
+    const cw = Math.max(24, Math.floor(Math.min((w - g * (P.c - 1)) / P.c, ((h - g * (P.r - 1)) / P.r) / 1.18)));
+    board.style.setProperty('--cw', cw + 'px'); board.style.setProperty('--g', g + 'px');
+  }
+  const myTurn = () => { const P = V.pub; return !!P && !P.over && !V.pending && (P.pend ? (P.t + 1) % P.n.length === ctx.me : P.t === ctx.me); };
+  function render(fresh) {
+    const P = V.pub; if (!P) return; build(P);
+    const lastHit = fresh && P.last && P.last.hit ? P.last.hit : [], lastMiss = fresh && P.last && P.last.miss ? P.last.miss : [];
+    V.cards.forEach((c, k) => {
+      const up = P.st[k] === 1, m = P.st[k] === 2, f = c.querySelector('.pa-f');
+      c.classList.toggle('up', up); c.classList.toggle('m', m);
+      c.classList.toggle('can', myTurn() && P.st[k] === 0 && !(P.pend && false));
+      c.classList.toggle('ok', lastHit.includes(k)); c.classList.toggle('no', lastMiss.includes(k));
+      if (P.v[k] >= 0) { f.textContent = PA_SYM[P.v[k]]; f.style.setProperty('--tint', 'hsl(' + hue(P.v[k]) + ' 70% 88%)'); }
+      else { f.textContent = ''; }
+      if (m) c.style.setProperty('--own', COLS[P.own[k] % 4]);
+    });
+    q('.pa-bar').innerHTML = P.n.map((nm, i) => '<div class="pa-who' + (!P.over && (P.pend ? false : P.t === i) ? ' on' : '') + (P.pend && P.t === i ? ' on' : '') + '"><i style="background:' + COLS[i % 4] + '"></i><b>' + (i === ctx.me ? 'Tú' : esc(nm)) + '</b><em>' + P.sc[i] + '</em></div>').join('');
+    let msg;
+    if (P.over) { const top = Math.max.apply(null, P.sc), ws = P.sc.map((s, i) => s === top ? i : -1).filter(i => i >= 0); msg = ws.length > 1 ? 'Empate' : ws[0] === ctx.me ? '¡Has ganado!' : 'Gana ' + esc(P.n[ws[0]]); }
+    else if (P.pend) msg = P.t === ctx.me ? 'No coinciden. Memoriza…' : 'No coinciden (' + esc(P.n[P.t]) + ')';
+    else if (P.t === ctx.me) msg = P.fl.length ? 'Elige la segunda carta' : 'Tu turno: elige una carta';
+    else msg = 'Juega ' + esc(P.n[P.t]) + '…';
+    q('.pa-st').innerHTML = msg;
+  }
+  function onClick(e) {
+    const c = e.target.closest('.pa-c'); if (!c || !V.pub) return;
+    const P = V.pub, k = +c.dataset.i;
+    if (!myTurn() || P.st[k] !== 0) { if (P.st[k] === 0 && !P.over) SFX.bad(); return; }
+    V.pending = true; ctx.send({ t: 'f', i: k });
+  }
+  board.addEventListener('click', onClick);
+  const onRs = () => layout(); window.addEventListener('resize', onRs);
+  return {
+    update(st) {
+      const prev = V.pub; V.pub = st.pub; V.pending = false; clearTimeout(V.hideT);
+      const P = st.pub, fresh = !!prev && prev.seq !== P.seq;
+      render(fresh);
+      if (fresh && P.last) { if (P.last.hit) SFX.hit(); else if (P.last.miss) SFX.miss(); else if (P.last.idx != null) SFX.flip(); }
+      if (P.pend && !P.over) V.hideT = setTimeout(() => { ctx.send({ t: 'h' }); }, P.t === ctx.me ? 1300 : 3200);
+    },
+    rejected(err) { V.pending = false; ctx.toast(String(err || 'Jugada no válida')); SFX.bad(); render(false); },
+    destroy() { clearTimeout(V.hideT); board.removeEventListener('click', onClick); window.removeEventListener('resize', onRs); el.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'parejas', name: 'Parejas', blurb: 'Memoria · 2 a 4 jugadores', min: 2, max: 4,
+  bots: { min: 1, max: 3, levels: ['Fácil', 'Normal', 'Difícil'] },
+  options: [{ k: 'sz', name: 'Tablero', vals: ['4×4 · 8 parejas', '4×5 · 10 parejas', '5×6 · 15 parejas', '6×8 · 24 parejas'], def: 1, desc: ['Partida rápida.', 'Tablero clásico.', 'Más cartas que recordar.', 'Para buenas memorias.'] }],
+  rules: '<ul>' +
+    '<li>Las cartas están <b>boca abajo</b> y cada símbolo aparece dos veces. Gana quien reúne <b>más parejas</b>.</li>' +
+    '<li>En tu turno <b>toca dos cartas</b> para levantarlas. Si son iguales, la pareja es tuya y <b>vuelves a jugar</b>.</li>' +
+    '<li>Si no coinciden, se quedan visibles un momento para que todos las memoricen; luego se vuelven a tapar y juega el siguiente. Puedes tocar una carta para pasar antes si te toca.</li>' +
+    '<li>El color del borde de una pareja indica quién la ha ganado.</li>' +
+    '<li>Contra la IA, el nivel cambia lo bien que recuerda las cartas que ya ha visto.</li></ul>',
+  createEngine: (players, saved, opts) => new PaGame(players, saved, opts),
+  mount: parejasMount
+});
+
+})();
+Mods.ok("parejas");
+</script>
 <script type="text/plain" data-mod="flechas" data-deps="">
 /* CTX flechas: Flechas de un jugador (6 niveles, 12×17 a 26×40; hacen scroll en el área de juego). Cuadrícula llena de serpientes con punta de flecha; al tocar una sale deslizándose en la dirección de su punta si su camino hasta el borde está libre. Puzzles generados colocando flechas una a una con el camino libre de las anteriores (siempre resoluble) y afinados (fxTune: dar la vuelta/añadir flechas con comprobación global fxEval) hasta un % de flechas libres al empezar que baja con el nivel (27 % → 3 %). Fallos → estrellas, pista, deshacer y récords (flechas-best). Prefijo fx-. */
 (function(){const s=document.createElement("style");s.textContent=`/* Flechas: colores del hub; todo bajo .fx */
@@ -9957,7 +10152,7 @@ Mods.ok("nudos");
 </script>
 <script type="text/plain" data-mod="tangram" data-deps="">
 /* CTX tangram: Tangram de un jugador (3 niveles). Puzzles generados ensamblando las 7 piezas por aristas (tgGen, siempre con solución); tablero SVG 12×16 (silueta arriba, bandeja abajo); arrastrar, girar 45°, voltear, imán a vértices; victoria por superficie cubierta (tgSolved), no por posición; pista. */
-(function(){const s=document.createElement("style");s.textContent="/* Tangram: colores del hub; todo bajo .tg */\n#stage > .tg{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}\n.tg button,.tg select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}\n.tg button:active{background:var(--accent);color:var(--accent-ink)}\n.tg select{flex:1;min-width:0}\n.tg-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}\n.tg-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}\n.tg-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}\n.tg-go{font-weight:700}\n.tg-area{flex:1;min-height:0;width:100%;max-width:560px;display:flex}\n.tg-svg{width:100%;height:100%;touch-action:none;display:block}\n.tg-sil{fill:color-mix(in srgb,var(--ink) 24%,var(--surface));stroke:color-mix(in srgb,var(--ink) 24%,var(--surface));stroke-width:.05;stroke-linejoin:round}\n.tg-gd{fill:none;stroke:color-mix(in srgb,var(--ink) 55%,var(--surface));stroke-width:.04;stroke-dasharray:.14 .1;stroke-linejoin:round}\n.tg-sep{stroke:var(--line);stroke-width:.05;stroke-dasharray:.2 .2}\n.tg-p{cursor:grab}\n.tg-p polygon{stroke:rgba(0,0,0,.4);stroke-width:.06;stroke-linejoin:round;fill-opacity:.96}\n.tg-p.sel polygon{stroke:var(--ink);stroke-width:.14;filter:drop-shadow(0 .12px .22px rgba(0,0,0,.45))}\n.tg-act{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%;max-width:520px;flex:none}\n.tg-act button{padding:6px 2px;font-size:.66rem;display:flex;flex-direction:column;align-items:center;gap:1px}\n.tg-act b{font-size:1.15rem;font-weight:400}\n.tg-ov{position:fixed;inset:0;background:rgba(10,25,45,.55);display:none;align-items:center;justify-content:center;z-index:15}\n.tg-ov.show{display:flex}\n.tg-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:26px 30px;text-align:center;max-width:88vw}\n.tg-card h2{color:var(--accent);margin:0 0 8px;font-size:1.3rem}.tg-card p{color:var(--muted);margin:0 0 16px}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Tangram: colores del hub; todo bajo .tg */\n#stage > .tg{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}\n.tg button,.tg select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}\n.tg button:active{background:var(--accent);color:var(--accent-ink)}\n.tg select{flex:1;min-width:0}\n.tg-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}\n.tg-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}\n.tg-hud{display:flex;gap:12px;align-items:center;font:600 .95rem var(--f-mono)}\n.tg-go{font-weight:700}\n.tg-area{flex:1;min-height:0;width:100%;max-width:560px;display:flex}\n.tg-svg{width:100%;height:100%;touch-action:none;display:block}\n.tg-sil{fill:color-mix(in srgb,var(--ink) 24%,var(--surface));stroke:color-mix(in srgb,var(--ink) 24%,var(--surface));stroke-width:.05;stroke-linejoin:round}\n.tg-gd{display:none;fill:none;stroke:color-mix(in srgb,var(--ink) 55%,var(--surface));stroke-width:.04;stroke-dasharray:.14 .1;stroke-linejoin:round}\nbody[data-assist] .tg-gd{display:inline}\n.tg-sep{stroke:var(--line);stroke-width:.05;stroke-dasharray:.2 .2}\n.tg-p{cursor:grab}\n.tg-p polygon{stroke:rgba(0,0,0,.4);stroke-width:.06;stroke-linejoin:round;fill-opacity:.96}\n.tg-p.sel polygon{stroke:var(--ink);stroke-width:.14;filter:drop-shadow(0 .12px .22px rgba(0,0,0,.45))}\n.tg-act{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%;max-width:520px;flex:none}\n.tg-act button{padding:6px 2px;font-size:.66rem;display:flex;flex-direction:column;align-items:center;gap:1px}\n.tg-act b{font-size:1.15rem;font-weight:400}\n.tg-ov{position:fixed;inset:0;background:rgba(10,25,45,.55);display:none;align-items:center;justify-content:center;z-index:15}\n.tg-ov.show{display:flex}\n.tg-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:26px 30px;text-align:center;max-width:88vw}\n.tg-card h2{color:var(--accent);margin:0 0 8px;font-size:1.3rem}.tg-card p{color:var(--muted);margin:0 0 16px}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Tangram · un jugador. Rellena la silueta con las 7 piezas (o 4 en Fácil) arrastrándolas, girándolas y volteándolas. =====
    Geometría: cuadrado de lado 4 → 2 triángulos grandes (L), 1 mediano (M), 2 pequeños (S), 1 cuadrado (Q), 1 paralelogramo (P).
@@ -9974,7 +10169,7 @@ for (const k in TG_BASE) { const b = TG_BASE[k], cx = b.reduce((s, p) => s + p[0
 const TG_AREA = { L: 4, M: 2, S: 1, Q: 2, P: 2 };
 const TG_COL = ['#e0475b', '#f0833a', '#f2c230', '#3fb56b', '#2f9ad6', '#7b61d6', '#d65fb0'];
 const TG_LV = [
-  { n: 'Fácil', d: '4 piezas · con guía', k: 4, guide: true }, { n: 'Normal', d: '7 piezas · con guía', k: 7, guide: true }, { n: 'Difícil', d: '7 piezas · solo silueta', k: 7, guide: false }
+  { n: 'Fácil', d: '4 piezas', k: 4, guide: true }, { n: 'Normal', d: '7 piezas', k: 7, guide: true }, { n: 'Difícil', d: '7 piezas · menos imán', k: 7, guide: false }
 ];
 const TG_W = 12, TG_H = 16, TG_TOP = 8.6;
 const tgFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
@@ -10101,7 +10296,7 @@ function tangramMount(el, ctx) {
     for (const p of S.tgt) {
       const e = document.createElementNS(NS, 'polygon'); e.setAttribute('points', tgVerts(p.type, p).map(v => v[0].toFixed(3) + ',' + v[1].toFixed(3)).join(' ')); e.setAttribute('class', 'tg-sil'); gT.appendChild(e);
     }
-    if (TG_LV[S.lv].guide) for (const p of S.tgt) { const e = document.createElementNS(NS, 'polygon'); e.setAttribute('points', tgVerts(p.type, p).map(v => v[0].toFixed(3) + ',' + v[1].toFixed(3)).join(' ')); e.setAttribute('class', 'tg-gd'); gT.appendChild(e); }
+    for (const p of S.tgt) { const e = document.createElementNS(NS, 'polygon'); e.setAttribute('points', tgVerts(p.type, p).map(v => v[0].toFixed(3) + ',' + v[1].toFixed(3)).join(' ')); e.setAttribute('class', 'tg-gd'); gT.appendChild(e); }
     for (const p of S.pcs) {
       const g = document.createElementNS(NS, 'g'), e = document.createElementNS(NS, 'polygon');
       g.setAttribute('class', 'tg-p'); g.dataset.id = p.id; e.setAttribute('points', poly(p.type)); e.setAttribute('fill', TG_COL[p.id]); g.appendChild(e); gP.appendChild(g); els[p.id] = g;
@@ -10200,7 +10395,7 @@ Hub.register({
   rules: '<ul>' +
     '<li>Rellena la <b>silueta</b> de arriba con todas las piezas de la bandeja, sin dejar huecos ni montar unas sobre otras. Son 7 piezas: 2 triángulos grandes, 1 mediano, 2 pequeños, 1 cuadrado y 1 paralelogramo.</li>' +
     '<li><b>Arrastra</b> una pieza para moverla; al soltarla cerca de una esquina de la silueta o de otra pieza se pega sola. Toca una pieza para seleccionarla y usa <b>Girar</b> (de 45° en 45°) y <b>Voltear</b> (útil sobre todo con el paralelogramo).</li>' +
-    '<li>En <b>Fácil</b> solo hay 4 piezas y se ven las líneas de la solución; en <b>Normal</b> hay 7 piezas con guía; en <b>Difícil</b> solo ves la silueta.</li>' +
+    '<li>En <b>Fácil</b> solo hay 4 piezas; en <b>Normal</b> y <b>Difícil</b> hay 7. En Fácil y Normal las piezas se pegan a todas las esquinas de la solución; en Difícil solo a las de la silueta.</li><li>Con la <b>Ayuda visual</b> (menú ☰) se dibujan, punteadas, las líneas de las formas de la solución dentro de la silueta. Si la desactivas, solo ves la silueta lisa.</li>' +
     '<li><b>Pista</b> coloca una pieza en su sitio (tienes tres). Cualquier forma de rellenar la silueta vale, no tiene que coincidir con la del dibujo.</li>' +
     '<li>Cada puzzle se genera al azar a partir de las propias piezas, así que siempre tiene solución.</li></ul>',
   mountSingle: tangramMount
