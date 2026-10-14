@@ -1528,7 +1528,8 @@ function mountMatch() {
   show('stage');
   H.view = H.game.mount(st, {
     me: H.seat, solo: H.role === 'solo', nick: H.nick,
-    send: a => sendAction(a), toast, tone: Sfx.tone
+    send: a => sendAction(a), toast, tone: Sfx.tone,
+    again: () => { if (H.lastR && H.overKey === H.gid) showResult(H.lastR, true); }
   });
 }
 function sendAction(a) {
@@ -1577,14 +1578,13 @@ function scheduleBot() {
     afterAct();
   }, e.botDelay ? e.botDelay() : 800 + Math.random() * 600);
 }
-function showResult(r) {
-  if (H.overKey === H.gid) return;
-  H.overKey = H.gid;
+function showResult(r, re) {
+  if (!re && H.overKey === H.gid) return;
+  H.overKey = H.gid; H.lastR = r;
   const winners = r.winners || [r.win];
   const won = winners.includes(H.seat) && !r.tie;
-  if (won) Sfx.win(); else Sfx.lose();
   const rows = r.rows;
-  Hist.record(r, won);
+  if (!re) { if (won) Sfx.win(); else Sfx.lose(); Hist.record(r, won); }
   const list = rows.map((x, i) => '<div class="' + (winners.includes(i) ? 'w' : '') + '"><span>' + (i === H.seat ? 'Tú' : esc(x.name)) + ' · ' + esc(x.note) + '</span>' + (x.txt !== undefined ? '<b>' + esc(x.txt) + '</b>' : '<b class="' + (x.pts >= 0 ? 'pos' : 'neg') + '">' + (x.pts > 0 ? '+' : '') + x.pts + '</b>') + '</div>').join('');
   let btns;
   if (H.role === 'solo') btns = '<button class="btn primary" data-act="again">Otra partida</button><button class="btn" data-act="tomenu">Salir</button>';
@@ -1654,7 +1654,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.4.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.4.1';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -11610,7 +11610,9 @@ function boggleRoomMount(el, ctx) {
     fd.innerHTML = '<div class="bg-rk">' + order.map((i, k) => '<div class="bg-rr' + (i === me ? ' me' : '') + '"><div class="bg-rh"><span>' + (k + 1) + '. <b>' + (i === me ? 'Tú' : esc(P.n[i])) + '</b></span><em>' + R.pl[i].sc + ' pts</em></div><div class="bg-rw">' +
       (R.pl[i].ws.length ? R.pl[i].ws.map(x => '<span class="' + (x.d ? 'dp' : '') + '">' + x.w + '<sup>' + (x.d ? '0' : x.p) + '</sup></span>').join(' · ') : '<span class="muted">Sin palabras</span>') + '</div></div>').join('') + '</div>' +
       '<div class="bg-miss"><b>Nadie encontró (' + R.nmiss + ' de ' + R.total + '):</b> ' + R.miss.map(w => w[0] === '*' ? '<b>' + w.slice(1) + '</b>' : w).join(' · ') + (R.nmiss > R.miss.length ? ' · … y ' + (R.nmiss - R.miss.length) + ' más' : '') + '</div>' +
-      (P.dup === 1 ? '<p class="muted small">Las palabras tachadas las encontró más de un jugador y no puntúan.</p>' : '');
+      (P.dup === 1 ? '<p class="muted small">Las palabras tachadas las encontró más de un jugador y no puntúan.</p>' : '') +
+      '<button class="btn primary bg-again" style="width:100%;margin:8px 0">Volver a jugar · opciones</button>';
+    const ag = fd.querySelector('.bg-again'); if (ag) ag.onclick = () => ctx.again && ctx.again();
   }
   function submit() {
     if (!P || P.over || pend || !path.length || preLeft() > 0 || left() <= 0) return;
@@ -11645,9 +11647,11 @@ function boggleRoomMount(el, ctx) {
     update(st) {
       P = st.pub; V = st.priv; rt = Date.now(); pend = false;
       if (P.b && !built) build();
-      if (V.last && V.last.n !== lastN) { if (lastN >= 0 || V.last.n > 0) { SFX.ok(V.last.p); if (P.b) flash('ok', V.last.w + ' +' + V.last.p); } lastN = V.last.n; }
       renderFound(); hud();
-      if (P.over && P.res) { clearInterval(intId); results(); } else paintPath();
+      if (P.over && P.res) { clearInterval(intId); clearTimeout(curT); results(); return; }
+      let fl = false;
+      if (V.last && V.last.n !== lastN) { if (lastN >= 0 || V.last.n > 0) { SFX.ok(V.last.p); fl = !!P.b; } lastN = V.last.n; }
+      if (fl) { paintPath(); flash('ok', V.last.w + ' +' + V.last.p); } else if (!/\b(ok|bad)\b/.test(cur.className)) paintPath();
     },
     rejected(err) { pend = false; SFX.bad(); if (built && !P.over) flash('bad', String(err || 'Palabra no válida')); },
     destroy() { clearInterval(intId); clearTimeout(curT); window.removeEventListener('resize', onRs); el.innerHTML = ''; }
