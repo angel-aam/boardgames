@@ -130,6 +130,7 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | reversi | juego tablero «Reversi» | games/reversi/reversi.js (+reversi.css) | – | Reversi/Othello 2 jugadores (8×8, casillas fila*8+col, 'b' negras empiezan / 'w'); acciones {t:'mv',s} y {t:'rs'}. Pasa automáticamente si no hay jugada (pub.pass); gana quien tenga más fichas. IA: Fácil golosa, Normal minimax prof. 3, Difícil alfa-beta prof. 5 + final exacto (≤8 casillas). Jugadas legales con body[data-assist]. |
 | buscaminas | juego puzzles «Buscaminas» | games/buscaminas/buscaminas.js (+buscaminas.css) | – | Buscaminas de un jugador, 5 niveles (8×10/10 minas … 14×26/80). Minas colocadas tras el primer toque (msPlace: sin minas en la casilla ni alrededor). Toque = descubrir, mantener o modo 🚩 = bandera, tocar número con sus banderas = descubrir alrededor (chord); pista = casilla segura. Área con scroll vertical (celda mínima 20 px). Guarda partida y récords (buscaminas-best). |
 | boggle | juego palabras «Boggle» | games/boggle/boggle.js (+boggle.css) | scdict | Boggle de un jugador, 4 niveles (4×4 3:00 / 4×4 2:00 / 5×5 3:00 / 5×5 2:30 mín. 4 letras). Rejilla aleatoria por frecuencias (bgBoard con mínimo de palabras comunes), arrastrar o tocar letras vecinas, validación ScDict.has, puntos por longitud. bgSolve/bgPath resuelven la rejilla para el resumen final (faltantes y comunes). Victoria = ≥25 % de las comunes. Guarda partida y récords (boggle-best). |
+| crucigrama | juego palabras «Crucigrama» | games/crucigrama/crucigrama.js (+crucigrama.css) | scdict | Crucigrama sin definiciones de un jugador, 4 niveles (8/12/17/24 palabras de ScDict.lv[0], 3–9 letras). cgGen cruza palabras sobre una rejilla de trabajo (sin adyacencias erróneas) y recorta al rectángulo ocupado. Se coloca una palabra de la lista en un hueco (o se arma la palabra y luego el hueco) si longitud y letras cruzadas encajan; se gana al llenar todos los huecos (cualquier relleno coherente). Pista = solución del hueco retirando las que chocan. Guarda partida y récords (crucigrama-best). |
 | mahjong | juego puzzles «Mahjong» | games/mahjong/mahjong.js (+mahjong.css) | – | Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
@@ -1654,7 +1655,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.4.1';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.5.1';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1801,6 +1802,7 @@ Hub.catalog.push({ id: 'atasco', cat: 'puzzles', name: 'Atasco', blurb: 'Un juga
 Hub.catalog.push({ id: 'hilos', cat: 'puzzles', name: 'Hilos', blurb: 'Un jugador · conecta colores · 5 niveles', mod: 'hilos' });
 Hub.catalog.push({ id: 'buscaminas', cat: 'puzzles', name: 'Buscaminas', blurb: 'Un jugador · 5 niveles', mod: 'buscaminas' });
 Hub.catalog.push({ id: 'boggle', cat: 'palabras', name: 'Boggle', blurb: 'Palabras en una rejilla · solo o en sala', mod: 'boggle' });
+Hub.catalog.push({ id: 'crucigrama', cat: 'palabras', name: 'Crucigrama', blurb: 'Coloca las palabras en el tablero · 4 niveles', mod: 'crucigrama' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
 bootHub();
 </script>
@@ -11683,6 +11685,255 @@ Hub.register({
 
 })();
 Mods.ok("boggle");
+</script>
+<script type="text/plain" data-mod="crucigrama" data-deps="scdict">
+/* CTX crucigrama: Crucigrama sin definiciones de un jugador (dep scdict). 4 niveles (8 a 24 palabras de ScDict.lv[0]); cgGen cruza palabras sobre una rejilla de trabajo sin adyacencias erróneas y recorta; se colocan palabras de la lista (por huecos o armando la palabra primero), validando longitud y letras cruzadas; se gana al llenar todos los huecos (cualquier relleno coherente). Pista, quitar, reiniciar; guarda partida y récords (crucigrama-best). Prefijo cg-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Crucigrama: colores del hub; todo bajo .cg */
+#stage > .cg{position:relative;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:34px}
+.cg button,.cg select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.cg select{flex:1;min-width:0}
+.cg-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cg-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.cg-hud{display:flex;gap:14px;align-items:center;font:600 .95rem var(--f-mono)}
+.cg-go{font-weight:700}
+.cg-area{flex:none;width:100%;display:flex;align-items:center;justify-content:center}
+.cg-bd{display:grid;gap:2px;flex:none}
+.cg-c{width:var(--cs);height:var(--cs);border-radius:4px;display:flex;align-items:center;justify-content:center;font:800 calc(var(--cs)*.58) var(--f-mono);line-height:1;color:var(--accent);visibility:hidden;cursor:pointer;position:relative}
+.cg-c.l{visibility:visible;background:var(--surface);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 55%,var(--surface))}
+.cg-c.s{background:color-mix(in srgb,var(--accent) 24%,var(--surface));box-shadow:inset 0 0 0 2px var(--accent)}
+body[data-assist] .cg-c.k{box-shadow:inset 0 0 0 2px var(--accent),0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent);animation:cgk .7s ease-in-out infinite alternate}
+.cg-c.h{animation:cgh .5s ease-in-out 3}
+@keyframes cgk{to{background:color-mix(in srgb,var(--accent) 22%,var(--surface))}}
+@keyframes cgh{50%{background:#ffd34d}}
+@media (prefers-reduced-motion: reduce){body[data-assist] .cg-c.k,.cg-c.h{animation:none}}
+.cg-wl{flex:1 0 auto;min-height:110px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:6px;padding:6px 2px}
+.cg-g{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.cg-g > i{font-style:normal;font-size:.7rem;color:var(--muted);min-width:52px;letter-spacing:.03em}
+.cg-w{font:700 .82rem var(--f-mono)!important;padding:5px 8px!important;letter-spacing:.04em}
+.cg-w.u{opacity:.42;text-decoration:line-through}
+.cg-w.a{background:var(--accent)!important;color:var(--accent-ink)!important}
+.cg-w.sh{animation:cgs .3s}
+/* «Ayuda visual» (menú ☰): marca las palabras que pueden ir (verde) y las que no (atenuadas y punteadas) y hace parpadear los huecos posibles */
+body[data-assist] .cg-w.f,body[data-assist] .cg-w.ok{border-color:#2e9a52;box-shadow:0 0 0 2px color-mix(in srgb,#2e9a52 35%,transparent);background:color-mix(in srgb,#2e9a52 14%,var(--surface))}
+body[data-assist] .cg-w.n{opacity:.4;border-style:dashed;border-color:var(--muted);color:var(--muted)}
+@keyframes cgs{25%{translate:-3px 0}75%{translate:3px 0}}
+.cg-st{min-height:18px;text-align:center;font-size:.8rem;color:var(--muted);width:100%}
+.cg-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px;position:sticky;bottom:0;padding:4px 0;background:var(--bg);margin-top:auto}
+.cg-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.cg-act b{font-size:1.1rem}
+.cg-act button:disabled{opacity:.45}
+.cg-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.cg-ov.show{display:flex}
+.cg-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.cg-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.cg-card p{color:var(--muted);margin:0 0 14px}
+.cg-em{font-size:2.2rem;line-height:1.1;margin-bottom:6px}
+.cg-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.cg-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Crucigrama sin definiciones · un jugador, 4 niveles. Se colocan las palabras de una lista en el tablero (como un «kriss-kross»). =====
+   Generación (cgGen): se va cruzando palabras comunes (ScDict.lv[0]) sobre una rejilla de trabajo, sin letras pegadas por error; luego se recorta al rectángulo ocupado.
+   Modelo (S): lv, w, h (columnas/filas), slots [{r,c,d (0 horizontal, 1 vertical),s (solución)}], as[i] = palabra colocada en el hueco i ('' si vacío), t, hints, over, won.
+   Una palabra solo se puede colocar si su longitud coincide y respeta las letras ya puestas por los huecos que la cruzan; se gana al llenar todos los huecos (cualquier relleno coherente vale). */
+const CG_LV = [
+  { k: 'Fácil', n: 9, words: 8, min: 3, max: 5 }, { k: 'Normal', n: 11, words: 12, min: 3, max: 6 },
+  { k: 'Difícil', n: 13, words: 17, min: 4, max: 8 }, { k: 'Experto', n: 15, words: 24, min: 4, max: 9 }
+];
+const cgFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+const cgCells = (sl, len) => { const a = []; for (let k = 0; k < len; k++) a.push({ r: sl.r + (sl.d ? k : 0), c: sl.c + (sl.d ? 0 : k) }); return a; };
+function cgGen(L, pool, rnd) {
+  const n = L.n; let best = null;
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  for (let att = 0; att < 40; att++) {
+    const g = new Array(n * n).fill(''), dm = new Array(n * n).fill(0), placed = [], used = new Set();
+    const at = (r, c) => r < 0 || c < 0 || r >= n || c >= n ? null : g[r * n + c];
+    /* cruces con la rejilla si w cabe en (r,c) con dirección d; -1 si no cabe */
+    const fit = (w, r, c, d) => {
+      const dr = d, dc = 1 - d, len = w.length;
+      if (r < 0 || c < 0 || r + dr * (len - 1) >= n || c + dc * (len - 1) >= n) return -1;
+      if (at(r - dr, c - dc)) return -1; if (at(r + dr * len, c + dc * len)) return -1;
+      let cross = 0;
+      for (let k = 0; k < len; k++) {
+        const rr = r + dr * k, cc = c + dc * k, ch = g[rr * n + cc];
+        if (ch) { if (ch !== w[k] || (dm[rr * n + cc] & (d ? 2 : 1))) return -1; cross++; }
+        else if (at(rr + dc, cc + dr) || at(rr - dc, cc - dr)) return -1;
+      }
+      return cross;
+    };
+    const put = (w, r, c, d) => { for (let k = 0; k < w.length; k++) { const i = (r + (d ? k : 0)) * n + c + (d ? 0 : k); g[i] = w[k]; dm[i] |= d ? 2 : 1; } placed.push({ s: w, r, c, d }); used.add(w); };
+    const long = pool.filter(w => w.length >= L.max - 1); const f0 = (long.length ? long : pool)[Math.floor(rnd() * (long.length || pool.length))];
+    put(f0, Math.floor(n / 2), Math.floor((n - f0.length) / 2), 0);
+    const order = shuf(pool.slice());
+    for (let pass = 0; pass < 3 && placed.length < L.words; pass++) {
+      for (const w of order) {
+        if (placed.length >= L.words) break; if (used.has(w)) continue;
+        const cand = []; let mx = 0;
+        for (let i = 0; i < n * n; i++) {
+          if (!g[i]) continue; const rr = i / n | 0, cc = i % n;
+          for (let k = 0; k < w.length; k++) {
+            if (w[k] !== g[i]) continue;
+            for (let d = 0; d < 2; d++) {
+              if (dm[i] & (d ? 2 : 1)) continue;
+              const r = rr - (d ? k : 0), c = cc - (d ? 0 : k), x = fit(w, r, c, d);
+              if (x > 0) { cand.push({ r, c, d, x }); if (x > mx) mx = x; }
+            }
+          }
+        }
+        if (!cand.length) continue;
+        const top = cand.filter(p => p.x === mx || rnd() < .35); const p = top[Math.floor(rnd() * top.length)]; put(w, p.r, p.c, p.d);
+      }
+    }
+    if (!best || placed.length > best.length) best = placed;
+    if (placed.length >= L.words) break;
+  }
+  let r0 = 99, c0 = 99, r1 = 0, c1 = 0;
+  best.forEach(p => { r0 = Math.min(r0, p.r); c0 = Math.min(c0, p.c); r1 = Math.max(r1, p.r + (p.d ? p.s.length - 1 : 0)); c1 = Math.max(c1, p.c + (p.d ? 0 : p.s.length - 1)); });
+  return { w: c1 - c0 + 1, h: r1 - r0 + 1, slots: best.map(p => ({ r: p.r - r0, c: p.c - c0, d: p.d, s: p.s })) };
+}
+function crucigramaMount(el, ctx) {
+  el.innerHTML = '<div class="cg">' +
+    '<div class="cg-row"><div class="cg-lvn"></div><div class="cg-hud"><span class="cg-pr">0/0</span><span class="cg-tm">00:00</span></div></div>' +
+    '<div class="cg-row"><select class="cg-lv">' + CG_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.words + ' palabras</option>').join('') + '</select><button class="cg-go">▶ Nuevo</button></div>' +
+    '<div class="cg-area"><div class="cg-bd"></div></div><div class="cg-st"></div><div class="cg-wl"></div>' +
+    '<div class="cg-act"><button data-a="clr"><b>⌫</b>Quitar</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="cg-ov"><div class="cg-card"><div class="cg-em">🎉</div><h2>¡Crucigrama completo!</h2><p class="cg-md"></p><div class="cg-btns"><button class="cg-again">Jugar de nuevo</button><button class="cg-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), bd = q('.cg-bd'), area = q('.cg-area'), wl = q('.cg-wl'), st = q('.cg-st');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { tap: () => tone(620, .04), put: () => { tone(520, .07, 'triangle', .25); tone(780, .07, 'triangle', .2, .06); }, bad: () => tone(160, .15, 'square', .15), clr: () => tone(330, .08, 'triangle', .2), win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i])) };
+  let S = null, cells = [], sel = -1, arm = '', timerId = 0, recorded = false, grid = [], words = [];
+  const rnd = Math.random;
+  /* el listado de frecuentes trae algún anglicismo/palabra extranjera: se descartan terminaciones y grupos de letras ajenos al español */
+  const FOREIGN = /TH|SH|CK|GH|PH|OO|WH|OU|EEN$|OPEN$|ING$|EY$|[BFGHKPQTVW]$|^(GREEN|OPEN|WEB|ONLINE|LINK|FILE|HOME|NEWS|BLOG|TOP|SHOP|CLICK|STAR|PLAY)$/;
+  const poolFor = L => ScDict.lv[0].filter(w => w.length >= L.min && w.length <= L.max && !/Ñ/.test(w) && !FOREIGN.test(w));
+  function newGame(lv) {
+    clearInterval(timerId); const L = CG_LV[lv], g = cgGen(L, poolFor(L), rnd);
+    S = { lv, w: g.w, h: g.h, slots: g.slots, as: g.slots.map(() => ''), t: 0, hints: 0, over: false, won: false };
+    recorded = false; sel = -1; arm = ''; q('.cg-ov').classList.remove('show'); ctx.save(null); build(); startTimer();
+  }
+  function save() { if (!S) return; if (S.over || (!S.t && !S.as.some(x => x))) { ctx.save(null); return; } ctx.save(S); }
+  function prep() {
+    grid = new Array(S.w * S.h).fill(-1).map(() => []);
+    S.slots.forEach((sl, i) => cgCells(sl, sl.s.length).forEach(p => grid[p.r * S.w + p.c].push(i)));
+    words = S.slots.map(sl => sl.s).sort((a, b) => a.length - b.length || a.localeCompare(b, 'es'));
+  }
+  function size() {
+    if (!S) return; const w = root.clientWidth - 8, hAv = Math.max(150, root.clientHeight - 100 - 56 - 120);
+    const cs = Math.max(20, Math.min(44, Math.floor(Math.min((w - 2 * S.w) / S.w, (hAv - 2 * S.h) / S.h)))); root.style.setProperty('--cs', cs + 'px');
+  }
+  function build() {
+    prep(); bd.style.gridTemplateColumns = 'repeat(' + S.w + ',var(--cs))'; bd.innerHTML = ''; cells = [];
+    for (let i = 0; i < S.w * S.h; i++) { const e = document.createElement('div'); e.className = 'cg-c'; e.dataset.i = i; bd.appendChild(e); cells.push(e); }
+    size(); paint();
+  }
+  /* letras visibles por casilla, ignorando el hueco `skip` */
+  function letters(skip) {
+    const m = {}; S.as.forEach((w, i) => { if (!w || i === skip) return; cgCells(S.slots[i], w.length).forEach((p, k) => { m[p.r * S.w + p.c] = w[k]; }); }); return m;
+  }
+  function fits(i, w) {
+    const sl = S.slots[i]; if (w.length !== sl.s.length) return false; const m = letters(i);
+    return cgCells(sl, w.length).every((p, k) => { const c = m[p.r * S.w + p.c]; return !c || c === w[k]; });
+  }
+  const usedAt = w => S.as.indexOf(w);
+  function paint() {
+    const m = letters(-1), selCells = new Set(), cand = new Set();
+    if (sel >= 0) cgCells(S.slots[sel], S.slots[sel].s.length).forEach(p => selCells.add(p.r * S.w + p.c));
+    if (arm) S.slots.forEach((sl, i) => { if (S.as[i] !== arm && fits(i, arm)) cgCells(sl, sl.s.length).forEach(p => cand.add(p.r * S.w + p.c)); });
+    for (let i = 0; i < S.w * S.h; i++) { const e = cells[i], has = grid[i].length > 0; e.className = 'cg-c' + (has ? ' l' : '') + (selCells.has(i) ? ' s' : '') + (cand.has(i) ? ' k' : ''); e.textContent = m[i] || ''; }
+    const fitSel = sel >= 0 ? w => fits(sel, w) : w => S.slots.some((x, i) => fits(i, w)), len = sel >= 0 ? S.slots[sel].s.length : 0; let html = '', cur = 0;
+    words.forEach(w => {
+      if (w.length !== cur) { if (cur) html += '</div>'; cur = w.length; html += '<div class="cg-g"><i>' + cur + ' letras</i>'; }
+      const u = usedAt(w) >= 0; html += '<button class="cg-w' + (u ? ' u' : '') + (arm === w ? ' a' : '') + (!u ? (fitSel(w) ? (sel >= 0 ? ' f' : ' ok') : ' n') : '') + '" data-w="' + w + '">' + w + '</button>';
+    });
+    wl.innerHTML = html + (cur ? '</div>' : '');
+    const done = S.as.filter(x => x).length; q('.cg-pr').textContent = done + '/' + S.slots.length; q('.cg-tm').textContent = cgFmt(S.t); q('.cg-lvn').textContent = 'Crucigrama · ' + CG_LV[S.lv].k; q('.cg-lv').value = S.lv;
+    st.textContent = arm ? 'Toca el hueco donde va «' + arm + '»' : sel >= 0 ? 'Elige una palabra de ' + len + ' letras (' + (S.slots[sel].d ? 'vertical' : 'horizontal') + ')' : 'Toca un hueco del tablero o una palabra de la lista';
+    q('[data-a=clr]').disabled = !(sel >= 0 && S.as[sel]) && !arm;
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && !document.hidden) { S.t++; q('.cg-tm').textContent = cgFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function place(i, w, quiet) {
+    if (S.over) return false; const old = S.as[i]; S.as[i] = '';
+    if (!fits(i, w)) { S.as[i] = old; return false; }
+    const j = usedAt(w); if (j >= 0) S.as[j] = '';
+    S.as[i] = w; if (!quiet) SFX.put(); sel = -1; arm = ''; paint(); if (!check()) save(); return true;
+  }
+  function check() {
+    if (S.as.some(x => !x)) return false; win(); return true;
+  }
+  function win() {
+    S.over = S.won = true; clearInterval(timerId); ctx.save(null); paint();
+    const bt = store.get('crucigrama-best') || {}, o = bt[S.lv]; let extra = '';
+    if (!o || S.t < o) { bt[S.lv] = S.t; store.set('crucigrama-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.cg-md').textContent = cgFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') + extra; q('.cg-next').style.display = S.lv < CG_LV.length - 1 ? '' : 'none';
+    setTimeout(SFX.win, 100); setTimeout(() => q('.cg-ov').classList.add('show'), 700);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: CG_LV[S.lv].k + ' · ' + S.slots.length + ' palabras · ' + cgFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  function shake(w) { const b = wl.querySelector('[data-w="' + w + '"]'); if (b) { b.classList.add('sh'); setTimeout(() => b.classList.remove('sh'), 320); } SFX.bad(); }
+  function tapCell(i) {
+    if (S.over) return; const sl = grid[i]; if (!sl.length) return;
+    if (arm) {
+      const ok = sl.filter(k => fits(k, arm));
+      if (ok.length) { place(ok.find(k => k === sel) ?? ok[0], arm); return; }
+      st.textContent = 'Ahí no cabe «' + arm + '»'; SFX.bad(); return;
+    }
+    if (sel >= 0 && sl.includes(sel) && sl.length > 1) sel = sl.find(k => k !== sel); else sel = sl.includes(sel) ? -1 : sl[0];
+    SFX.tap(); paint();
+  }
+  function tapWord(w) {
+    if (S.over) return; const u = usedAt(w);
+    if (u >= 0) { S.as[u] = ''; SFX.clr(); if (sel === u) sel = -1; paint(); save(); return; }
+    if (sel >= 0) {
+      if (S.slots[sel].s.length === w.length) { if (!place(sel, w)) { shake(w); st.textContent = 'No encaja con las letras ya puestas'; } return; }
+      sel = -1; arm = w; SFX.tap(); paint(); return;
+    }
+    arm = arm === w ? '' : w; SFX.tap(); paint();
+  }
+  function hint() {
+    if (S.over) return; let i = sel;
+    if (i < 0) { const e = S.slots.map((s, k) => k).filter(k => S.as[k] !== S.slots[k].s); if (!e.length) return; const emp = e.filter(k => !S.as[k]); const pl = emp.length ? emp : e; i = pl[Math.floor(rnd() * pl.length)]; }
+    const sl = S.slots[i]; if (S.as[i] === sl.s) { SFX.tap(); return; }
+    S.as[i] = ''; const j = usedAt(sl.s); if (j >= 0) S.as[j] = '';
+    /* quitar las palabras (equivocadas) que chocan con la solución */
+    cgCells(sl, sl.s.length).forEach((p, k) => { const m = letters(-1), c = m[p.r * S.w + p.c]; if (c && c !== sl.s[k]) grid[p.r * S.w + p.c].forEach(x => { if (x !== i) S.as[x] = ''; }); });
+    S.as[i] = sl.s; S.hints++; sel = -1; arm = ''; SFX.put(); paint();
+    cgCells(sl, sl.s.length).forEach(p => { const e = cells[p.r * S.w + p.c]; e.classList.add('h'); setTimeout(() => e.classList.remove('h'), 1600); });
+    if (!check()) save();
+  }
+  bd.addEventListener('click', e => { const c = e.target.closest('.cg-c'); if (c && S) tapCell(+c.dataset.i); });
+  wl.addEventListener('click', e => { const b = e.target.closest('.cg-w'); if (b && S) tapWord(b.dataset.w); });
+  q('.cg-go').onclick = () => { SFX.tap(); newGame(+q('.cg-lv').value); };
+  q('.cg-lv').onchange = () => { SFX.tap(); newGame(+q('.cg-lv').value); };
+  q('.cg-again').onclick = () => newGame(S.lv);
+  q('.cg-next').onclick = () => newGame(Math.min(CG_LV.length - 1, S.lv + 1));
+  q('.cg-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S) return; const a = b.dataset.a;
+    if (a === 'clr') { if (arm) { arm = ''; paint(); } else if (sel >= 0 && S.as[sel]) { S.as[sel] = ''; SFX.clr(); paint(); save(); } }
+    else if (a === 'hint') hint();
+    else if (a === 'redo') { if (S.over) return; SFX.tap(); S.as = S.slots.map(() => ''); sel = -1; arm = ''; paint(); save(); }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => size();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(CG_LV.length - 1, ctx.level || 0);
+  const okSv = sv && !sv.over && CG_LV[sv.lv] && Array.isArray(sv.slots) && Array.isArray(sv.as) && sv.as.length === sv.slots.length && sv.w > 0 && sv.h > 0;
+  if (okSv) { S = sv; build(); startTimer(); } else newGame(LV0);
+  return { destroy() { save(); clearInterval(timerId); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; }, state() { return S; } };
+}
+
+Hub.register({
+  id: 'crucigrama', name: 'Crucigrama', blurb: 'Coloca las palabras en el tablero · 4 niveles',
+  single: {
+    levels: CG_LV.map(l => l.k), def: 0,
+    info: i => { const L = CG_LV[i], b = (store.get('crucigrama-best') || {})[i]; return L.words + ' palabras de ' + L.min + ' a ' + L.max + ' letras' + (b != null ? ' · Tu mejor: ' + cgFmt(b) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Es un crucigrama <b>sin definiciones</b>: el tablero tiene huecos en blanco y debajo está la <b>lista de palabras</b> que hay que colocar, agrupadas por número de letras. Se gana cuando todas están en su sitio.</li>' +
+    '<li><b>Toca un hueco</b> del tablero (se ilumina; tócalo otra vez para cambiar entre horizontal y vertical) y luego <b>toca una palabra</b> de la lista: se coloca si tiene las letras justas y coincide con las que ya cruzan.</li>' +
+    '<li>También puedes <b>tocar primero una palabra</b> (queda marcada y parpadean los huecos donde cabe) y después el hueco donde quieres ponerla.</li>' +
+    '<li>Para quitar una palabra, toca de nuevo su nombre en la lista (aparece tachado) o selecciona su hueco y pulsa <b>Quitar</b>. Colocar otra palabra encima de un hueco lleno la sustituye.</li>' +
+    '<li>Pista: coloca la palabra correcta en el hueco elegido (o en uno al azar) y retira las que choquen con ella. Se guarda tu mejor tiempo por nivel.</li>' +
+    '<li>Con la <b>Ayuda visual</b> (menú ☰) las palabras que pueden ir se marcan en verde y las que no caben en ningún hueco (o no en el hueco elegido) se atenúan; al armar una palabra parpadean los huecos posibles.</li></ul>',
+  mountSingle: crucigramaMount
+});
+
+})();
+Mods.ok("crucigrama");
 </script>
 <script type="text/plain" data-mod="mahjong" data-deps="">
 /* CTX mahjong: Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. */
