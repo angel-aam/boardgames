@@ -19,7 +19,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
 - Enlace directo por juego: `/game/<id>` (id del catálogo: sudoku, texas, ajedrez…). El worker sirve el mismo index con `window.MJ_PATHS=1`; el hub (`urlGame/syncURL` en hub.js) abre el juego al arrancar y mantiene URL y título con replaceState. Sin esa bandera (archivo, visor, otra web) usa el hash `#/game/<id>`.
-- Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
+- Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). Reconexión automática: sesión en `hub.sess` (12 h), `onLost`/`adoptTr`/`netWake`/`autoRejoin`, mensaje `bye` al cerrar el anfitrión; id de dispositivo `hub.did` (campo `d` de `join`) para no duplicar plazas; ver CLAUDE.md. En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
 
 ## 3. Globales del núcleo
 - `$(sel, root)`, `esc(s)` (escapa HTML: úsalo en todo texto de jugador), `store.get/set(clave, def)` (localStorage con JSON; SIEMPRE usarlo), `toast(msg)`, `openSheet(html)/hideSheet()`, `cleanNick`, `b64e/b64d`.
@@ -46,7 +46,7 @@ Un jugador (puzles): `single:{levels:[..], def, info(i)}` + `mountSingle(el, ctx
 Registrar en `src/games/catalog.js`: `Hub.catalog.push({id, cat:'tablero'|'cartas'|'puzzles'|'palabras', name, blurb, mod})`; categorías en `HOME_CATS` (hub.js). El lobby ordena nombres alfabéticamente (`localeCompare 'es'`).
 
 ## 5. Catálogo (id · categoría · módulo/deps · notas)
-- tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub).
+- tablero: ajedrez, damas, cuatro (4 en raya, 7×6, IA negamax), reversi (Reversi/Othello 8×8, pasa solo, IA alfa-beta prof. 1/3/5 con final exacto, la ayuda visual marca las jugadas legales), backgammon (dados), domino (dados; serpiente, dobles cruzados, 2–4 jug., parejas con 4), flota (Hundir la flota; opción «Si aciertas»: pasa/repite/salvas), hive (hexágonos SVG; deshacer vs IA), parchis (dados; anillo circular de 68 casillas, 2–4), rummi (Rummikub).
 - cartas: parejas (memoria 2–4 jugadores, sala o IA; cartas con emojis, tablero 4×4 a 6×8; turno = dos cartas, acierto repite, fallo queda visible hasta {t:'h'}; deck secreto en el anfitrión, la vista solo da valores visibles; IA con memoria 35/70/100 %), brisca, chinchon, tute (los tres con baraja española), solitario (Klondike, un jugador; poker = baraja inglesa de 52), texas (Texas Hold'em sin límite, torneo de 2–8 con ciegas crecientes; también usa poker).
 - puzzles (un jugador): flechas (serpientes con punta de flecha, 6 niveles en cuadrícula 12×17 a 26×40 con scroll cuando no cabe; tocar = sale deslizándose si su camino hasta el borde está libre; generadas con `fxGen` colocando cada una con la salida libre de las ya colocadas y favoreciendo las que tapan salidas previas = siempre resolubles; fallos → estrellas, pista, deshacer, récords `flechas-best`), hilos (conectar parejas de colores sin cruzar y llenando el tablero; SVG; puzzles generados con camino hamiltoniano aleatorio `hlPath` (backbite) cortado en tramos = siempre resolubles; arrastre que corta caminos ajenos; pista = tramo de la solución; récords `hilos-best`), atasco (bloques deslizantes 6×6 estilo «atasco de coches»; puzzles generados al vuelo con escalada y BFS exacto `atSolve` = mínimo de movimientos y pista; arrastre horizontal/vertical con límites; estadísticas `atasco-stats`), hanoi (Torres de Hanoi, 3–7 discos; DOM+CSS, mover tocando o arrastrando, animación FLIP con WAAPI, pista óptima `hnNext`, estrellas por mínimo 2^n−1, récords `hanoi-best`), mahjong (solitario Shanghái con glifos Unicode U+1F000; reparto al revés = siempre resoluble; fallback a etiquetas sin glifos), tangram (puzzles generados ensamblando las 7 piezas por aristas; SVG; victoria por superficie cubierta), sudoku, nonograma (nonogramas con solución única; un botón alterna Rellenar/Marcar; niveles 4–7 = modo Color: `nnMakeC` (imagen de rectángulos de colores + comprobación con el resolutor por líneas `nnLineC`) y `nonogramaColorMount`; mismo módulo, se elige por `NN_LV[i].c`).
 - palabras (categoría `palabras`, juegos que usan el diccionario `scdict`): nudos (crucigrama sin pistas estilo Knotwords; dep scdict; zonas de colores con las letras que contienen; puzzles generados con `ndMake`: relleno por restricciones con palabras comunes + zonas + casillas dadas hasta solución única (`ndSearch`); se aceptan otras palabras de `ScDict.has`; récords `nudos-best`), scrabble (scdict; español, IA por frecuencia de palabras), wordle (scdict, teclado; 4–7 letras), ahorcado (scdict, teclado; 3 niveles por longitud/frecuencia).
@@ -127,6 +127,9 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | domino | juego tablero «Dominó» | games/domino/domino.js (+domino.css) | dados | Dominó doble seis 2–4 jugadores (parejas con 4; pozo con 2–3; partida a una mano, 50 o 100). Cadena lineal en el motor (line + lc = fichas añadidas por la izquierda); la vista dibuja una serpiente con dmLayout (cuadrícula de medias filas, dobles cruzados, curva con ficha vertical). |
 | tangram | juego puzzles «Tangram» | games/tangram/tangram.js (+tangram.css) | – | Tangram de un jugador (3 niveles). Puzzles generados ensamblando las 7 piezas por aristas (tgGen, siempre con solución); tablero SVG 12×16 (silueta arriba, bandeja abajo); arrastrar, girar 45°, voltear, imán a vértices; victoria por superficie cubierta (tgSolved), no por posición; pista. |
 | cuatro | juego tablero «4 en raya» | games/cuatro/cuatro.js (+cuatro.css) | – | 4 en raya 2 jugadores (7×6, casillas fila*7+col, 'r' rojas empiezan / 'y'); acciones {t:'dr',c} y {t:'rs'}. IA negamax alfa-beta (profundidad 2/4/6). Caída animada (- -d filas), cuatro ganadoras resaltadas. |
+| reversi | juego tablero «Reversi» | games/reversi/reversi.js (+reversi.css) | – | Reversi/Othello 2 jugadores (8×8, casillas fila*8+col, 'b' negras empiezan / 'w'); acciones {t:'mv',s} y {t:'rs'}. Pasa automáticamente si no hay jugada (pub.pass); gana quien tenga más fichas. IA: Fácil golosa, Normal minimax prof. 3, Difícil alfa-beta prof. 5 + final exacto (≤8 casillas). Jugadas legales con body[data-assist]. |
+| buscaminas | juego puzzles «Buscaminas» | games/buscaminas/buscaminas.js (+buscaminas.css) | – | Buscaminas de un jugador, 5 niveles (8×10/10 minas … 14×26/80). Minas colocadas tras el primer toque (msPlace: sin minas en la casilla ni alrededor). Toque = descubrir, mantener o modo 🚩 = bandera, tocar número con sus banderas = descubrir alrededor (chord); pista = casilla segura. Área con scroll vertical (celda mínima 20 px). Guarda partida y récords (buscaminas-best). |
+| boggle | juego palabras «Boggle» | games/boggle/boggle.js (+boggle.css) | scdict | Boggle de un jugador, 4 niveles (4×4 3:00 / 4×4 2:00 / 5×5 3:00 / 5×5 2:30 mín. 4 letras). Rejilla aleatoria por frecuencias (bgBoard con mínimo de palabras comunes), arrastrar o tocar letras vecinas, validación ScDict.has, puntos por longitud. bgSolve/bgPath resuelven la rejilla para el resumen final (faltantes y comunes). Victoria = ≥25 % de las comunes. Guarda partida y récords (boggle-best). |
 | mahjong | juego puzzles «Mahjong» | games/mahjong/mahjong.js (+mahjong.css) | – | Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
@@ -273,6 +276,7 @@ textarea{width:100%;border-radius:10px;border:1px solid var(--line);background:v
 .mnu{display:flex;flex-direction:column;gap:10px}
 .mnu h2{margin:0 0 2px}
 .mnu .btn{width:100%}
+.mnu-ver{margin:2px 0 0;text-align:center;font-size:.72rem;color:var(--muted)}
 .btn.danger{background:color-mix(in srgb,var(--bad) 14%,var(--surface));border-color:var(--bad);color:var(--bad);margin-top:6px}
 .btn.danger:active{background:var(--bad);color:#fff}
 .panel:has(.mnu) > [data-act="closesheet"]{display:none}
@@ -316,6 +320,8 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
 };
+/* identificador único de este dispositivo/navegador: el anfitrión lo usa para que un mismo dispositivo no ocupe dos plazas (doble clic, recarga, reconexión) */
+const DID = (() => { try { let d = localStorage.getItem('hub.did'); if (!d) { d = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem('hub.did', d); } return d; } catch (e) { return Math.random().toString(36).slice(2, 12); } })();
 function cleanNick(s) {
   s = String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g, '').trim().slice(0, 14);
   return s || 'Jugador';
@@ -621,11 +627,12 @@ const SrvNet = {
   async open(code) {
     const { ws, hello } = await SrvNet.connect('/ws/room/' + code.toLowerCase());
     const peers = new Set(hello.peers || []);
-    const t = { kind: 'claude', hostId: '', me: hello.me, onmsg: null, onleave: null, closed: false };
+    const t = { kind: 'claude', hostId: '', me: hello.me, onmsg: null, onleave: null, onlost: null, closed: false, dead: false, lastRx: Date.now(), peers0: (hello.peers || []).slice() };
     const put = o => { try { if (ws.readyState === 1) ws.send(JSON.stringify(o)); } catch (e) { /* conexión caída */ } };
     t.send = (to, m) => put({ to, m });
     t.broadcast = m => put({ to: '*', m });
     ws.onmessage = ev => {
+      t.lastRx = Date.now();
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       if (!d || typeof d !== 'object') return;
       if (d.t === 'm' && d.m && typeof d.m === 'object') { peers.add(d.from); if (t.onmsg) t.onmsg(d.from, d.m); }
@@ -633,7 +640,14 @@ const SrvNet = {
       else if (d.t === 'leave') { peers.delete(d.peer); if (t.onleave) t.onleave(d.peer); }
     };
     const ka = setInterval(() => { try { if (ws.readyState === 1) ws.send('ping'); } catch (e) { /* nada */ } }, 25000);
-    ws.onclose = () => { clearInterval(ka); if (!t.closed) { peers.forEach(p => { if (t.onleave) t.onleave(p); }); peers.clear(); } };
+    /* caída inesperada (móvil bloqueado, red…): si el hub sabe reconectar (onlost) se encarga él; si no, se avisa de que todos se han ido */
+    ws.onclose = () => { clearInterval(ka); if (t.closed) return; t.dead = true; if (t.onlost) t.onlost(); else { peers.forEach(p => { if (t.onleave) t.onleave(p); }); peers.clear(); } };
+    /* ¿sigue viva la conexión? (tras bloquear el móvil el socket puede estar muerto sin avisar): ping y espera de cualquier respuesta */
+    t.probe = () => new Promise(res => {
+      if (t.closed || ws.readyState !== 1) { res(false); return; }
+      const before = t.lastRx; try { ws.send('ping'); } catch (e) { res(false); return; }
+      setTimeout(() => res(t.lastRx > before), 2500);
+    });
     t.close = () => { t.closed = true; clearInterval(ka); try { ws.close(); } catch (e) { /* ya cerrado */ } };
     return t;
   }
@@ -874,7 +888,9 @@ function advertise(patch) {
 }
 
 function resetRoom() {
-  clearTimeout(H.botT); clearInterval(H.helloT);
+  clearTimeout(H.botT); clearTimeout(H.tickT); clearInterval(H.helloT); clearTimeout(H.reconT); H.reconT = 0; H.lost = false; H.hostWait = false; H.autoStart = false; netBanner(null);
+  /* el anfitrión se despide: los invitados no esperan a que vuelva */
+  if (H.role === 'host' && H.kind === 'claude' && H.tr && !H.tr.dead) { try { H.tr.broadcast({ t: 'bye' }); } catch (e) { /* sin conexión */ } }
   if (typeof pairReset === 'function') pairReset();
   if (H.kind === 'claude' && H.role === 'host') ClaudeNet.unadvertise();
   if (H.tr) { H.tr.onmsg = null; H.tr.onleave = null; try { H.tr.close(); } catch (e) { /* ya cerrado */ } }
@@ -884,6 +900,7 @@ function resetRoom() {
 }
 
 function leaveAll(msg) {
+  clearSess();
   resetRoom();
   hideSheet();
   if (msg) toast(msg);
@@ -891,7 +908,7 @@ function leaveAll(msg) {
 }
 
 function setupTr(t) {
-  H.tr = t;
+  H.tr = t; t.onlost = () => onLost(t);
   t.onmsg = (from, m) => { if (H.role === 'host') hostMsg(from, m); else guestMsg(from, m); };
   t.onleave = peer => onLeave(peer);
 }
@@ -935,45 +952,122 @@ function onRosterChange() {
   advertise({ c: rosterCount() });
   sendRoster();
   if (H.screen === 'lobby') renderLobby();
+  /* partida reabierta sola: en cuanto vuelven todos los humanos, continúa */
+  if (H.autoStart && H.resume && !H.eng && H.role === 'host' && !roster().some(p => p.wait)) { H.autoStart = false; setTimeout(() => { if (H.resume && !H.eng && H.role === 'host') hostStart(); }, 800); }
+}
+
+/* ===== Sesión de sala: reconexión automática (móvil bloqueado, cambio de app, red caída) y reapertura del navegador ===== */
+const SESS_KEY = 'hub.sess', SESS_TTL = 12 * 3600 * 1000;
+function saveSess() { if (H.kind !== 'claude' || !H.code || !H.game) return; store.set(SESS_KEY, { code: H.code, role: H.role, game: H.game.id, nick: H.nick, sid: H.sid || '', ts: Date.now() }); }
+function clearSess() { store.set(SESS_KEY, null); }
+function getSess() { const s = store.get(SESS_KEY, null); return s && s.code && s.game && Date.now() - (s.ts || 0) < SESS_TTL ? s : null; }
+function netBanner(txt) {
+  let b = document.getElementById('netb');
+  if (!txt) { if (b) b.hidden = true; return; }
+  if (!b) { b = document.createElement('div'); b.id = 'netb'; b.setAttribute('role', 'status'); b.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 6px);transform:translateX(-50%);z-index:60;background:var(--accent);color:var(--accent-ink);padding:6px 14px;border-radius:999px;font:600 .82rem var(--f-ui);box-shadow:0 2px 8px rgba(0,0,0,.3);max-width:92vw;text-align:center'; document.body.appendChild(b); }
+  b.textContent = txt; b.hidden = false;
+}
+/* la conexión con el servidor se ha perdido: se reintenta con la misma sala y se vuelve a anunciar */
+function onLost(t) {
+  if (t !== H.tr || H.role === 'none' || H.kind !== 'claude' || !H.code) return;
+  H.lost = true; netBanner('Conexión perdida. Reconectando…');
+  if (H.reconT) return;
+  const t0 = Date.now(); let n = 0;
+  const step = async () => {
+    H.reconT = 0;
+    if (!H.lost || H.role === 'none' || !H.code) return;
+    try {
+      const nt = await ClaudeNet.open(H.code);
+      if (!H.lost || H.role === 'none') { try { nt.close(); } catch (e) { /* sobra */ } return; }
+      adoptTr(nt);
+    } catch (e) {
+      if (Date.now() - t0 > 150000) { leaveAll('No se pudo reconectar con la sala'); return; }
+      H.reconT = setTimeout(step, Math.min(5000, 700 * ++n));
+    }
+  };
+  H.reconT = setTimeout(step, 400);
+}
+function adoptTr(nt) {
+  const old = H.tr;
+  if (old) { old.onmsg = null; old.onleave = null; old.onlost = null; try { old.close(); } catch (e) { /* ya cerrado */ } }
+  setupTr(nt); H.lost = false; netBanner(null);
+  if (H.role === 'host') {
+    /* los invitados que siguen en la sala conservan su identificador; el resto se da por desconectado */
+    const present = new Set(nt.peers0 || []);
+    [...H.guests.keys()].forEach(pr => { if (!present.has(pr)) onLeave(pr); });
+    if (H.eng) { pushState(); scheduleBot(); } else sendRoster();
+    if (!H.priv && H.screen === 'lobby') advertise({ rk: H.code.toLowerCase(), hn: H.nick, c: rosterCount(), st: 0, gm: H.game.id });
+    toast('Reconectado');
+  } else {
+    nt.hostId = ''; H.hostWait = true; netBanner('Volviendo a la sala…'); startHello(true, true);
+  }
+}
+/* al volver a la página (o recuperar la red) se comprueba que la conexión siga viva */
+function netWake() {
+  if (document.hidden || !H.tr || H.kind !== 'claude' || H.role === 'none' || H.lost || !H.tr.probe) return;
+  const t = H.tr;
+  t.probe().then(ok => { if (!ok && t === H.tr && !H.lost) onLost(t); });
+}
+document.addEventListener('visibilitychange', netWake);
+window.addEventListener('online', netWake);
+window.addEventListener('pageshow', netWake);
+/* reabrir el navegador: se vuelve solo a la sala (invitado: por código y nombre guardados; anfitrión: reabre la partida guardada con el mismo código) */
+async function autoRejoin(sv) {
+  const ce = Hub.catalog.find(x => x.id === sv.game);
+  if (!ce || !ClaudeNet.ns) { clearSess(); return false; }
+  try { await Mods.load(ce.mod); } catch (e) { return false; }
+  H.game = Hub.games.find(x => x.id === ce.id); if (!H.game) return false;
+  if (sv.nick) H.nick = cleanNick(sv.nick);
+  if (sv.role === 'guest') { await joinOnline(sv.code, true); return true; }
+  const sg = Saves.all().find(x => x.id === sv.sid && x.game === sv.game);
+  if (!sg || !Saves.humans(sg).length) { clearSess(); return false; }
+  H.rejoinCode = sv.code; H.autoStart = true; netBanner('Reabriendo la sala…');
+  await openSave(sg.id, 'room'); netBanner(null);
+  return H.role === 'host';
 }
 
 async function createOnline() {
   if (!ClaudeNet.ns) { toast('La sala online no está disponible'); return; }
+  const keep = H.rejoinCode, auto = H.autoStart; H.rejoinCode = '';
   resetRoom();
-  const code = genCode();
+  H.autoStart = auto;
+  const code = keep || genCode();
   let t;
   try { t = await ClaudeNet.open(code); } catch (e) { toast('No se pudo abrir la sala. Inténtalo de nuevo'); return; }
   H.role = 'host'; H.kind = 'claude'; H.code = code; H.priv = store.get('hub.vis', 0) === 1;
-  setupTr(t);
+  setupTr(t); saveSess();
   if (!H.priv) ClaudeNet.advertise({ rk: code.toLowerCase(), hn: H.nick, c: 1, st: 0, gm: H.game.id });
   show('lobby'); renderLobby();
 }
 
-async function joinOnline(code) {
+async function joinOnline(code, auto) {
   if (!ClaudeNet.ns) { toast('La sala online no está disponible'); return; }
   if (!/^[A-Z]{4}$/.test(code)) { toast('Escribe el código de 4 letras'); return; }
+  if (H.joining) return; /* ya se está entrando: los clics repetidos no abren otra conexión */
+  H.joining = true;
   resetRoom();
   let t;
-  try { t = await ClaudeNet.open(code); } catch (e) { toast('No se pudo abrir la sala. Inténtalo de nuevo'); return; }
+  try { t = await ClaudeNet.open(code); } catch (e) { H.joining = false; if (auto) { clearSess(); show('gmenu'); renderGMenu(); } toast('No se pudo abrir la sala. Inténtalo de nuevo'); return; }
+  H.joining = false;
   H.role = 'guest'; H.kind = 'claude'; H.code = code;
-  setupTr(t);
+  setupTr(t); saveSess();
   show('lobby'); renderLobby();
-  startHello(true);
+  if (auto) { H.hostWait = true; netBanner('Volviendo a la sala…'); startHello(true, true); } else startHello(true);
 }
 
-function startHello(broadcast) {
+function startHello(broadcast, persist) {
   let tries = 0;
   const hi = () => {
     if (!H.tr) return;
-    const m = { t: 'join', nick: H.nick, game: H.game.id };
+    const m = { t: 'join', nick: H.nick, game: H.game.id, d: DID };
     if (broadcast && !H.tr.hostId) H.tr.broadcast(m); else H.tr.send(H.tr.hostId, m);
   };
   hi();
   clearInterval(H.helloT);
   H.helloT = setInterval(() => {
     tries++;
-    if (H.lobby || H.screen === 'stage') { clearInterval(H.helloT); return; }
-    if (tries > 5) { clearInterval(H.helloT); leaveAll(H.kind === 'claude' ? 'No hay ninguna sala abierta con ese código' : 'El anfitrión no responde'); return; }
+    if (persist ? !H.hostWait : (H.lobby || H.screen === 'stage')) { clearInterval(H.helloT); return; }
+    if (tries > (persist ? 40 : 5)) { clearInterval(H.helloT); leaveAll(persist ? 'El anfitrión no ha vuelto a la sala' : H.kind === 'claude' ? 'No hay ninguna sala abierta con ese código' : 'El anfitrión no responde'); return; }
     hi();
   }, 2000);
 }
@@ -1016,20 +1110,32 @@ function hostMsg(from, m) {
     if (H.resume && !H.eng) {
       const nk = cleanNick(m.nick).toLowerCase();
       const names = Saves.humans(H.resume);
-      const taken = [...H.guests].some(([pr, g]) => pr !== from && cleanNick(g.nick).toLowerCase() === nk);
+      const taken = [...H.guests].some(([pr, g]) => pr !== from && !sameDev(g, m) && cleanNick(g.nick).toLowerCase() === nk);
       if (!names.some(n => n.toLowerCase() === nk)) { H.tr.send(from, { t: 'no', e: 'Esta partida guardada es de: ' + names.join(', ') + '. Entra con ese nombre' }); return; }
       if (taken) { H.tr.send(from, { t: 'no', e: 'Ese jugador ya está conectado' }); return; }
     }
+    const did = m.d ? String(m.d).slice(0, 24) : '';
     if (H.eng) {
       if (H.guests.has(from)) { pushStateTo(from); return; }
-      if (!seatBack(from, m.nick)) H.tr.send(from, { t: 'no', e: 'La partida ya ha empezado' });
+      /* el mismo dispositivo ya tenía plaza con otra conexión: la hereda */
+      const od = did && [...H.guests].find(([pr, g]) => g.d === did);
+      if (od) {
+        const i = H.seatPeer.indexOf(od[0]);
+        if (i >= 0) { H.seatPeer[i] = from; H.guests.delete(od[0]); H.guests.set(from, { nick: od[1].nick, d: did }); pushStateTo(from); paintReco(); return; }
+      }
+      if (seatBack(from, m.nick) || takeSeat(from, m.nick)) { const g = H.guests.get(from); if (g) g.d = did; }
+      else H.tr.send(from, { t: 'no', e: 'La partida ya ha empezado' });
       return;
+    }
+    { /* el mismo jugador vuelve con otra conexión: sustituye a la anterior */
+      const nk2 = cleanNick(m.nick).toLowerCase(), old = [...H.guests].find(([pr, g]) => pr !== from && (did ? g.d === did : cleanNick(g.nick).toLowerCase() === nk2));
+      if (old) H.guests.delete(old[0]);
     }
     if (!H.guests.has(from)) {
       if (rosterCount() >= H.game.max) { H.tr.send(from, { t: 'no', e: 'La sala está completa' }); return; }
-      H.guests.set(from, { nick: cleanNick(m.nick) });
+      H.guests.set(from, { nick: cleanNick(m.nick), d: did });
       Sfx.join();
-    } else H.guests.get(from).nick = cleanNick(m.nick);
+    } else { const g = H.guests.get(from); g.nick = cleanNick(m.nick); g.d = did; }
     onRosterChange();
     return;
   }
@@ -1047,20 +1153,23 @@ function hostMsg(from, m) {
 
 function guestMsg(from, m) {
   if (!m || typeof m !== 'object') return;
+  if (m.t === 'bye') { leaveAll('El anfitrión ha cerrado la sala'); return; }
   if (m.t === 'lo') {
     if (!Array.isArray(m.pl) || m.game !== H.game.id) return;
-    H.tr.hostId = from;
+    H.tr.hostId = from; H.hostWait = false; netBanner(null);
     clearInterval(H.helloT);
     H.lobby = { gx: String(m.gx || '').slice(0, 80), you: Number.isInteger(m.you) ? m.you : -1, pl: m.pl.slice(0, 8).map(p => ({ n: cleanNick(p.n), b: p.b ? 1 : 0, h: p.h ? 1 : 0, w: p.w ? 1 : 0 })) };
     if (H.screen === 'stage') { hideSheet(); if (H.view) { try { H.view.destroy(); } catch (e) { /* vista ya cerrada */ } H.view = null; } H.gid = ''; H.overKey = ''; }
     if (H.screen !== 'lobby') show('lobby');
+    /* el nombre que la sala le ha asignado (p. ej. «Jugador 2») es con el que debe volver */
+    { const me = H.lobby.pl[H.lobby.you]; if (me && me.n && me.n !== H.nick) { H.nick = me.n; saveSess(); } }
     renderLobby();
     return;
   }
   if (m.t === 'st') {
     if (!m.s || !Number.isInteger(m.you)) return;
     clearInterval(H.helloT);
-    H.tr.hostId = H.tr.hostId || from;
+    H.tr.hostId = from; H.hostWait = false; netBanner(null);
     if (H.gid !== m.g || !H.view) {
       H.gid = m.g; H.seat = m.you; H.overKey = '';
       hideSheet();
@@ -1089,6 +1198,7 @@ function botAway() {
 }
 function paintReco() { const b = $('#bReco'); if (b) b.hidden = !(H.screen === 'stage' && awaySeats().length); }
 /* un jugador vuelve a entrar con la partida en marcha: recupera su asiento (por nombre; si no, el primero libre) */
+function sameDev(g, m) { return !!(m && m.d && g.d && g.d === String(m.d).slice(0, 24)); }
 function seatBack(peer, nick) {
   const away = awaySeats();
   if (!away.length) return false;
@@ -1109,6 +1219,17 @@ function seatBack(peer, nick) {
   return true;
 }
 
+/* un jugador de la partida en marcha vuelve con otra conexión (la anterior sigue sin darse por perdida): recupera su asiento por nombre */
+function takeSeat(peer, nick) {
+  const nk = cleanNick(nick).toLowerCase();
+  const i = H.matchPl.findIndex((p, k) => k > 0 && !p.bot && !p.was && p.name.toLowerCase() === nk);
+  if (i < 0) return false;
+  const old = H.seatPeer[i]; if (old) H.guests.delete(old);
+  H.seatPeer[i] = peer; H.guests.set(peer, { nick: cleanNick(nick) });
+  Sfx.join(); toast(H.matchPl[i].name + ' se ha reconectado');
+  pushStateTo(peer); paintReco();
+  return true;
+}
 function onLeave(peer) {
   if (H.role === 'host') {
     if (!H.eng) {
@@ -1127,7 +1248,9 @@ function onLeave(peer) {
       afterAct();
     }
   } else if (H.role === 'guest' && peer === H.tr.hostId) {
-    leaveAll('El anfitrión ha cerrado la sala');
+    if (H.kind !== 'claude') { leaveAll('El anfitrión ha cerrado la sala'); return; }
+    /* puede ser un corte (móvil bloqueado): se espera a que vuelva */
+    H.tr.hostId = ''; H.hostWait = true; netBanner('Anfitrión desconectado. Esperando…'); startHello(true, true);
   }
 }
 /* CTX lobby: Pantalla de sala: jugadores, rivales IA, opciones del juego, invitar/unirse, empezar. También lista las salas online abiertas. */
@@ -1161,11 +1284,13 @@ function renderLobby() {
       const miss = pl.some(p => p.wait);
       h += '<div class="card"><h2>Reconectar</h2>';
       if (H.kind === 'local') h += '<button class="btn primary" data-act="invite"' + (miss ? '' : ' disabled') + '>Añadir jugador con QR</button>';
-      h += '<div class="seg">' + segHTML(g.bots.levels, H.opt.lvl, 'lvl') + '</div><button class="btn" data-act="svfill"' + (miss ? '' : ' disabled') + '>Sustituir a los ausentes por IA</button></div>';
+      if (g.bots) h += '<div class="seg">' + segHTML(g.bots.levels, H.opt.lvl, 'lvl') + '</div><button class="btn" data-act="svfill"' + (miss ? '' : ' disabled') + '>Sustituir a los ausentes por IA</button>';
+      h += '</div>';
     } else {
       h += '<div class="card"><h2>Añadir jugadores</h2>';
       if (H.kind === 'local') h += '<button class="btn primary" data-act="invite"' + (full ? ' disabled' : '') + '>Añadir jugador con QR</button>';
-      h += '<div class="seg">' + segHTML(g.bots.levels, H.opt.lvl, 'lvl') + '</div><button class="btn" data-act="addbot"' + (full ? ' disabled' : '') + '>Añadir IA</button></div>';
+      if (g.bots) h += '<div class="seg">' + segHTML(g.bots.levels, H.opt.lvl, 'lvl') + '</div><button class="btn" data-act="addbot"' + (full ? ' disabled' : '') + '>Añadir IA</button>';
+      h += '</div>';
     }
   }
   h += '<div class="row">' + (host
@@ -1208,6 +1333,7 @@ async function openSave(id, mode) {
     else { toast('Este navegador no permite reabrir la sala'); return; }
     if (H.role !== 'host') return;
     H.resume = sv;
+    if (H.kind === 'claude') { H.sid = sv.id; saveSess(); }
     onRosterChange();
     return;
   }
@@ -1291,12 +1417,14 @@ function renderHome() {
     '<div class="row"><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
 }
 function slvGet() { const m = store.get('hub.slv', {}); const v = m[H.game.id]; return Number.isInteger(v) && v >= 0 && v < H.game.single.levels.length ? v : H.game.single.def; }
-function renderSingleMenu() {
+function renderSingleMenu(withRooms) {
   const s = H.game.single, lv = slvGet(), sv = !!Saves.getSingle(H.game.id);
   $('#gmenu').innerHTML = '<div class="card"><h2>Nivel</h2><div class="seg">' + segHTML(s.levels, lv, 'slv') + '</div>' +
     '<p class="muted small" style="margin:0">' + esc(s.info(lv)) + '</p>' +
     (sv ? '<button class="btn primary" data-act="scont">Continuar la partida guardada</button><button class="btn" data-act="sstart">Nueva partida</button>' : '<button class="btn primary" data-act="sstart">Jugar</button>') + '</div>' +
+    (withRooms ? '<h3 class="gsec">Con más jugadores</h3>' + roomCardsHTML() : '') +
     '<div class="row"><button class="btn flat grow" data-act="rules">Cómo se juega</button><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
+  if (withRooms) renderRooms();
 }
 function startSingle(resume) {
   resetRoom();
@@ -1321,23 +1449,10 @@ function gOptCard(locked) {
     : '<div class="seg">' + op.vals.map((l, i) => '<button data-act="gopt" data-k="' + op.k + '" data-v="' + i + '" aria-pressed="' + (i === o[op.k] ? 'true' : 'false') + '">' + esc(l) + '</button>').join('') + '</div>') +
     (op.desc ? '<p class="muted small" style="margin:0">' + esc(op.desc[o[op.k]]) + '</p>' : '') + '</div>').join('');
 }
-function renderGMenu() {
-  if (H.game.single) { renderSingleMenu(); return; }
-  const g = H.game, b = g.bots;
+/* tarjetas de sala (online y sin conexión): las usan los juegos de turnos y los mixtos (un jugador + sala) */
+function roomCardsHTML() {
   const online = !!ClaudeNet.ns;
-  const svs = Saves.forGame(g.id);
-  let h = svs.length ? '<div class="card"><h2>Partidas guardadas</h2>' + svs.slice(0, 4).map(s => {
-    const hu = Saves.humans(s), who = hu.length ? 'con ' + hu.join(', ') : 'contra la IA';
-    return '<div class="svrow"><div class="grow"><b>' + esc(who) + '</b><br><span class="muted small">' + Saves.ago(s.ts) + (hu.length ? ' · sala ' + (s.kind === 'claude' ? 'online' : 'sin conexión') : '') + '</span></div>' +
-      (hu.length ? '<button class="btn primary" data-act="svres" data-id="' + esc(s.id) + '">Reabrir sala</button><button class="btn" data-act="svsolo" data-id="' + esc(s.id) + '">Con IA</button>' : '<button class="btn primary" data-act="svsolo" data-id="' + esc(s.id) + '">Continuar</button>') +
-      '<button class="btn flat" data-act="svdel" data-id="' + esc(s.id) + '" aria-label="Borrar partida guardada">🗑</button></div>';
-  }).join('') + '</div>' : '';
-  h += gOptCard(false);
-  h += '<div class="card"><h2>Contra la IA</h2>' +
-    '<div class="seg">' + segHTML(Array.from({ length: b.max - b.min + 1 }, (_, i) => (i + b.min) + (i + b.min === 1 ? ' rival' : ' rivales')), H.opt.opp, 'opp', b.min) + '</div>' +
-    '<div class="seg">' + segHTML(b.levels, H.opt.lvl, 'lvl') + '</div>' +
-    '<div class="seg">' + segHTML(['Empieza: al azar', 'Empiezo yo'], H.opt.first === 1 ? 1 : 0, 'first') + '</div>' +
-    '<button class="btn primary" data-act="solo">Jugar</button></div>';
+  let h = '';
   if (online) {
     h += '<div class="card"><h2>Sala online</h2>' +
       '<p class="muted small" style="margin:0">Necesita internet. Pasa el código a quien quieras que juegue contigo.</p>' +
@@ -1357,6 +1472,27 @@ function renderGMenu() {
     h += '<p class="muted small" style="margin:0">Este navegador no admite conexiones directas. Prueba con Chrome.</p>';
   }
   h += '</div>';
+  return h;
+}
+function renderGMenu() {
+  if (H.game.single && H.game.createEngine) { renderSingleMenu(true); return; }   /* mixto: un jugador + sala */
+  if (H.game.single) { renderSingleMenu(); return; }
+  const g = H.game, b = g.bots;
+  const online = !!ClaudeNet.ns;
+  const svs = Saves.forGame(g.id);
+  let h = svs.length ? '<div class="card"><h2>Partidas guardadas</h2>' + svs.slice(0, 4).map(s => {
+    const hu = Saves.humans(s), who = hu.length ? 'con ' + hu.join(', ') : 'contra la IA';
+    return '<div class="svrow"><div class="grow"><b>' + esc(who) + '</b><br><span class="muted small">' + Saves.ago(s.ts) + (hu.length ? ' · sala ' + (s.kind === 'claude' ? 'online' : 'sin conexión') : '') + '</span></div>' +
+      (hu.length ? '<button class="btn primary" data-act="svres" data-id="' + esc(s.id) + '">Reabrir sala</button><button class="btn" data-act="svsolo" data-id="' + esc(s.id) + '">Con IA</button>' : '<button class="btn primary" data-act="svsolo" data-id="' + esc(s.id) + '">Continuar</button>') +
+      '<button class="btn flat" data-act="svdel" data-id="' + esc(s.id) + '" aria-label="Borrar partida guardada">🗑</button></div>';
+  }).join('') + '</div>' : '';
+  h += gOptCard(false);
+  h += '<div class="card"><h2>Contra la IA</h2>' +
+    '<div class="seg">' + segHTML(Array.from({ length: b.max - b.min + 1 }, (_, i) => (i + b.min) + (i + b.min === 1 ? ' rival' : ' rivales')), H.opt.opp, 'opp', b.min) + '</div>' +
+    '<div class="seg">' + segHTML(b.levels, H.opt.lvl, 'lvl') + '</div>' +
+    '<div class="seg">' + segHTML(['Empieza: al azar', 'Empiezo yo'], H.opt.first === 1 ? 1 : 0, 'first') + '</div>' +
+    '<button class="btn primary" data-act="solo">Jugar</button></div>';
+  h += roomCardsHTML();
   h += '<div class="row"><button class="btn flat grow" data-act="rules">Cómo se juega</button><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
   $('#gmenu').innerHTML = h;
   renderRooms();
@@ -1378,7 +1514,7 @@ function beginMatch(pl, sv) {
   if (sv) pl.forEach((p, i) => { if (p.bot && sv.pl[i] && !sv.pl[i].bot) { try { H.eng.toBot(i, p.lv); } catch (e) { /* sin sustitución */ } } });
   H.sid = sv ? sv.id : newGid();
   H.gid = newGid();
-  H.seat = 0;
+  H.seat = 0; if (H.role === 'host') saveSess();
   H.overKey = '';
   hideSheet();
   mountMatch();
@@ -1396,14 +1532,22 @@ function mountMatch() {
   });
 }
 function sendAction(a) {
-  if (H.role === 'guest') { if (H.tr) H.tr.send(H.tr.hostId, { t: 'act', g: H.gid, a }); return; }
+  if (H.role === 'guest') { if (H.tr && H.tr.hostId) H.tr.send(H.tr.hostId, { t: 'act', g: H.gid, a }); else if (H.view && H.view.rejected) H.view.rejected('Esperando al anfitrión…'); return; }
   if (!H.eng) return;
   let r;
   try { r = H.eng.act(H.seat, a); } catch (e) { r = { ok: false, err: 'Jugada no válida' }; }
   if (!r.ok) { if (H.view && H.view.rejected) H.view.rejected(r.err); return; }
   afterAct();
 }
-function afterAct() { pushState(); scheduleBot(); saveGame(); }
+function afterAct() { pushState(); scheduleBot(); scheduleTick(); saveGame(); }
+/* juegos con reloj propio (todos a la vez): el motor da nextTick() (marca de tiempo del próximo evento o 0) y tick(); el anfitrión lo ejecuta y reenvía el estado */
+function scheduleTick() {
+  clearTimeout(H.tickT);
+  const e = H.eng;
+  if (!e || e.over || !e.nextTick || (H.role !== 'solo' && H.role !== 'host')) return;
+  const t = e.nextTick(); if (!t) return;
+  H.tickT = setTimeout(() => { if (!H.eng || H.eng !== e) return; try { if (e.tick) e.tick(); } catch (err) { /* sin cambio */ } afterAct(); }, Math.max(0, t - Date.now()) + 30);
+}
 function pushState() {
   const e = H.eng;
   if (!e) return;
@@ -1485,11 +1629,21 @@ function syncURL() {
 /* service worker: solo con el servidor y el build dividido (window.MJ_MODS); guarda el núcleo y cada módulo que se abre */
 const offlineOK = () => pathMode() && 'serviceWorker' in navigator && !!window.MJ_MODS;
 function bootHub() {
-  const start = urlGame();
+  let start = urlGame();
+  const sess = getSess(), rejoin = !!sess && (!start || start === sess.game);
+  if (rejoin) start = null;   /* si hay una sala a la que volver, se va a ella en vez de al menú del juego */
   paintAssist(); paintTools();
   show('home'); renderHome();
   H.urlOn = true; if (!start || !Hub.catalog.some(g => g.id === start)) syncURL();
-  ClaudeNet.init(() => { if (H.screen === 'gmenu') renderRooms(); }).then(() => { if (H.screen === 'gmenu') renderGMenu(); });
+  ClaudeNet.init(() => { if (H.screen === 'gmenu') renderRooms(); }).then(async () => {
+    if (rejoin) {
+      if (document.readyState === 'loading') await new Promise(rs => document.addEventListener('DOMContentLoaded', rs, { once: true }));
+      let ok = false; try { ok = await autoRejoin(sess); } catch (e) { ok = false; }
+      if (!ok && H.screen === 'home') { const g = Hub.catalog.some(x => x.id === sess.game) ? sess.game : ''; if (g) ACTS.pick({ dataset: { g } }); }
+      return;
+    }
+    if (H.screen === 'gmenu') renderGMenu();
+  });
   if (offlineOK()) window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => { /* sin service worker: sigue funcionando en línea */ }); });
   /* los bloques de los juegos van detrás de este script: hay que esperar a que el documento esté completo para poder cargarlos */
   if (start && Hub.catalog.some(g => g.id === start)) {
@@ -1499,6 +1653,8 @@ function bootHub() {
 }
 
 /* ---------- Acciones ---------- */
+/* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.4.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1609,8 +1765,9 @@ const ACTS = {
   subbot() { botAway(); ACTS.reco(); },
   async reinvite() { hideSheet(); try { await Mods.load('pair'); } catch (e) { toast('No se pudo cargar el emparejamiento'); return; } hostInvite(); },
   menu() {
-    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button></div>');
-    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button></div>');
+    const ver = '<p class="mnu-ver">' + APP_NAME + ' · v' + APP_VER + '</p>';
+    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button>' + ver + '</div>');
+    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button>' + ver + '</div>');
   }
 };
 /* CTX games/catalog: Una línea Hub.catalog.push por juego: {id, cat, name, blurb, mod}. Añadir un juego = módulo + una línea aquí + su entrada en games.json. */
@@ -1635,12 +1792,15 @@ Hub.catalog.push({ id: 'parchis', cat: 'tablero', name: 'Parchís', blurb: 'Clá
 Hub.catalog.push({ id: 'domino', cat: 'tablero', name: 'Dominó', blurb: 'Doble seis · 2 a 4 jugadores', mod: 'domino' });
 Hub.catalog.push({ id: 'tangram', cat: 'puzzles', name: 'Tangram', blurb: 'Un jugador · 3 niveles', mod: 'tangram' });
 Hub.catalog.push({ id: 'cuatro', cat: 'tablero', name: '4 en raya', blurb: 'Clásico · 2 jugadores', mod: 'cuatro' });
+Hub.catalog.push({ id: 'reversi', cat: 'tablero', name: 'Reversi', blurb: 'Clásico · 2 jugadores', mod: 'reversi' });
 Hub.catalog.push({ id: 'mahjong', cat: 'puzzles', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas', mod: 'mahjong' });
 Hub.catalog.push({ id: 'hanoi', cat: 'puzzles', name: 'Torres de Hanoi', blurb: 'Un jugador · 5 niveles', mod: 'hanoi' });
 Hub.catalog.push({ id: 'flechas', cat: 'puzzles', name: 'Flechas', blurb: 'Un jugador · 6 niveles', mod: 'flechas' });
 Hub.catalog.push({ id: 'parejas', cat: 'cartas', name: 'Parejas', blurb: 'Memoria · 2 a 4 jugadores', mod: 'parejas' });
 Hub.catalog.push({ id: 'atasco', cat: 'puzzles', name: 'Atasco', blurb: 'Un jugador · bloques deslizantes · 5 niveles', mod: 'atasco' });
 Hub.catalog.push({ id: 'hilos', cat: 'puzzles', name: 'Hilos', blurb: 'Un jugador · conecta colores · 5 niveles', mod: 'hilos' });
+Hub.catalog.push({ id: 'buscaminas', cat: 'puzzles', name: 'Buscaminas', blurb: 'Un jugador · 5 niveles', mod: 'buscaminas' });
+Hub.catalog.push({ id: 'boggle', cat: 'palabras', name: 'Boggle', blurb: 'Palabras en una rejilla · solo o en sala', mod: 'boggle' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
 bootHub();
 </script>
@@ -6903,7 +7063,7 @@ Mods.ok("hive");
 </script>
 <script type="text/plain" data-mod="scrabble" data-deps="scdict">
 /* CTX scrabble: Scrabble en español (tablero 15×15, bolsa, comodines, diccionario scdict). IA por frecuencia de palabras (fácil 8000, normal 20000, difícil todas). Arrastrar o tocar para colocar, vista previa de puntos. */
-(function(){const s=document.createElement("style");s.textContent="/* Scrabble: tablero 15×15 sin scroll; clases con prefijo sc- */\n.sc{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;margin:0 auto;--cs:min(calc((100vw - 18px)/15),calc((100dvh - 330px)/15),36px);touch-action:manipulation;user-select:none;-webkit-user-select:none;\n  --sc-cell:color-mix(in srgb,var(--accent-soft) 45%,var(--surface));--sc-line:color-mix(in srgb,var(--ink) 55%,var(--accent));--sc-mk:rgba(255,255,255,.92);\n  --sc-tile:#f3deb0;--sc-tile-ink:#3b2a0a;--sc-tw:#d9534f;--sc-dw:#f0a8a4;--sc-dwk:#5a1c1a;--sc-tl:#3b82d6;--sc-dl:#a9cdf0;--sc-dlk:#10335c}\n:root[data-theme=\"dark\"] .sc{--sc-cell:#2b4784;--sc-line:#8fb0ee;--sc-tile:#f6e4b8;--sc-tw:#e0554f;--sc-dw:#b8605f;--sc-dwk:#fff;--sc-tl:#3f8be0;--sc-dl:#4b78b8;--sc-dlk:#fff}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .sc{--sc-cell:#2b4784;--sc-line:#8fb0ee;--sc-tile:#f6e4b8;--sc-tw:#e0554f;--sc-dw:#b8605f;--sc-dwk:#fff;--sc-tl:#3f8be0;--sc-dl:#4b78b8;--sc-dlk:#fff}}\n.sc-hd{display:flex;align-items:center;gap:6px;width:100%;flex:none;overflow:hidden}\n.sc-pl{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}\n.sc-pl b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sc-pl em{font-style:normal;font-family:var(--f-mono);font-weight:700}\n.sc-pl.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.sc-bag{flex:none;font-size:12px;color:var(--muted);font-family:var(--f-mono)}\n.sc-bd{display:grid;grid-template-columns:repeat(15,var(--cs));grid-template-rows:repeat(15,var(--cs));gap:1px;padding:1px;background:var(--sc-line);border-radius:6px;flex:none;box-shadow:var(--shadow)}\n.sc-c{width:var(--cs);height:var(--cs);background:var(--sc-cell);display:flex;align-items:center;justify-content:center;font:700 calc(var(--cs)*.3) var(--f-mono);color:var(--sc-mk);position:relative;line-height:1}\n.sc-c.tw{background:var(--sc-tw)}.sc-c.dw{background:var(--sc-dw);color:var(--sc-dwk)}.sc-c.tl{background:var(--sc-tl)}.sc-c.dl{background:var(--sc-dl);color:var(--sc-dlk)}\n.sc-c.ct{background:var(--sc-dw);color:var(--sc-dwk);font-size:calc(var(--cs)*.6)}\n.sc-c.t,.sc-rt,.sc-gh{background:var(--sc-tile);color:var(--sc-tile-ink)}\n.sc-c.t{font:700 calc(var(--cs)*.62) var(--f-body,system-ui);box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}\n.sc-c.t b,.sc-rt b,.sc-gh b{font-weight:800}\n.sc-c.t sub,.sc-rt sub,.sc-gh sub{position:absolute;right:2px;bottom:1px;font-size:.38em;font-weight:700;line-height:1}\n.sc-c.t.bl b{color:#2563c9;font-style:italic}\n.sc-c.pd{outline:2px solid var(--good);outline-offset:-2px;z-index:1;cursor:grab;touch-action:none}\n.sc-c.lm{outline:2px solid #e6a317;outline-offset:-2px}\n.sc-c.nw{animation:scpop .35s ease-out}\n@keyframes scpop{0%{transform:scale(.4);opacity:.3}70%{transform:scale(1.12)}100%{transform:none;opacity:1}}\n@media (prefers-reduced-motion: reduce){.sc-c.nw{animation:none}}\n.sc-st{text-align:center;font-size:.8rem;min-height:2.7em;flex:none;line-height:1.3;max-width:100%}\n.sc-st .ok{color:var(--good);font-weight:700}.sc-st .bad{color:var(--bad);font-weight:700}\n.sc-rk{display:flex;justify-content:center;gap:5px;flex:none;min-height:46px;width:100%}\n.sc-rt{position:relative;width:calc(min(100vw - 24px,520px)/7 - 6px);max-width:48px;height:46px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 2px 0 rgba(0,0,0,.25);cursor:grab;touch-action:none}\n.sc-rt sub{font-size:11px;right:4px;bottom:2px}\n.sc-rt.on{opacity:.25}.sc-rt.sel{outline:3px solid var(--good);transform:translateY(-4px)}.sc-rt.sw{outline:3px solid var(--bad);transform:translateY(-4px)}\n.sc-gh{position:fixed;z-index:60;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;pointer-events:none;box-shadow:0 6px 14px rgba(0,0,0,.4)}\n.sc-ac{display:flex;gap:5px;flex:none;width:100%;flex-wrap:nowrap}\n.sc-ac .btn{flex:1;min-width:0;padding:9px 2px;font-size:.72rem}\n.sc-ac .btn.primary{flex:1.5}\n.sc-pk{position:fixed;inset:0;background:rgba(10,25,45,.55);display:flex;align-items:center;justify-content:center;z-index:70}\n.sc-pkc{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:16px;max-width:90vw;text-align:center}\n.sc-pkc p{margin:0 0 10px;font-weight:700;color:var(--accent)}\n.sc-pkc div{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:10px}\n.sc-pkc div button{font:700 1.1rem var(--f-mono);padding:8px 0;border-radius:8px;border:2px solid var(--accent);background:var(--surface);color:var(--ink);cursor:pointer}\n.sc-ac .btn{border-color:color-mix(in srgb,var(--ink) 38%,transparent)}\n.sc-ac .btn.primary{border-color:var(--accent)}\n.sc-ac .btn:disabled{opacity:.5}\n.sc-pl{border-color:color-mix(in srgb,var(--ink) 30%,transparent)}\n";document.head.appendChild(s)})();
+(function(){const s=document.createElement("style");s.textContent="/* Scrabble: tablero 15×15 sin scroll; clases con prefijo sc- */\n.sc{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;margin:0 auto;--cs:min(calc((100vw - 18px)/15),calc((100dvh - 330px)/15),36px);touch-action:manipulation;user-select:none;-webkit-user-select:none;\n  --sc-cell:color-mix(in srgb,var(--accent-soft) 45%,var(--surface));--sc-line:color-mix(in srgb,var(--ink) 55%,var(--accent));--sc-mk:rgba(255,255,255,.92);\n  --sc-tile:#f3deb0;--sc-tile-ink:#3b2a0a;--sc-tw:#d9534f;--sc-dw:#f0a8a4;--sc-dwk:#5a1c1a;--sc-tl:#3b82d6;--sc-dl:#a9cdf0;--sc-dlk:#10335c}\n:root[data-theme=\"dark\"] .sc{--sc-cell:#2b4784;--sc-line:#8fb0ee;--sc-tile:#f6e4b8;--sc-tw:#e0554f;--sc-dw:#b8605f;--sc-dwk:#fff;--sc-tl:#3f8be0;--sc-dl:#4b78b8;--sc-dlk:#fff}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .sc{--sc-cell:#2b4784;--sc-line:#8fb0ee;--sc-tile:#f6e4b8;--sc-tw:#e0554f;--sc-dw:#b8605f;--sc-dwk:#fff;--sc-tl:#3f8be0;--sc-dl:#4b78b8;--sc-dlk:#fff}}\n.sc-hd{display:flex;align-items:center;gap:6px;width:100%;flex:none;overflow:hidden}\n.sc-pl{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:3px 9px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px}\n.sc-pl b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sc-pl em{font-style:normal;font-family:var(--f-mono);font-weight:700}\n.sc-pl.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.sc-bag{flex:none;font-size:12px;color:var(--muted);font-family:var(--f-mono)}\n.sc-bd{display:grid;grid-template-columns:repeat(15,var(--cs));grid-template-rows:repeat(15,var(--cs));gap:1px;padding:1px;background:var(--sc-line);border-radius:6px;flex:none;box-shadow:var(--shadow)}\n.sc-c{width:var(--cs);height:var(--cs);background:var(--sc-cell);display:flex;align-items:center;justify-content:center;font:700 calc(var(--cs)*.3) var(--f-mono);color:var(--sc-mk);position:relative;line-height:1}\n.sc-c.tw{background:var(--sc-tw)}.sc-c.dw{background:var(--sc-dw);color:var(--sc-dwk)}.sc-c.tl{background:var(--sc-tl)}.sc-c.dl{background:var(--sc-dl);color:var(--sc-dlk)}\n.sc-c.ct{background:var(--sc-dw);color:var(--sc-dwk);font-size:calc(var(--cs)*.6)}\n.sc-c.t,.sc-rt,.sc-gh{background:var(--sc-tile);color:var(--sc-tile-ink)}\n.sc-c.t{font:700 calc(var(--cs)*.62) var(--f-body,system-ui);box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}\n.sc-c.t b,.sc-rt b,.sc-gh b{font-weight:800}\n.sc-c.t sub,.sc-rt sub,.sc-gh sub{position:absolute;right:2px;bottom:1px;font-size:.38em;font-weight:700;line-height:1}\n.sc-c.t.bl b{color:#2563c9;font-style:italic}\n.sc-c.pd{outline:2px solid var(--good);outline-offset:-2px;z-index:1;cursor:grab;touch-action:none}\n.sc-c.lm{outline:2px solid #e6a317;outline-offset:-2px}\n.sc-c.nw{animation:scpop .35s ease-out}\n@keyframes scpop{0%{transform:scale(.4);opacity:.3}70%{transform:scale(1.12)}100%{transform:none;opacity:1}}\n@media (prefers-reduced-motion: reduce){.sc-c.nw{animation:none}}\n.sc-st{text-align:center;font-size:.8rem;min-height:2.7em;flex:none;line-height:1.3;max-width:100%}\n.sc-st .ok{color:var(--good);font-weight:700}.sc-st .bad{color:var(--bad);font-weight:700}\n.sc-rk{display:flex;justify-content:center;gap:5px;flex:none;min-height:46px;width:100%}\n.sc-rt{position:relative;width:calc(min(100vw - 24px,520px)/7 - 6px);max-width:48px;height:46px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 2px 0 rgba(0,0,0,.25);cursor:grab;touch-action:none}\n.sc-rt sub{font-size:11px;right:4px;bottom:2px}\n.sc-rt.on{opacity:.25}.sc-rt.sel{outline:3px solid var(--good);transform:translateY(-4px)}.sc-rt.sw{outline:3px solid var(--bad);transform:translateY(-4px)}\n.sc-gh{position:fixed;z-index:60;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;pointer-events:none;box-shadow:0 6px 14px rgba(0,0,0,.4)}\n.sc-ac{display:flex;gap:5px;flex:none;width:100%;flex-wrap:nowrap}\n.sc-ac .btn{flex:1;min-width:0;padding:9px 2px;font-size:.72rem}\n.sc-ac .btn.primary{flex:1.5}\n.sc-pk{position:fixed;inset:0;background:rgba(10,25,45,.55);display:flex;align-items:center;justify-content:center;z-index:70}\n.sc-pkc{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:16px;max-width:90vw;text-align:center}\n.sc-pkc p{margin:0 0 10px;font-weight:700;color:var(--accent)}\n.sc-pkc div{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:10px}\n.sc-pkc div button{font:700 1.1rem var(--f-mono);padding:8px 0;border-radius:8px;border:2px solid var(--accent);background:var(--surface);color:var(--ink);cursor:pointer}\n.sc-ac .btn{border-color:color-mix(in srgb,var(--ink) 38%,transparent)}\n.sc-ac .btn.primary{border-color:var(--accent)}\n.sc-ac .btn:disabled{opacity:.5}\n.sc-pl{border-color:color-mix(in srgb,var(--ink) 30%,transparent)}\n.sc-c.nx{z-index:1;cursor:pointer}\n.sc-c.nx::after{content:'';position:absolute;inset:0;border:3px solid var(--good);background:color-mix(in srgb,var(--good) 22%,transparent);animation:scnx 1s ease-in-out infinite}\n@keyframes scnx{0%,100%{opacity:.4}50%{opacity:1}}\n@media (prefers-reduced-motion: reduce){.sc-c.nx::after{animation:none}}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Scrabble en español · 2 a 4 jugadores (sala o contra la IA) =====
    Tablero 15×15, 97 fichas (sin las dobles CH, LL, RR: se forman con dos fichas), diccionario de ~635.000 palabras (módulo scdict).
@@ -7165,7 +7325,7 @@ class ScGame {
 
 /* ----- Pantalla ----- */
 function scrabbleMount(el, ctx) {
-  const V = { pub: null, rack: [], pend: {}, selR: -1, swap: null, pending: false, pick: null, sure: '', sureT: 0, drag: null, nw: false, key: '' };
+  const V = { pub: null, rack: [], pend: {}, selR: -1, swap: null, pending: false, pick: null, sure: '', sureT: 0, drag: null, nw: false, key: '', tcell: -1 };
   el.innerHTML = '<div class="sc"><div class="sc-hd" id="scHd"></div><div class="sc-bd" id="scBd"></div><div class="sc-st" id="scSt"></div><div class="sc-rk" id="scRk"></div><div class="sc-ac" id="scAc"></div></div>';
   const q = s => el.querySelector(s), bd = q('#scBd'), cells = [];
   for (let i = 0; i < 225; i++) { const c = document.createElement('div'); c.className = 'sc-c'; c.dataset.i = i; cells.push(c); bd.appendChild(c); }
@@ -7193,19 +7353,26 @@ function scrabbleMount(el, ctx) {
   function render() {
     const P = V.pub; if (!P) return;
     const last = new Set(P.last && P.last.tiles ? P.last.tiles : []);
+    if (!Object.keys(V.pend).length) V.dir = null;
+    /* pista de dirección: casilla donde irá la siguiente ficha (el toque en otra casilla cambia la dirección) */
+    const nc = P.over || V.swap ? -1 : tgtOk() ? V.tcell : Object.keys(V.pend).length ? nextCell() : -1;
     cells.forEach((e, i) => {
       const c = P.bd[i], pd = V.pend[i];
       let k = 'sc-c';
       if (pd) { k += ' t pd' + (pd.b ? ' bl' : ''); e.innerHTML = tileHTML(pd.b ? pd.l.toLowerCase() : pd.l); }
       else if (c !== '.') { k += ' t' + (c !== c.toUpperCase() ? ' bl' : '') + (last.has(i) ? ' lm' : '') + (V.nw && last.has(i) ? ' nw' : ''); e.innerHTML = tileHTML(c); }
       else { const p = SC_PR[i]; if (p !== '.') k += ' ' + prem[p][1]; if (i === 112) k += ' ct'; e.innerHTML = i === 112 ? '★' : (p !== '.' ? prem[p][0] : ''); }
+      if (i === nc) k += ' nx';
       e.className = k;
     });
     q('#scHd').innerHTML = P.n.map((n, i) => '<div class="sc-pl' + (P.turn === i && !P.over ? ' on' : '') + '"><b>' + (i === me() ? 'Tú' : esc(n)) + '</b><em>' + P.sc[i] + '</em></div>').join('') + '<div class="sc-bag" title="Fichas en la bolsa">🎒 ' + P.bag + '</div>';
     q('#scRk').innerHTML = V.rack.map((t, i) => '<div class="sc-rt' + (t.on ? ' on' : '') + (V.selR === i ? ' sel' : '') + (V.swap && V.swap.has(i) ? ' sw' : '') + '" data-r="' + i + '">' + (t.l === '?' ? '<b>?</b>' : '<b>' + t.l + '</b><sub>' + SC_PTS[t.l] + '</sub>') + '</div>').join('') + (V.rack.length ? '' : '<span class="muted">Sin fichas</span>');
     let msg;
     if (P.over) msg = P.res.w === me() ? '¡Ganas la partida! 🎉' : 'Gana ' + esc(P.n[P.res.w]);
-    else if (P.turn !== me()) msg = 'Juega ' + esc(P.n[P.turn]) + '…';
+    else if (P.turn !== me()) {
+      const ev = EV && EV.ok ? EV.words.map(w => '<span class="' + (w.bad ? 'bad' : 'ok') + '">' + w.w + ' ' + w.pts + '</span>').join(' · ') + ' → <b>' + EV.pts + ' pts</b>' + (EV.valid ? '' : ' · <span class="bad">no está en el diccionario</span>') : EV ? '<span class="bad">' + EV.err + '</span>' : '';
+      msg = 'Juega ' + esc(P.n[P.turn]) + '…<br><span class="muted">Pruebas:</span> ' + (ev || '<span class="muted">arrastra fichas al tablero para probar palabras</span>');
+    }
     else if (V.swap) msg = 'Toca las fichas que quieres cambiar (' + V.swap.size + ')';
     else if (V.pending) msg = 'Jugando…';
     else if (EV && EV.ok) msg = EV.words.map(w => '<span class="' + (w.bad ? 'bad' : 'ok') + '">' + w.w + ' ' + w.pts + '</span>').join(' · ') + (EV.bingo ? ' · ¡scrabble +50!' : '') + ' → <b>' + EV.pts + ' pts</b>' + (EV.valid ? '' : ' · <span class="bad">no está en el diccionario</span>');
@@ -7221,10 +7388,25 @@ function scrabbleMount(el, ctx) {
       '<button class="btn" data-a="pass"' + (mt ? '' : ' disabled') + '>' + (V.sure === 'pass' ? '¿Seguro?' : 'Pasar') + '</button><button class="btn flat" data-a="rs">' + (V.sure === 'rs' ? '¿Seguro?' : 'Rendirse') + '</button>';
   }
   function sureTap(k, fn) { if (V.sure === k) { V.sure = ''; clearTimeout(V.sureT); fn(); } else { V.sure = k; clearTimeout(V.sureT); V.sureT = setTimeout(() => { V.sure = ''; render(); }, 2500); } render(); }
+  /* casilla elegida tocando el tablero: la siguiente ficha va ahí; luego se sigue con la dirección de las fichas */
+  function tgtOk() { return V.tcell >= 0 && !!V.pub && V.pub.bd[V.tcell] === '.' && !V.pend[V.tcell]; }
   function unplace(cell) { const p = V.pend[cell]; if (!p) return; V.rack[p.k].on = false; delete V.pend[cell]; }
+  /* siguiente casilla libre en la dirección de la jugada a medias (horizontal por defecto; con 2+ fichas la dirección la marcan ellas); -1 si no hay */
+  function nextCell() {
+    const pc = Object.keys(V.pend).map(Number), bd = V.pub.bd, occ = i => bd[i] !== '.'; if (!pc.length) return -1;
+    let dir;
+    if (pc.length > 1) dir = pc.every(i => (i / 15 | 0) === (pc[0] / 15 | 0)) ? 'h' : pc.every(i => i % 15 === pc[0] % 15) ? 'v' : '';
+    else { const i = pc[0], r0 = i / 15 | 0, c0 = i % 15, hn = (c0 > 0 && occ(i - 1)) || (c0 < 14 && occ(i + 1)), vn = (r0 > 0 && occ(i - 15)) || (r0 < 14 && occ(i + 15)); dir = V.dir || (vn && !hn ? 'v' : 'h'); }
+    V.ndir = dir;
+    if (!dir) return -1;
+    const h = dir === 'h', fix = h ? pc[0] / 15 | 0 : pc[0] % 15, at = k => h ? fix * 15 + k : k * 15 + fix, ks = pc.map(i => h ? i % 15 : i / 15 | 0), hi = Math.max.apply(null, ks), lo = Math.min.apply(null, ks);
+    for (let k = hi + 1; k <= 14; k++) { const i = at(k); if (!occ(i) && !V.pend[i]) return i; }
+    for (let k = lo - 1; k >= 0; k--) { const i = at(k); if (!occ(i) && !V.pend[i]) return i; }
+    return -1;
+  }
   function place(ri, cell) {
     const t = V.rack[ri]; if (!t || t.on || V.pub.bd[cell] !== '.' || V.pend[cell]) return;
-    const put = (l, b) => { V.pend[cell] = { k: ri, l, b }; t.on = true; V.selR = -1; snd('put'); evalNow(); render(); };
+    const put = (l, b) => { V.pend[cell] = { k: ri, l, b }; t.on = true; V.tcell = -1; V.selR = -1; snd('put'); evalNow(); render(); };
     if (t.l === '?') { openPick(l => put(l, 1)); return; }
     put(t.l, 0);
   }
@@ -7239,7 +7421,6 @@ function scrabbleMount(el, ctx) {
     if (!V.pub || V.pub.over || V.swap || e.button > 0) return;
     const rt = e.target.closest('.sc-rt'), pc = e.target.closest('.sc-c.pd');
     if (!rt && !pc) return;
-    if (!myTurn()) return;
     const from = rt ? { r: +rt.dataset.r } : { cell: +pc.dataset.i };
     if (rt && V.rack[from.r].on) return;
     V.drag = { from, x: e.clientX, y: e.clientY, moved: false, ghost: null, id: e.pointerId };
@@ -7260,7 +7441,10 @@ function scrabbleMount(el, ctx) {
     const D = V.drag; if (!D || (e && e.pointerId !== D.id)) return; V.drag = null;
     if (D.ghost) D.ghost.remove();
     if (!D.moved) { /* toque */
-      if (D.from.r != null) { V.selR = V.selR === D.from.r ? -1 : D.from.r; snd('tick'); render(); }
+      if (D.from.r != null) {
+        const nc = V.swap ? -1 : tgtOk() ? V.tcell : nextCell();   /* va a la casilla elegida; si no, con una jugada a medias va sola a la siguiente */
+        if (nc >= 0) place(D.from.r, nc); else { V.selR = V.selR === D.from.r ? -1 : D.from.r; snd('tick'); render(); }
+      }
       else { unplace(D.from.cell); evalNow(); snd('tick'); render(); }
       return;
     }
@@ -7279,7 +7463,7 @@ function scrabbleMount(el, ctx) {
     const ac = e.target.closest('[data-a]');
     if (ac) {
       const a = ac.dataset.a; if (!V.pub) return;
-      if (a === 'clr') { Object.keys(V.pend).forEach(unplace); V.selR = -1; evalNow(); snd('tick'); render(); }
+      if (a === 'clr') { V.tcell = -1; Object.keys(V.pend).forEach(unplace); V.selR = -1; evalNow(); snd('tick'); render(); }
       else if (a === 'shuf') { const keep = V.rack.map(t => t); const on = {}; Object.keys(V.pend).forEach(c => { on[c] = V.pend[c]; }); /* sólo se mezclan las del atril si no hay jugada a medias */ if (Object.keys(V.pend).length) { ctx.toast('Recoge las fichas del tablero para mezclar'); return; } for (let i = keep.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [keep[i], keep[j]] = [keep[j], keep[i]]; } V.rack = keep; V.selR = -1; snd('tick'); render(); }
       else if (a === 'swap') { V.swap = new Set(); V.selR = -1; render(); }
       else if (a === 'swno') { V.swap = null; render(); }
@@ -7293,16 +7477,22 @@ function scrabbleMount(el, ctx) {
     const rt = e.target.closest('.sc-rt');
     if (rt && V.swap) { const i = +rt.dataset.r; V.swap.has(i) ? V.swap.delete(i) : V.swap.add(i); snd('tick'); render(); return; }
     const c = e.target.closest('.sc-c');
-    if (c && V.selR >= 0 && myTurn()) place(V.selR, +c.dataset.i);
+    if (c && V.selR >= 0 && !V.pub.over) place(V.selR, +c.dataset.i);
+    else if (c && !V.drag) setTarget(+c.dataset.i);
+  }
+  /* tocar una casilla vacía la marca como destino de la siguiente ficha (tocar otra vez la desmarca) */
+  function setTarget(cell) {
+    if (V.swap || V.pub.bd[cell] !== '.' || V.pend[cell]) return;
+    V.tcell = V.tcell === cell ? -1 : cell; snd('tick'); render();
   }
   el.addEventListener('click', onClick);
   return {
     update(st) {
       const prev = V.pub, P = st.pub, rk = (st.priv && st.priv.rack) || '';
-      const same = prev && prev.seq === P.seq && [...rk].sort().join('') === V.rack.map(t => t.l).sort().join('');
+      const same = prev && !P.over && [...rk].sort().join('') === V.rack.map(t => t.l).sort().join('');   /* mismo atril: se conservan las fichas probadas (también cuando juega otro) */
       V.pub = P; V.pending = false; V.swap = null; V.nw = !!(prev && prev.seq !== P.seq);
-      if (!same) { V.rack = [...rk].map(l => ({ l, on: false })); V.pend = {}; V.selR = -1; }
-      else if (Object.keys(V.pend).length && !myTurn()) { Object.keys(V.pend).forEach(unplace); }
+      if (!same) { V.rack = [...rk].map(l => ({ l, on: false })); V.pend = {}; V.selR = -1; V.tcell = -1; }
+      else Object.keys(V.pend).forEach(c => { if (P.bd[c] !== '.') unplace(c); });   /* casillas que otro jugador acaba de ocupar */
       evalNow();
       if (V.nw && P.last) { if (P.last.kind === 'play') snd(P.last.bingo || P.last.pts >= 40 ? 'big' : 'play'); }
       if (prev && !prev.over && P.turn === me() && prev.turn !== me() && !P.over) setTimeout(() => snd('turn'), 400);
@@ -7318,6 +7508,9 @@ Hub.register({
   bots: { min: 1, max: 3, levels: ['Fácil', 'Normal', 'Difícil'] },
   rules: '<ul>' +
     '<li>Cada jugador tiene <b>7 fichas</b> con letras. En tu turno <b>arrastra fichas al tablero</b> (o toca una ficha y luego una casilla) para formar una palabra en horizontal o vertical. Las fichas deben quedar en una misma fila o columna, sin huecos, y la palabra debe <b>tocar alguna ficha ya colocada</b>. La primera palabra pasa por la casilla central ★.</li>' +
+    '<li><b>Prueba mientras esperas:</b> cuando juega otro jugador puedes seguir colocando fichas en el tablero para probar palabras y ver sus puntos; no se envía nada. Si el rival ocupa una casilla de tu prueba, esa ficha vuelve al atril. Al llegar tu turno, tu jugada a medias sigue ahí y solo tienes que pulsar Jugar.</li>' +
+    '<li><b>Pista de dirección:</b> un recuadro parpadeante marca la casilla donde irá la siguiente ficha. Si quieres poner letra en otra casilla, <b>tócala</b>: el recuadro pasa a ella, la siguiente ficha que toques va ahí y luego se sigue con la dirección que marquen tus fichas (vuelve a tocarla para quitar la marca).</li>' +
+    '<li><b>Colocación automática:</b> tras poner la primera ficha, basta <b>tocar la siguiente ficha del atril</b> y va sola a la casilla de al lado (hacia la derecha por defecto). Si colocas la segunda ficha tú, <b>abajo</b> (arrastrándola) o a la derecha, las siguientes siguen esa dirección. Tocar una ficha ya puesta la devuelve al atril.</li>' +
     '<li>Todas las palabras que se formen deben estar en el diccionario (castellano, sin acentos; la Ñ es una letra más). Mientras colocas ves en vivo las palabras formadas y los puntos, en rojo las que no existen.</li>' +
     '<li><b>Puntos:</b> cada letra vale lo que indica su ficha. Las casillas <b>DL / TL</b> multiplican la letra y <b>DP / TP</b> la palabra entera, pero sólo cuentan al colocar una ficha nueva encima. Si usas las <b>7 fichas</b> en una jugada, ganas <b>50 puntos</b> extra.</li>' +
     '<li>El <b>comodín</b> (?) vale 0 y representa la letra que elijas. No hay fichas dobles CH, LL ni RR: se forman con dos fichas. No existen K ni W.</li>' +
@@ -10615,6 +10808,877 @@ Hub.register({
 })();
 Mods.ok("cuatro");
 
+</script>
+<script type="text/plain" data-mod="reversi" data-deps="">
+/* CTX reversi: Reversi (Othello) 2 jugadores, tablero 8×8 (casillas fila*8+col). 'b' negras (empiezan; el asiento se sortea) / 'w' blancas; acciones {t:'mv',s} y {t:'rs'}. Pasa solo si no hay jugada (nota en pub.pass); fin cuando ninguno puede mover; gana quien tiene más fichas. IA: Fácil = golosa con despistes, Normal = minimax prof. 3, Difícil = alfa-beta prof. 5 + final exacto. Ayuda visual (body[data-assist]) marca las jugadas legales. Prefijo rv-. */
+(function(){const s=document.createElement("style");s.textContent="/* Reversi: tablero 8×8 sin scroll; clases con prefijo rv- */\n.rv{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;--sq:min(calc((100vw - 24px)/8),calc((100dvh - 300px)/8),58px);--rv-bd:#1f6b4a;--rv-ln:#134d34}\n.rv-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--sq)*8 + 9px)}\n.rv-who{display:flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px;min-width:0}\n.rv-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.rv-who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.rv-who em{font-style:normal;font-family:var(--f-mono);font-weight:800;margin-left:2px}\n.rv-dot{flex:none;width:16px;height:16px;border-radius:50%;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25),0 0 0 1px rgba(0,0,0,.35)}\n.rv-dot.b,.rv-d.b{background:#161616}.rv-dot.w,.rv-d.w{background:#f6f6f2}\n.rv-board{display:grid;grid-template-columns:repeat(8,var(--sq));grid-template-rows:repeat(8,var(--sq));gap:1px;padding:1px;background:var(--rv-ln);border-radius:6px;box-shadow:var(--shadow);flex:none}\n.rv-c{position:relative;width:var(--sq);height:var(--sq);padding:0;border:0;border-radius:0;background:var(--rv-bd);cursor:default;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}\n.rv-c.can{cursor:pointer}\n.rv-d{width:82%;height:82%;border-radius:50%;box-shadow:inset 0 -3px 0 rgba(0,0,0,.28),0 2px 3px rgba(0,0,0,.4);transform:scale(0);transition:transform .15s}\n.rv-d.b,.rv-d.w{transform:none}\n.rv-d.nw{animation:rvput .22s ease-out}\n.rv-d.fl{animation:rvflip .42s ease-in-out}\n@keyframes rvput{0%{transform:scale(.3)}100%{transform:none}}\n@keyframes rvflip{0%{transform:rotateY(0)}50%{transform:rotateY(90deg) scale(1.05)}100%{transform:rotateY(0)}}\n@media (prefers-reduced-motion: reduce){.rv-d.nw,.rv-d.fl{animation:none}}\n.rv-c.lm::before{content:'';position:absolute;inset:3px;border:2px solid #e6a317;border-radius:50%;z-index:1;pointer-events:none}\nbody[data-assist] .rv-c.can::after{content:'';width:26%;height:26%;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(0,0,0,.25)}\n.rv-st{text-align:center;font-size:.85rem;min-height:2.6em;line-height:1.3;flex:none}\n.rv-st .muted{display:block}\n.rv-acts{display:flex;gap:8px;width:100%;justify-content:center;flex:none}\n.rv-acts .btn{min-width:150px}\n";document.head.appendChild(s)})();
+(function(){
+/* ===== Reversi · 2 jugadores (sala o contra la IA) =====
+   Tablero 8×8, casillas 0..63 (fila*8+col, fila 0 arriba). 'b' negras (mueven primero) y 'w' blancas. Se coloca una ficha que encierre en línea recta
+   (8 direcciones) fichas rivales contra otra propia: todas las encerradas se voltean. Sin jugada legal se pasa automáticamente; acaba cuando ninguno puede mover.
+   Acciones: {t:'mv', s:casilla} · {t:'rs'} (rendirse). */
+const RV_N = 8, RV_DIRS = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+const rvOpp = p => (p === 'b' ? 'w' : 'b');
+function rvStart() { const b = new Array(64).fill('.'); b[27] = 'w'; b[28] = 'b'; b[35] = 'b'; b[36] = 'w'; return b; }
+/* casillas que se voltearían al jugar p en s ([] si no es legal) */
+function rvFlips(b, s, p) {
+  if (b[s] !== '.') return [];
+  const o = rvOpp(p), r0 = s >> 3, c0 = s & 7, out = [];
+  for (const [dr, dc] of RV_DIRS) {
+    let r = r0 + dr, c = c0 + dc; const line = [];
+    while (r >= 0 && r < RV_N && c >= 0 && c < RV_N && b[r * 8 + c] === o) { line.push(r * 8 + c); r += dr; c += dc; }
+    if (line.length && r >= 0 && r < RV_N && c >= 0 && c < RV_N && b[r * 8 + c] === p) for (const x of line) out.push(x);
+  }
+  return out;
+}
+function rvMoves(b, p) { const m = []; for (let s = 0; s < 64; s++) if (b[s] === '.' && rvFlips(b, s, p).length) m.push(s); return m; }
+const rvHas = (b, p) => { for (let s = 0; s < 64; s++) if (b[s] === '.' && rvFlips(b, s, p).length) return true; return false; };
+function rvCount(b) { let n = 0, w = 0; for (let i = 0; i < 64; i++) { if (b[i] === 'b') n++; else if (b[i] === 'w') w++; } return { b: n, w }; }
+/* valor posicional: esquinas muy buenas, casillas junto a la esquina malas */
+const RV_W = [
+  100, -20, 10, 5, 5, 10, -20, 100,
+  -20, -50, -2, -2, -2, -2, -50, -20,
+  10, -2, 1, 1, 1, 1, -2, 10,
+  5, -2, 1, 0, 0, 1, -2, 5,
+  5, -2, 1, 0, 0, 1, -2, 5,
+  10, -2, 1, 1, 1, 1, -2, 10,
+  -20, -50, -2, -2, -2, -2, -50, -20,
+  100, -20, 10, 5, 5, 10, -20, 100];
+function rvEval(b, p) {
+  const o = rvOpp(p); let pos = 0, np = 0, no = 0;
+  for (let i = 0; i < 64; i++) { if (b[i] === p) { pos += RV_W[i]; np++; } else if (b[i] === o) { pos -= RV_W[i]; no++; } }
+  const mp = rvMoves(b, p).length, mo = rvMoves(b, o).length;
+  const mob = mp + mo ? 12 * (mp - mo) / (mp + mo) * 10 : 0;
+  const empt = 64 - np - no, disc = empt < 12 ? (np - no) * 3 : 0;
+  return pos + mob + disc;
+}
+function rvApply(b, s, p, fl) { b[s] = p; for (const x of fl) b[x] = p; }
+/* negamax con poda alfa-beta (valor para p, que mueve). exact = final: solo cuenta la diferencia de fichas */
+function rvNega(b, p, depth, alpha, beta, exact, passed) {
+  const mv = rvMoves(b, p);
+  if (!mv.length) {
+    if (passed || !rvHas(b, rvOpp(p))) { const c = rvCount(b), d = (p === 'b' ? c.b - c.w : c.w - c.b); return d * 1000; }
+    return -rvNega(b, rvOpp(p), depth, -beta, -alpha, exact, true);
+  }
+  if (!exact && depth <= 0) return rvEval(b, p);
+  /* ordena por valor posicional para podar más */
+  mv.sort((x, y) => RV_W[y] - RV_W[x]);
+  let best = -1e9;
+  for (const s of mv) {
+    const fl = rvFlips(b, s, p); rvApply(b, s, p, fl);
+    const v = -rvNega(b, rvOpp(p), depth - 1, -beta, -alpha, exact, false);
+    b[s] = '.'; for (const x of fl) b[x] = rvOpp(p);
+    if (v > best) best = v; if (v > alpha) alpha = v; if (alpha >= beta) break;
+  }
+  return best;
+}
+const RV_DEPTH = [1, 3, 5];
+function rvPick(board, p, lv, rnd) {
+  const b = board.slice(), mv = rvMoves(b, p); if (!mv.length) return -1;
+  if (mv.length === 1) return mv[0];
+  lv = lv == null ? 1 : lv;
+  if (lv === 0 && rnd() < .3) return mv[Math.floor(rnd() * mv.length)];
+  const empt = b.filter(x => x === '.').length, exact = lv === 2 && empt <= 8;
+  let best = mv[0], bv = -1e9;
+  for (const s of mv) {
+    const fl = rvFlips(b, s, p); rvApply(b, s, p, fl);
+    let v = -rvNega(b, rvOpp(p), RV_DEPTH[lv] - 1, -1e9, 1e9, exact, false);
+    b[s] = '.'; for (const x of fl) b[x] = rvOpp(p);
+    if (lv === 0) v = fl.length * 4 + RV_W[s] * .3;   /* golosa: más fichas y esquinas */
+    v += rnd() * (lv === 0 ? 6 : lv === 1 ? 4 : .3);
+    if (v > bv) { bv = v; best = s; }
+  }
+  return best;
+}
+
+class RvGame {
+  constructor(players, saved) {
+    this.players = players.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+    this.k = Math.random() < .5 ? 0 : 1; /* asiento con negras (empieza) */
+    this.b = rvStart(); this.t = 'b'; this.n = 0;
+    this.last = null; this.pass = null; this.over = false; this.res = null; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.t === 'b' ? this.k : 1 - this.k; }
+  setStart(s) { this.k = s; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, k: this.k, b: this.b, t: this.t, n: this.n, last: this.last, pass: this.pass, over: this.over, res: this.res, seq: this.seq })); }
+  color(i) { return i === this.k ? 'b' : 'w'; }
+  finishCount() {
+    const c = rvCount(this.b), d = c.b - c.w; this.over = true;
+    const wb = d > 0 ? this.k : d < 0 ? 1 - this.k : -1;
+    this.res = { w: wb, why: 'más fichas', c };
+  }
+  move(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (this.color(i) !== this.t) return { ok: false, err: 'No es tu turno' };
+    const s = a && Number.isInteger(a.s) ? a.s : -1;
+    if (s < 0 || s > 63) return { ok: false, err: 'Casilla no válida' };
+    const fl = rvFlips(this.b, s, this.t);
+    if (!fl.length) return { ok: false, err: 'Jugada no válida: debe encerrar fichas rivales' };
+    rvApply(this.b, s, this.t, fl); this.n++;
+    this.last = { s, fl, p: this.t }; this.pass = null;
+    const nx = rvOpp(this.t);
+    if (rvHas(this.b, nx)) this.t = nx;
+    else if (rvHas(this.b, this.t)) this.pass = nx;   /* el rival no puede mover: sigue el mismo */
+    else this.finishCount();
+    this.seq++;
+    return { ok: true };
+  }
+  act(i, a) {
+    if (!a) return { ok: false, err: 'Acción no válida' };
+    if (a.t === 'mv') return this.move(i, a);
+    if (a.t === 'rs') { if (this.over) return { ok: false, err: 'La partida ha terminado' }; this.over = true; this.res = { w: 1 - i, why: 'rendición', c: rvCount(this.b) }; this.seq++; return { ok: true }; }
+    return { ok: false, err: 'Acción no válida' };
+  }
+  view() {
+    return { pub: { b: this.b.join(''), t: this.t, k: this.k, n: this.players.map(p => p.name), last: this.last, pass: this.pass, over: this.over, res: this.res, seq: this.seq }, priv: {} };
+  }
+  botSeat() { return (!this.over && this.players[this.turn].bot) ? this.turn : -1; }
+  bot(i) {
+    if (this.over || this.turn !== i) return;
+    let s = -1;
+    try { s = rvPick(this.b, this.t, this.players[i].lv == null ? 1 : this.players[i].lv, Math.random); } catch (e) { s = -1; }
+    if (s < 0) { const m = rvMoves(this.b, this.t); s = m.length ? m[Math.floor(Math.random() * m.length)] : -1; }
+    if (s >= 0) this.move(i, { s });
+  }
+  toHuman(i, name) { const p = this.players[i]; p.bot = false; p.lv = undefined; p.name = name; }
+  toBot(i, lv) { const p = this.players[i]; p.bot = true; p.lv = lv; if (!/\(IA\)$/.test(p.name)) p.name = p.name.slice(0, 9) + ' (IA)'; }
+  result() {
+    const r = this.res || { w: -1, why: '' }, tie = r.w < 0, c = r.c || rvCount(this.b);
+    return {
+      win: tie ? 0 : r.w, winners: tie ? [] : [r.w], tie,
+      rows: this.players.map((p, i) => { const n = i === this.k ? c.b : c.w; return { name: p.name, note: (i === this.k ? 'negras' : 'blancas') + (!tie && i === r.w && r.why === 'rendición' ? ' · rendición' : ''), pts: n, txt: String(n) }; })
+    };
+  }
+}
+
+/* ----- Pantalla ----- */
+function reversiMount(el, ctx) {
+  const V = { pub: null, pending: false, sure: 0, sureT: 0 };
+  el.innerHTML = '<div class="rv"><div class="rv-bar" id="rvTop"></div><div class="rv-board" id="rvBoard"></div><div class="rv-bar" id="rvBot"></div><div class="rv-st" id="rvSt"></div><div class="rv-acts"><button class="btn" data-rv="rs" id="rvRs">Rendirse</button></div></div>';
+  const q = s => el.querySelector(s), bd = q('#rvBoard'), cells = [];
+  const snd = k => {
+    const T = ctx.tone;
+    if (k === 'put') { T(330, .05, 'triangle', 0, .06); T(260, .07, 'square', .05, .04); }
+    else if (k === 'flip') { T(520, .04, 'triangle', .05, .04); T(620, .04, 'triangle', .1, .04); }
+    else if (k === 'bad') T(150, .2, 'sawtooth', 0, .05);
+  };
+  for (let i = 0; i < 64; i++) { const c = document.createElement('button'); c.dataset.s = i; c.className = 'rv-c'; c.innerHTML = '<i class="rv-d"></i>'; c.setAttribute('aria-label', 'Casilla ' + String.fromCharCode(65 + (i & 7)) + ((i >> 3) + 1)); bd.appendChild(c); cells.push(c); }
+  const myColor = () => (V.pub.k === ctx.me ? 'b' : 'w');
+  const myTurn = () => !!V.pub && !V.pub.over && V.pub.t === myColor() && !V.pending;
+  const brd = () => V.pub.b.split('');
+  function bar(seat, mine, cnt) {
+    const P = V.pub, col = seat === P.k ? 'b' : 'w', on = !P.over && P.t === col;
+    return '<div class="rv-who' + (on ? ' on' : '') + '"><i class="rv-dot ' + col + '"></i><b>' + (mine ? 'Tú' : esc(P.n[seat])) + '</b><em>' + cnt[col] + '</em></div>';
+  }
+  function render(anim) {
+    const P = V.pub; if (!P) return;
+    const b = brd(), cnt = rvCount(b), fl = new Set(anim && P.last ? P.last.fl : []);
+    const legal = new Set(myTurn() ? rvMoves(b, myColor()) : []);
+    cells.forEach((c, s) => {
+      const ch = b[s], d = c.firstChild;
+      d.className = 'rv-d' + (ch === 'b' ? ' b' : ch === 'w' ? ' w' : '') + (anim && P.last && P.last.s === s ? ' nw' : '') + (fl.has(s) ? ' fl' : '');
+      c.classList.toggle('can', legal.has(s));
+      c.classList.toggle('lm', !!P.last && P.last.s === s);
+      c.disabled = !!P.over;
+    });
+    q('#rvTop').innerHTML = bar(1 - ctx.me, false, cnt);
+    q('#rvBot').innerHTML = bar(ctx.me, true, cnt);
+    let msg;
+    if (P.over) msg = P.res.w < 0 ? 'Tablas: ' + cnt.b + ' a ' + cnt.w : (P.res.w === ctx.me ? '¡Ganas' : 'Pierdes') + ' (' + (P.res.why === 'rendición' ? 'rendición' : cnt[myColor()] + ' a ' + cnt[rvOpp(myColor())]) + ')' + (P.res.w === ctx.me ? '!' : '');
+    else {
+      msg = P.t === myColor() ? 'Tu turno' + (V.pending ? '…' : ': toca una casilla') : 'Juega ' + esc(P.n[1 - ctx.me]) + '…';
+      if (P.pass) msg = '<span class="muted">' + (P.pass === myColor() ? 'No tenías jugada: pasas turno.' : esc(P.n[1 - ctx.me]) + ' no tiene jugada y pasa.') + '</span>' + msg;
+    }
+    q('#rvSt').innerHTML = msg;
+    const rs = q('#rvRs'); rs.disabled = !!P.over; rs.textContent = V.sure ? '¿Seguro? Toca para rendirte' : 'Rendirse';
+  }
+  function onClick(e) {
+    const ax = e.target.closest('[data-rv]');
+    if (ax) {
+      if (!V.pub || V.pub.over) return;
+      if (V.sure) { V.sure = 0; clearTimeout(V.sureT); V.pending = true; ctx.send({ t: 'rs' }); render(); }
+      else { V.sure = 1; V.sureT = setTimeout(() => { V.sure = 0; render(); }, 3000); render(); }
+      return;
+    }
+    const c = e.target.closest('button.rv-c');
+    if (!c || !V.pub || !myTurn()) return;
+    const s = +c.dataset.s;
+    if (!rvFlips(brd(), s, myColor()).length) { snd('bad'); return; }
+    V.pending = true; ctx.send({ t: 'mv', s }); if (V.pending) render();
+  }
+  el.addEventListener('click', onClick);
+  return {
+    update(st) {
+      const prev = V.pub;
+      V.pub = st.pub; V.pending = false;
+      const fresh = !!prev && st.pub.seq !== prev.seq && !!st.pub.last;
+      render(fresh);
+      if (fresh) { snd('put'); if (st.pub.last.fl.length) snd('flip'); }
+    },
+    rejected(err) { V.pending = false; ctx.toast(String(err || 'Jugada no válida')); snd('bad'); render(); },
+    destroy() { clearTimeout(V.sureT); el.removeEventListener('click', onClick); el.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'reversi', name: 'Reversi', blurb: 'Clásico · 2 jugadores', min: 2, max: 2,
+  bots: { min: 1, max: 1, levels: ['Fácil', 'Normal', 'Difícil'] },
+  rules: '<ul>' +
+    '<li>Tablero de 8×8. Cada jugador tiene fichas de un color (el color se sortea; las <b>negras</b> empiezan). Se empieza con cuatro fichas en el centro.</li>' +
+    '<li>En tu turno coloca una ficha en una casilla vacía que <b>encierre en línea recta</b> (horizontal, vertical o diagonal) una o más fichas rivales entre la nueva y otra tuya. Las fichas encerradas <b>se voltean</b> y pasan a ser tuyas.</li>' +
+    '<li>Si no tienes ninguna jugada, <b>pasas turno</b> automáticamente. La partida termina cuando el tablero se llena o ninguno de los dos puede mover.</li>' +
+    '<li>Gana quien tenga <b>más fichas</b> de su color. Las <b>esquinas</b> no se pueden voltear: son las casillas más valiosas.</li>' +
+    '<li><b>Ayuda visual:</b> si está activada en el menú, en tu turno se marcan con un punto las casillas donde puedes jugar. El último movimiento lleva un círculo dorado.</li>' +
+    '<li>Puedes rendirte con el botón de abajo.</li></ul>',
+  createEngine: (players, saved) => new RvGame(players, saved),
+  mount: reversiMount
+});
+
+})();
+Mods.ok("reversi");
+</script>
+<script type="text/plain" data-mod="buscaminas" data-deps="">
+/* CTX buscaminas: Buscaminas de un jugador (versión propia). 5 niveles (8×10/10 minas … 14×26/80), primer toque siempre seguro (sin minas en la casilla ni alrededor), toque = descubrir, mantener o modo 🚩 = bandera, tocar un número con sus banderas = descubrir alrededor. Área con scroll vertical si no cabe (celda mínima 20 px). Guarda partida (ctx.save) y mejores tiempos (store buscaminas-best). Prefijo ms-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Buscaminas: colores del hub; todo bajo .ms */
+#stage > .ms{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:36px}
+.ms button,.ms select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.ms button:active{background:var(--accent);color:var(--accent-ink)}
+.ms select{flex:1;min-width:0}
+.ms-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ms-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.ms-hud{display:flex;gap:14px;align-items:center;font:600 .95rem var(--f-mono)}
+.ms-go{font-weight:700}
+.ms-area{flex:1;min-height:0;width:100%;overflow:auto;display:flex;align-items:flex-start;justify-content:center;touch-action:pan-x pan-y}
+.ms-area.fit{align-items:center}
+.ms-bd{display:grid;gap:2px;padding:3px;background:color-mix(in srgb,var(--accent) 45%,var(--surface));border-radius:8px;box-shadow:var(--shadow);margin:auto;flex:none}
+.ms-c{width:var(--cs);height:var(--cs);border-radius:4px;display:flex;align-items:center;justify-content:center;font:800 calc(var(--cs)*.55) var(--f-mono);line-height:1;background:color-mix(in srgb,var(--accent) 28%,var(--surface));box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),inset 0 2px 0 rgba(255,255,255,.35);cursor:pointer;position:relative}
+.ms-c.o{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);cursor:default}
+.ms-c.o.n{cursor:pointer}
+.ms-c.f::after{content:'🚩';font-size:calc(var(--cs)*.55)}
+.ms-c.m::after{content:'💣';font-size:calc(var(--cs)*.55)}
+.ms-c.x{background:#e8504b}.ms-c.x::after{content:'💣';font-size:calc(var(--cs)*.55)}
+.ms-c.w::after{content:'🚩';font-size:calc(var(--cs)*.55);opacity:.55}
+.ms-c.w{background:color-mix(in srgb,#e8504b 40%,var(--surface))}
+.ms-c.h{outline:3px solid var(--accent);outline-offset:-2px;animation:msh .5s ease-in-out infinite alternate}
+@keyframes msh{to{filter:brightness(1.25)}}
+@media (prefers-reduced-motion: reduce){.ms-c.h{animation:none}}
+.ms-c[data-v="1"]{color:#2f6fe0}.ms-c[data-v="2"]{color:#2e9a52}.ms-c[data-v="3"]{color:#d9423d}.ms-c[data-v="4"]{color:#5b3fb8}
+.ms-c[data-v="5"]{color:#a8541a}.ms-c[data-v="6"]{color:#139a9a}.ms-c[data-v="7"]{color:var(--ink)}.ms-c[data-v="8"]{color:var(--muted)}
+.ms-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px}
+.ms-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.ms-act b{font-size:1.1rem}
+.ms-act button.on{background:var(--accent);color:var(--accent-ink)}
+.ms-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.ms-ov.show{display:flex}
+.ms-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.ms-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.ms-card p{color:var(--muted);margin:0 0 14px}
+.ms-st{font-size:2.2rem;line-height:1.1;margin-bottom:6px}
+.ms-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.ms-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Buscaminas · un jugador, 5 niveles. Usa del hub: tema, sonido, guardado y registro de partidas. =====
+   Modelo (S): c columnas, r filas, mines (nº), m: array de minas (0/1, vacío hasta el primer toque), o: descubiertas (0/1), f: banderas (0/1), t: segundos, started, over, won, lose: casilla que explotó. */
+const MS_LV = [
+  { k: 'Fácil', c: 8, r: 10, m: 10 }, { k: 'Medio', c: 10, r: 14, m: 24 }, { k: 'Difícil', c: 12, r: 17, m: 40 },
+  { k: 'Experto', c: 13, r: 20, m: 55 }, { k: 'Maestro', c: 14, r: 26, m: 80 }
+];
+const msFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+const msNb = (i, c, r) => { const x = i % c, y = i / c | 0, o = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < c && yy >= 0 && yy < r) o.push(yy * c + xx); } return o; };
+/* reparto de minas evitando la casilla pulsada y su entorno (si no cabe, solo la casilla) */
+function msPlace(c, r, n, safe0, rnd) {
+  const ban = new Set([safe0].concat(msNb(safe0, c, r)));
+  let pool = []; for (let i = 0; i < c * r; i++) if (!ban.has(i)) pool.push(i);
+  if (pool.length < n) { pool = []; for (let i = 0; i < c * r; i++) if (i !== safe0) pool.push(i); }
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const m = new Array(c * r).fill(0); pool.slice(0, n).forEach(i => { m[i] = 1; }); return m;
+}
+function msCount(m, i, c, r) { let k = 0; for (const j of msNb(i, c, r)) k += m[j]; return k; }
+function buscaminasMount(el, ctx) {
+  el.innerHTML = '<div class="ms">' +
+    '<div class="ms-row"><div class="ms-lvn"></div><div class="ms-hud"><span class="ms-mn">💣 0</span><span class="ms-tm">00:00</span></div></div>' +
+    '<div class="ms-row"><select class="ms-lv">' + MS_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.c + '×' + l.r + ' · ' + l.m + ' minas</option>').join('') + '</select><button class="ms-go">▶ Nuevo</button></div>' +
+    '<div class="ms-area"><div class="ms-bd"></div></div>' +
+    '<div class="ms-act"><button data-a="flag"><b>🚩</b>Bandera</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="ms-ov"><div class="ms-card"><div class="ms-st"></div><h2 class="ms-mt"></h2><p class="ms-md"></p><div class="ms-btns"><button class="ms-again">Jugar de nuevo</button><button class="ms-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), bd = q('.ms-bd'), area = q('.ms-area');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    tap: () => tone(620, .04), open: n => tone(380 + n * 40, .05, 'triangle', .25), flag: () => { tone(500, .05, 'square', .15); tone(750, .05, 'square', .12, .05); },
+    boom: () => { tone(110, .35, 'sawtooth', .35); tone(70, .45, 'square', .3, .05); }, ok: () => tone(520, .1, 'sine', .25),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
+  };
+  let S = null, cells = [], flagMode = false, timerId = 0, recorded = false, press = null, hintI = -1, hintT = 0;
+  const rnd = Math.random;
+  const fresh = lv => { const L = MS_LV[lv]; return { lv, c: L.c, r: L.r, mines: L.m, m: [], o: new Array(L.c * L.r).fill(0), f: new Array(L.c * L.r).fill(0), t: 0, hints: 0, started: false, over: false, won: false, lose: -1 }; };
+  function save() { if (!S) return; if (S.over || !S.started) { ctx.save(null); return; } ctx.save(S); }
+  function size() {
+    if (!S) return; const w = area.clientWidth - 10, h = area.clientHeight - 10;
+    const cs = Math.max(20, Math.min(46, Math.floor(Math.min((w - 2 * S.c) / S.c, (h - 2 * S.r) / S.r))));
+    root.style.setProperty('--cs', cs + 'px');
+    const fit = (cs + 2) * S.c + 8 <= w + 10 && (cs + 2) * S.r + 8 <= h + 10;
+    area.classList.toggle('fit', fit);
+  }
+  function build() {
+    bd.style.gridTemplateColumns = 'repeat(' + S.c + ',var(--cs))'; bd.innerHTML = ''; cells = [];
+    for (let i = 0; i < S.c * S.r; i++) { const e = document.createElement('div'); e.className = 'ms-c'; e.dataset.i = i; bd.appendChild(e); cells.push(e); }
+    size(); paint();
+  }
+  const flags = () => S.f.reduce((a, b) => a + b, 0);
+  function paint() {
+    const n = S.c * S.r;
+    for (let i = 0; i < n; i++) {
+      const e = cells[i]; let k = 'ms-c', v = '', t = '';
+      if (S.over && S.m[i] && !S.f[i]) { k += S.lose === i ? ' x' : ' m'; }
+      else if (S.over && !S.won && S.f[i] && !S.m[i]) k += ' w';
+      else if (S.o[i]) { k += ' o'; const a = msCount(S.m, i, S.c, S.r); if (a) { v = a; t = a; k += ' n'; } }
+      else if (S.f[i]) k += ' f';
+      if (i === hintI) k += ' h';
+      e.className = k; e.textContent = t; if (v) e.dataset.v = v; else delete e.dataset.v;
+    }
+    q('.ms-lvn').textContent = 'Buscaminas · ' + MS_LV[S.lv].k;
+    q('.ms-mn').textContent = '💣 ' + (S.mines - flags()); q('.ms-tm').textContent = msFmt(S.t); q('.ms-lv').value = S.lv;
+    q('[data-a=flag]').classList.toggle('on', flagMode);
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && S.started && !document.hidden) { S.t++; q('.ms-tm').textContent = msFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function clearHint() { clearTimeout(hintT); if (hintI >= 0) { hintI = -1; paint(); } }
+  function newGame(lv) {
+    clearInterval(timerId); S = fresh(lv); recorded = false; hintI = -1; q('.ms-ov').classList.remove('show'); ctx.save(null); build(); startTimer();
+  }
+  function reveal(i0) {
+    const st = [i0]; let cnt = 0;
+    while (st.length) {
+      const i = st.pop(); if (S.o[i] || S.f[i]) continue; S.o[i] = 1; cnt++;
+      if (!msCount(S.m, i, S.c, S.r)) for (const j of msNb(i, S.c, S.r)) if (!S.o[j] && !S.f[j]) st.push(j);
+    }
+    return cnt;
+  }
+  function check() {
+    let left = 0; for (let i = 0; i < S.c * S.r; i++) if (!S.m[i] && !S.o[i]) left++;
+    if (!left) { win(); return true; } return false;
+  }
+  function boom(i) { S.over = true; S.lose = i; clearInterval(timerId); SFX.boom(); paint(); ctx.save(null); showEnd(false); if (!recorded) { recorded = true; ctx.record({ won: false, info: MS_LV[S.lv].k + ' · ' + S.c + '×' + S.r + ' · ' + msFmt(S.t) }); } }
+  function win() {
+    S.over = true; S.won = true; clearInterval(timerId);
+    for (let i = 0; i < S.c * S.r; i++) if (S.m[i]) S.f[i] = 1;
+    paint(); ctx.save(null);
+    const bt = store.get('buscaminas-best') || {}, o = bt[S.lv]; let extra = '';
+    if (!o || S.t < o) { bt[S.lv] = S.t; store.set('buscaminas-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.ms-st').textContent = '🎉'; q('.ms-mt').textContent = '¡Campo despejado!'; q('.ms-md').textContent = msFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') + extra;
+    q('.ms-next').style.display = S.lv < MS_LV.length - 1 ? '' : 'none';
+    setTimeout(SFX.win, 100); setTimeout(() => q('.ms-ov').classList.add('show'), 900);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: MS_LV[S.lv].k + ' · ' + S.c + '×' + S.r + ' · ' + msFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  function showEnd(w) {
+    q('.ms-st').textContent = '💥'; q('.ms-mt').textContent = '¡Boom!'; q('.ms-md').textContent = 'Has pisado una mina a los ' + msFmt(S.t);
+    q('.ms-next').style.display = 'none'; setTimeout(() => { if (S && S.over && !S.won) q('.ms-ov').classList.add('show'); }, 1100);
+  }
+  function open(i) {
+    if (S.over || S.o[i] || S.f[i]) return;
+    clearHint();
+    if (!S.started) { S.started = true; S.m = msPlace(S.c, S.r, S.mines, i, rnd); }
+    if (S.m[i]) { boom(i); return; }
+    const n = reveal(i); SFX.open(Math.min(8, msCount(S.m, i, S.c, S.r))); paint(); if (!check()) save();
+  }
+  function flag(i) {
+    if (S.over || S.o[i] || !S.started && false) return; clearHint();
+    if (!S.f[i] && flags() >= S.mines) { SFX.tap(); return; }
+    S.f[i] = S.f[i] ? 0 : 1; SFX.flag(); paint(); if (S.started) save();
+  }
+  /* tocar un número con tantas banderas como indica: descubre el resto de su entorno */
+  function chord(i) {
+    const nb = msNb(i, S.c, S.r), nf = nb.filter(j => S.f[j]).length;
+    if (nf !== msCount(S.m, i, S.c, S.r)) { SFX.tap(); return; }
+    const hit = nb.find(j => !S.f[j] && S.m[j]); clearHint();
+    if (hit !== undefined) { nb.forEach(j => { if (!S.f[j]) S.o[j] = 1; }); boom(hit); return; }
+    nb.forEach(j => { if (!S.o[j] && !S.f[j]) reveal(j); }); SFX.open(3); paint(); if (!check()) save();
+  }
+  function tapCell(i) {
+    if (S.over) return;
+    if (S.o[i]) { if (S.started && msCount(S.m, i, S.c, S.r)) chord(i); return; }
+    if (flagMode) flag(i); else if (S.f[i]) { flag(i); } else open(i);
+  }
+  /* pista: una casilla segura deducida de lo ya descubierto (si no hay deducción, una al azar que no sea mina) */
+  function hint() {
+    if (!S.started) { const i = Math.floor(S.c * S.r / 2 + S.c / 2); S.hints++; open(i); return; }
+    let safe = -1;
+    for (let i = 0; i < S.c * S.r && safe < 0; i++) {
+      if (!S.o[i]) continue; const a = msCount(S.m, i, S.c, S.r); if (!a) continue;
+      const nb = msNb(i, S.c, S.r), nf = nb.filter(j => S.f[j] && S.m[j]).length, bad = nb.filter(j => S.f[j] && !S.m[j]).length;
+      if (!bad && nf === a) { const j = nb.find(j => !S.o[j] && !S.f[j]); if (j !== undefined) safe = j; }
+    }
+    if (safe < 0) { const c = []; for (let i = 0; i < S.c * S.r; i++) if (!S.o[i] && !S.f[i] && !S.m[i]) c.push(i); if (!c.length) return;
+      /* preferir una casilla junto a números descubiertos */
+      const near = c.filter(i => msNb(i, S.c, S.r).some(j => S.o[j])); const pool = near.length ? near : c; safe = pool[Math.floor(rnd() * pool.length)]; }
+    S.hints++; hintI = safe; SFX.ok(); paint(); clearTimeout(hintT); hintT = setTimeout(clearHint, 2500);
+    cells[safe].scrollIntoView && cells[safe].scrollIntoView({ block: 'nearest', inline: 'nearest' }); save();
+  }
+  /* puntero: toque corto = acción del modo; mantener = bandera */
+  bd.addEventListener('pointerdown', e => {
+    if (!S || S.over || e.button > 0) return; const c = e.target.closest('.ms-c'); if (!c) return;
+    const i = +c.dataset.i; press = { i, x: e.clientX, y: e.clientY, long: false, id: e.pointerId };
+    press.t = setTimeout(() => { if (press && press.i === i) { press.long = true; if (navigator.vibrate) { try { navigator.vibrate(15); } catch (x) { /* sin vibración */ } } if (!S.o[i]) flag(i); } }, 420);
+  });
+  const endPress = (e, cancel) => {
+    if (!press) return; const p = press; press = null; clearTimeout(p.t);
+    if (cancel || p.long) return;
+    if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) return;   /* era un desplazamiento del área */
+    tapCell(p.i);
+  };
+  bd.addEventListener('pointerup', e => endPress(e, false)); bd.addEventListener('pointercancel', e => endPress(e, true));
+  bd.addEventListener('pointermove', e => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) { clearTimeout(press.t); } });
+  bd.addEventListener('contextmenu', e => { e.preventDefault(); const c = e.target.closest('.ms-c'); if (c && S && !S.over) { press = null; if (!S.o[+c.dataset.i]) flag(+c.dataset.i); } });
+  q('.ms-go').onclick = () => { SFX.tap(); newGame(+q('.ms-lv').value); };
+  q('.ms-again').onclick = () => newGame(S.lv);
+  q('.ms-next').onclick = () => newGame(Math.min(MS_LV.length - 1, S.lv + 1));
+  q('.ms-lv').onchange = () => { SFX.tap(); newGame(+q('.ms-lv').value); };
+  q('.ms-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S) return; const a = b.dataset.a;
+    if (a === 'flag') { flagMode = !flagMode; SFX.tap(); paint(); }
+    else if (a === 'hint') { if (!S.over) hint(); }
+    else if (a === 'redo') { SFX.tap(); newGame(S.lv); }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => size();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(MS_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && MS_LV[sv.lv] && sv.c === MS_LV[sv.lv].c && sv.r === MS_LV[sv.lv].r && Array.isArray(sv.m) && sv.m.length === sv.c * sv.r) { S = sv; build(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { save(); clearInterval(timerId); clearTimeout(hintT); if (press) clearTimeout(press.t); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+Hub.register({
+  id: 'buscaminas', name: 'Buscaminas', blurb: 'Un jugador · 5 niveles',
+  single: {
+    levels: MS_LV.map(l => l.k), def: 0,
+    info: i => { const L = MS_LV[i], b = (store.get('buscaminas-best') || {})[i]; return L.c + '×' + L.r + ' · ' + L.m + ' minas' + (b != null ? ' · Tu mejor: ' + msFmt(b) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Descubre todas las casillas que <b>no tienen mina</b>. Un número indica cuántas minas hay en las 8 casillas de alrededor.</li>' +
+    '<li><b>Tocar</b> una casilla la descubre. El primer toque nunca es una mina. Si el número es 0 se abre la zona vacía contigua.</li>' +
+    '<li><b>Mantén pulsada</b> una casilla (o activa el botón <b>🚩 Bandera</b> y toca) para marcar una mina. El contador de arriba descuenta las banderas.</li>' +
+    '<li>Toca un <b>número ya descubierto</b> que tenga a su alrededor tantas banderas como indica y se descubren de golpe las demás casillas de su entorno (¡cuidado: si una bandera está mal, explota!).</li>' +
+    '<li><b>Pista</b> marca una casilla segura (cuenta en tu récord). Si pisas una mina pierdes; si despejas todo, ganas y se guarda tu mejor tiempo por nivel.</li>' +
+    '<li>En los niveles grandes el campo se desplaza hacia arriba y abajo con el dedo.</li></ul>',
+  mountSingle: buscaminasMount
+});
+
+})();
+Mods.ok("buscaminas");
+</script>
+<script type="text/plain" data-mod="boggle" data-deps="scdict">
+/* CTX boggle: Boggle de un jugador y en sala 2–8 (BgRoomGame: reloj del anfitrión con nextTick/tick, cuenta atrás BG_PRE 4 s, misma rejilla y tiempo para todos, cada uno solo ve lo suyo y las puntuaciones salen a la vez al acabar; opción «Palabras repetidas»; sin IA; acción {t:'w',w}) (versión propia; dep scdict). Rejilla 4×4 o 5×5 con letras al azar por frecuencia española (sin Q/Ñ/K/W; bgBoard repite hasta tener bastantes palabras comunes ≥ BG_LV.com), 4 niveles con tiempo; arrastrar o tocar letras vecinas (bgNbr), palabras válidas = ScDict.has, puntos por longitud (bgPts). bgSolve(b,n,lista,min) filtra por letras disponibles y busca el camino (bgPath): se usa para generar el tablero y para mostrar al final las palabras que faltaron (ScDict.W) y las comunes (ScDict.lv[1]). Victoria = ≥25 % de las comunes. Guarda partida y récords (boggle-best). Prefijo bg-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Boggle: colores del hub; todo bajo .bg */
+#stage > .bg{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.bg button,.bg select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.bg button:active{background:var(--accent);color:var(--accent-ink)}
+.bg select{flex:1;min-width:0}
+.bg-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.bg-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.bg-hud{display:flex;gap:14px;align-items:center;font:600 .95rem var(--f-mono)}
+.bg-tm.low{color:#d9423d;animation:bgb .5s ease-in-out infinite alternate}
+@keyframes bgb{to{opacity:.4}}
+.bg-go{font-weight:700}
+.bg-cur{height:34px;width:100%;max-width:520px;display:flex;align-items:center;justify-content:center;font:800 1.35rem var(--f-mono);letter-spacing:.12em;color:var(--ink);border-radius:8px;background:color-mix(in srgb,var(--accent) 12%,var(--surface));flex:none}
+.bg-cur.ok{background:color-mix(in srgb,var(--good) 30%,var(--surface))}
+.bg-cur.bad{background:color-mix(in srgb,#e8504b 30%,var(--surface));animation:bgs .3s}
+.bg-cur small{font:600 .75rem var(--f-ui);letter-spacing:0;margin-left:8px;color:var(--muted)}
+@keyframes bgs{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.bg-bw{position:relative;flex:none;touch-action:none}
+.bg-bd{display:grid;gap:6px;padding:6px;background:color-mix(in srgb,var(--accent) 40%,var(--surface));border-radius:12px;box-shadow:var(--shadow);touch-action:none}
+.bg-c{display:flex;align-items:center;justify-content:center;border-radius:10px;font:800 calc(var(--cs)*.5) var(--f-body,system-ui);color:#3b2a0a;background:#f3deb0;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18),0 1px 2px rgba(0,0,0,.25);position:relative;z-index:1}
+.bg-c.u{background:var(--accent);color:var(--accent-ink);box-shadow:inset 0 -4px 0 rgba(0,0,0,.25)}
+.bg-c.l{outline:3px solid #e6a317;outline-offset:-1px}
+.bg-svg{position:absolute;inset:6px;width:calc(100% - 12px);height:calc(100% - 12px);pointer-events:none;z-index:2;overflow:visible}
+.bg-svg polyline{fill:none;stroke:color-mix(in srgb,var(--good) 65%,transparent);stroke-width:.1;stroke-linecap:round;stroke-linejoin:round}
+.bg-fd{flex:1;min-height:0;width:100%;max-width:520px;overflow:auto;display:flex;flex-wrap:wrap;align-content:flex-start;gap:5px;padding:2px}
+.bg-w{font:700 .8rem var(--f-mono);padding:3px 8px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+.bg-w sup{color:var(--accent);margin-left:2px;font-size:.65rem}
+.bg-w.new{animation:bgn .6s}
+@keyframes bgn{0%{background:var(--good);transform:scale(1.2)}100%{transform:none}}
+.bg-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px;flex:none}
+.bg-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.bg-act b{font-size:1.1rem}
+.bg-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.bg-ov.show{display:flex}
+.bg-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:18px 20px;text-align:center;width:min(92vw,420px);max-height:86%;display:flex;flex-direction:column}
+.bg-card h2{color:var(--accent);margin:0 0 4px;font-size:1.3rem}.bg-card p{color:var(--muted);margin:0 0 10px}
+.bg-miss{overflow:auto;text-align:left;font:600 .78rem var(--f-mono);line-height:1.7;margin:0 0 12px;min-height:0;color:var(--muted)}
+.bg-miss b{color:var(--ink)}\n.bg-mine{margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line);color:var(--ink)}.bg-mine b{color:var(--good)}.bg-mine sup{color:var(--accent);font-size:.65rem}
+.bg-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;flex:none}.bg-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.bg-bw.hid .bg-bd,.bg-bw.hid .bg-svg{visibility:hidden}
+.bg-pre{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font:800 5rem var(--f-mono);color:var(--accent);z-index:5}
+.bg-rk{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.bg-rr{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface)}
+.bg-rr.me{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.bg-rh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.95rem}.bg-rh em{font:800 1rem var(--f-mono);font-style:normal;color:var(--accent)}
+.bg-rw{margin-top:4px;font:600 .78rem var(--f-mono);line-height:1.6;color:var(--ink)}.bg-rw sup{color:var(--accent);font-size:.62rem}.bg-rw .dp{text-decoration:line-through;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){.bg-tm.low,.bg-cur.bad,.bg-w.new{animation:none}}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Boggle · un jugador, 4 niveles ===== */
+const bgFmt = t => (t / 60 | 0) + ':' + String(t % 60).padStart(2, '0');
+const BG_LV = [
+  { k: 'Fácil', n: 4, t: 180, min: 3, com: 60 }, { k: 'Normal', n: 4, t: 120, min: 3, com: 45 },
+  { k: 'Difícil', n: 5, t: 180, min: 3, com: 100 }, { k: 'Experto', n: 5, t: 150, min: 4, com: 55 }
+];
+const BG_W = { A: 12, E: 12, O: 9, S: 7, N: 7, R: 7, I: 6, L: 5, D: 5, T: 4, U: 4, C: 4, M: 3, P: 3, B: 2, H: 1.5, G: 1.5, V: 1.2, Y: 1, F: 1, Z: .6, J: .5 };
+const BG_VOW = 'AEIOU', BG_ALL = Object.keys(BG_W), BG_TOT = BG_ALL.reduce((a, l) => a + BG_W[l], 0);
+const bgPts = n => (n <= 4 ? 1 : n === 5 ? 2 : n === 6 ? 3 : n === 7 ? 5 : 11);
+function bgRandLetter(rnd) { let r = rnd() * BG_TOT; for (const l of BG_ALL) { r -= BG_W[l]; if (r < 0) return l; } return 'E'; }
+/* vecinos de cada casilla (8 direcciones) */
+function bgNbr(n) { const o = []; for (let i = 0; i < n * n; i++) { const x = i % n, y = i / n | 0, a = []; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < n && yy >= 0 && yy < n) a.push(yy * n + xx); } o.push(a); } return o; }
+/* camino de la palabra w en el tablero b (array de letras) o null */
+function bgPath(b, n, nb, w) {
+  const used = new Array(n * n).fill(false), path = [];
+  const go = (i, k) => {
+    if (b[i] !== w[k]) return false; used[i] = true; path.push(i);
+    if (k === w.length - 1) return true;
+    for (const j of nb[i]) if (!used[j] && go(j, k + 1)) return true;
+    used[i] = false; path.pop(); return false;
+  };
+  for (let i = 0; i < n * n; i++) if (go(i, 0)) return path.slice();
+  return null;
+}
+/* todas las palabras de la lista que se pueden formar (filtro por letras disponibles y luego búsqueda de camino) */
+function bgSolve(b, n, words, min) {
+  const nb = bgNbr(n), have = new Int16Array(256), used = new Int16Array(256), out = [];
+  b.forEach(l => { have[l.charCodeAt(0)]++; });
+  const max = n * n;
+  for (let wi = 0; wi < words.length; wi++) {
+    const w = words[wi], L = w.length; if (L < min || L > max) continue;
+    let ok = true, k = 0;
+    for (; k < L; k++) { const c = w.charCodeAt(k); if (++used[c] > have[c]) { ok = false; k++; break; } }
+    for (let j = 0; j < k; j++) used[w.charCodeAt(j)]--;
+    if (!ok) continue;
+    const p = bgPath(b, n, nb, w); if (p) out.push({ w, p });
+  }
+  return out;
+}
+function bgBoard(lv, ScD, rnd) {
+  const L = BG_LV[lv], N = L.n * L.n; let best = null;
+  for (let t = 0; t < 60; t++) {
+    const b = []; for (let i = 0; i < N; i++) b.push(bgRandLetter(rnd));
+    const v = b.filter(l => BG_VOW.includes(l)).length; if (v < N * .3 || v > N * .5) continue;
+    const c = bgSolve(b, L.n, ScD.lv[1], L.min).length;
+    if (!best || c > best.c) best = { b, c };
+    if (c >= L.com) return { b, c };
+  }
+  return best || { b: Array.from({ length: N }, () => bgRandLetter(rnd)), c: 0 };
+}
+
+function boggleMount(el, ctx) {
+  el.innerHTML = '<div class="bg">' +
+    '<div class="bg-row"><div class="bg-lvn"></div><div class="bg-hud"><span class="bg-sc">0 pts</span><span class="bg-tm">0:00</span></div></div>' +
+    '<div class="bg-row"><select class="bg-lv">' + BG_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.n + '×' + l.n + ' · ' + bgFmt(l.t) + '</option>').join('') + '</select><button class="bg-go">▶ Nuevo</button></div>' +
+    '<div class="bg-cur"></div><div class="bg-bw"><div class="bg-bd"></div><svg class="bg-svg"><polyline points=""/></svg></div>' +
+    '<div class="bg-fd"></div>' +
+    '<div class="bg-act"><button data-a="clr"><b>⌫</b>Borrar</button><button data-a="ok"><b>✓</b>Enviar</button><button data-a="end"><b>⏹</b>Terminar</button></div>' +
+    '<div class="bg-ov"><div class="bg-card"><h2 class="bg-mt"></h2><p class="bg-md"></p><div class="bg-miss"></div><div class="bg-btns"><button class="bg-again">Jugar de nuevo</button><button class="bg-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), bd = q('.bg-bd'), bw = q('.bg-bw'), poly = q('.bg-svg polyline'), cur = q('.bg-cur'), fd = q('.bg-fd');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = {
+    tap: n => tone(420 + n * 45, .05, 'triangle', .2), ok: p => [660, 880, 1100].slice(0, Math.min(3, 1 + (p > 1) + (p > 3))).forEach((f, i) => tone(f, .1, 'sine', .25, i * .07)),
+    bad: () => tone(160, .18, 'square', .15), dup: () => tone(300, .1, 'triangle', .2), tick: () => tone(900, .04, 'square', .12),
+    end: () => [784, 659, 523, 392].forEach((f, i) => tone(f, .2, 'sine', .25, i * .12)), win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, .22, 'sine', .28, i * .1))
+  };
+  let S = null, N = 4, cells = [], nb = [], path = [], drag = null, timerId = 0, saveN = 0, recorded = false, curT = 0, cs = 60;
+  const found = () => S.found;
+  const fresh = lv => { const L = BG_LV[lv], r = bgBoard(lv, ScDict, Math.random); return { lv, b: r.b, com: r.c, found: [], score: 0, left: L.t, started: false, over: false }; };
+  function save() { if (!S) return; if (S.over) { ctx.save(null); return; } ctx.save(S); }
+  function size() {
+    const w = root.clientWidth, h = root.clientHeight;
+    const avail = Math.min(w - 12, 520, Math.max(150, h - 290)); cs = Math.floor((avail - 12 - (N - 1) * 6) / N);
+    root.style.setProperty('--cs', cs + 'px'); bd.style.gridTemplateColumns = 'repeat(' + N + ',' + cs + 'px)'; bd.style.gridAutoRows = cs + 'px';
+  }
+  function build() {
+    N = BG_LV[S.lv].n; nb = bgNbr(N); bd.innerHTML = ''; cells = [];
+    S.b.forEach((l, i) => { const c = document.createElement('div'); c.className = 'bg-c'; c.dataset.i = i; c.textContent = l; bd.appendChild(c); cells.push(c); });
+    q('.bg-svg').setAttribute('viewBox', '0 0 ' + N + ' ' + N); size(); path = []; paintPath(); renderFound(); hud();
+  }
+  const word = () => path.map(i => S.b[i]).join('');
+  function paintPath() {
+    cells.forEach((c, i) => { c.classList.toggle('u', path.includes(i)); c.classList.toggle('l', path.length && path[path.length - 1] === i); });
+    poly.setAttribute('points', path.map(i => ((i % N) + .5) + ',' + ((i / N | 0) + .5)).join(' '));
+    clearTimeout(curT); cur.className = 'bg-cur'; cur.textContent = word();
+    if (!path.length) cur.innerHTML = '<small>Une letras vecinas para formar palabras</small>';
+  }
+  function flash(cls, txt) { cur.className = 'bg-cur ' + cls; cur.innerHTML = esc(txt); curT = setTimeout(() => { path = []; paintPath(); }, 650); }
+  function hud() {
+    const L = BG_LV[S.lv]; q('.bg-lvn').textContent = 'Boggle · ' + L.k; q('.bg-sc').textContent = S.score + ' pts'; q('.bg-lv').value = S.lv;
+    q('.bg-tm').textContent = bgFmt(S.left); q('.bg-tm').classList.toggle('low', S.left <= 10 && S.started && !S.over);
+  }
+  function renderFound(newW) {
+    fd.innerHTML = S.found.slice().reverse().map(w => '<span class="bg-w' + (w === newW ? ' new' : '') + '">' + w + '<sup>' + bgPts(w.length) + '</sup></span>').join('');
+    if (!S.found.length) fd.innerHTML = '<span class="muted small" style="padding:4px 6px">Aquí irán tus palabras (mínimo ' + BG_LV[S.lv].min + ' letras). Arrastra el dedo por las letras o tócalas una a una; toca la última otra vez (o ✓) para enviar.</span>';
+  }
+  function startTimer() {
+    clearInterval(timerId);
+    timerId = setInterval(() => {
+      if (!S || S.over || !S.started || document.hidden) return;
+      S.left--; q('.bg-tm').textContent = bgFmt(S.left); if (S.left <= 10) { q('.bg-tm').classList.add('low'); if (S.left > 0) SFX.tick(); }
+      if (++saveN % 5 === 0) save();
+      if (S.left <= 0) end();
+    }, 1000);
+  }
+  function newGame(lv) { clearInterval(timerId); recorded = false; q('.bg-ov').classList.remove('show'); S = fresh(lv); ctx.save(null); build(); startTimer(); }
+  function submit() {
+    if (!S || S.over || path.length < 1) return;
+    const w = word(), L = BG_LV[S.lv];
+    if (w.length < L.min) { SFX.bad(); flash('bad', w + ' · mínimo ' + L.min + ' letras'); return; }
+    if (S.found.includes(w)) { SFX.dup(); flash('bad', w + ' · ya la tenías'); return; }
+    if (!ScDict.has(w)) { SFX.bad(); flash('bad', w + ' · no está en el diccionario'); return; }
+    const p = bgPts(w.length); S.found.push(w); S.score += p; S.started = true; SFX.ok(p);
+    flash('ok', w + ' +' + p); hud(); renderFound(w); save();
+  }
+  function end() {
+    if (S.over) return; S.over = true; clearInterval(timerId); path = []; paintPath(); hud(); ctx.save(null);
+    const L = BG_LV[S.lv], all = bgSolve(S.b, L.n, ScDict.W, L.min), com = new Set(bgSolve(S.b, L.n, ScDict.lv[1], L.min).map(x => x.w));
+    const got = new Set(S.found), miss = all.filter(x => !got.has(x.w)).sort((a, z) => (com.has(z.w) - com.has(a.w)) || z.w.length - a.w.length || (a.w < z.w ? -1 : 1));
+    const maxPts = all.reduce((a, x) => a + bgPts(x.w.length), 0), comGot = S.found.filter(w => com.has(w)).length;
+    const won = com.size ? comGot >= Math.ceil(com.size * .25) : S.found.length > 0;
+    const bt = store.get('boggle-best') || {}, o = bt[S.lv]; let extra = '';
+    if (S.score && (!o || S.score > o)) { bt[S.lv] = S.score; store.set('boggle-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.bg-mt').textContent = S.found.length ? (won ? '¡Tiempo!' : 'Se acabó el tiempo') : 'Sin palabras';
+    q('.bg-md').innerHTML = S.score + ' pts · ' + S.found.length + ' palabras' + extra + '<br><span class="small">Posibles: ' + all.length + ' (' + maxPts + ' pts) · comunes: ' + com.size + (won ? ' · ¡superas el 25 %!' : '') + '</span>';
+    const sh = miss.slice(0, 60);
+    const mine = S.found.length ? '<div class="bg-mine"><b>Tus palabras (' + S.found.length + '):</b> ' + S.found.map(w => w + '<sup>' + bgPts(w.length) + '</sup>').join(' · ') + '</div>' : '';
+    q('.bg-miss').innerHTML = mine + (miss.length ? '<b>Te faltaron:</b> ' + sh.map(x => com.has(x.w) ? '<b>' + x.w + '</b>' : x.w).join(' · ') + (miss.length > sh.length ? ' · … y ' + (miss.length - sh.length) + ' más' : '') : '<b>¡Las encontraste todas!</b>');
+    q('.bg-next').style.display = S.lv < BG_LV.length - 1 ? '' : 'none';
+    SFX.end(); if (won) setTimeout(SFX.win, 500);
+    setTimeout(() => q('.bg-ov').classList.add('show'), 500);
+    if (!recorded) { recorded = true; ctx.record({ won, info: L.k + ' · ' + L.n + '×' + L.n + ' · ' + S.score + ' pts · ' + S.found.length + ' palabras de ' + all.length }); }
+  }
+  /* ----- entrada: arrastrar por las letras o tocarlas una a una ----- */
+  function hit(e, rad) {
+    const r = bd.getBoundingClientRect(), pad = 6, g = 6, x = e.clientX - r.left - pad, y = e.clientY - r.top - pad, step = cs + g;
+    const cx = Math.floor(x / step), cy = Math.floor(y / step); if (cx < 0 || cy < 0 || cx >= N || cy >= N) return -1;
+    const dx = x - (cx * step + cs / 2), dy = y - (cy * step + cs / 2);
+    return Math.hypot(dx, dy) <= cs * rad ? cy * N + cx : -1;
+  }
+  bw.addEventListener('pointerdown', e => {
+    if (!S || S.over || e.button > 0) return; const i = hit(e, .62); if (i < 0) return;
+    clearTimeout(curT); if (cur.classList.contains('bad') || cur.classList.contains('ok')) { path = []; }
+    drag = { moved: false, tapLast: false };
+    const last = path[path.length - 1];
+    if (!path.length) path = [i];
+    else if (i === last) drag.tapLast = true;
+    else if (path.length > 1 && i === path[path.length - 2]) path.pop();
+    else if (!path.includes(i) && nb[last].includes(i)) path.push(i);
+    else path = [i];
+    SFX.tap(path.length); paintPath();
+    try { bw.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
+  });
+  bw.addEventListener('pointermove', e => {
+    if (!drag) return; const i = hit(e, .42); if (i < 0) return; const last = path[path.length - 1]; if (i === last) return;
+    if (path.length > 1 && i === path[path.length - 2]) { path.pop(); drag.moved = true; SFX.tap(path.length); paintPath(); }
+    else if (!path.includes(i) && nb[last].includes(i)) { path.push(i); drag.moved = true; SFX.tap(path.length); paintPath(); }
+  });
+  const up = (e, cancel) => { if (!drag) return; const d = drag; drag = null; if (cancel) return; if (d.moved && path.length >= 2) submit(); else if (d.tapLast) submit(); };
+  bw.addEventListener('pointerup', e => up(e, false)); bw.addEventListener('pointercancel', e => up(e, true));
+  q('.bg-go').onclick = () => { SFX.tap(2); newGame(+q('.bg-lv').value); };
+  q('.bg-lv').onchange = () => { SFX.tap(2); newGame(+q('.bg-lv').value); };
+  q('.bg-again').onclick = () => newGame(S.lv);
+  q('.bg-next').onclick = () => newGame(Math.min(BG_LV.length - 1, S.lv + 1));
+  q('.bg-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S) return; const a = b.dataset.a;
+    if (a === 'clr') { clearTimeout(curT); path = []; paintPath(); SFX.tap(1); }
+    else if (a === 'ok') submit();
+    else if (a === 'end') { if (!S.over && S.found.length + 0 >= 0) { if (b.dataset.sure) { delete b.dataset.sure; end(); } else { b.dataset.sure = 1; b.querySelector('b').textContent = '¿?'; setTimeout(() => { delete b.dataset.sure; b.querySelector('b').textContent = '⏹'; }, 2500); } } }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => size();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(BG_LV.length - 1, ctx.level || 0);
+  if (sv && !sv.over && BG_LV[sv.lv] && Array.isArray(sv.b) && sv.b.length === BG_LV[sv.lv].n ** 2) { S = sv; build(); startTimer(); } else newGame(LV0);
+  return {
+    destroy() { save(); clearInterval(timerId); clearTimeout(curT); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; },
+    state() { return S; }
+  };
+}
+
+/* ===== Boggle en sala: todos a la vez con la misma rejilla y el mismo tiempo =====
+   El anfitrión lleva el reloj (nextTick/tick) y valida cada palabra (diccionario + camino en la rejilla). Nadie ve las palabras ni los puntos
+   de los demás hasta el final: entonces todos reciben a la vez el reparto de puntos. Acciones: {t:'w', w:'PALABRA'}. */
+const BG_PRE = 4000;   /* cuenta atrás antes de enseñar la rejilla (ms) */
+class BgRoomGame {
+  constructor(players, saved, opts) {
+    this.players = players.map(p => ({ name: p.name, bot: false }));
+    this.o = Math.max(0, Math.min(BG_LV.length - 1, (opts && opts.size) | 0)); this.dup = (opts && opts.dup) | 0;
+    const L = BG_LV[this.o], r = bgBoard(this.o, ScDict, Math.random);
+    this.b = r.b; this.start = Date.now() + BG_PRE; this.end = this.start + L.t * 1000;
+    this.found = players.map(() => []); this.last = players.map(() => null); this.over = false; this.res = null; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+    this.nb = bgNbr(BG_LV[this.o].n);
+  }
+  get turn() { return 0; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, o: this.o, dup: this.dup, b: this.b, start: this.start, end: this.end, found: this.found, last: this.last, over: this.over, res: this.res, seq: this.seq })); }
+  nextTick() { if (this.over) return 0; return Date.now() < this.start ? this.start : this.end; }
+  tick() { if (!this.over && Date.now() >= this.end) this.finish(); else this.seq++; }
+  score(w) { return bgPts(w.length); }
+  act(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (!a || a.t !== 'w' || !this.found[i]) return { ok: false, err: 'Acción no válida' };
+    const now = Date.now();
+    if (now < this.start) return { ok: false, err: 'Aún no ha empezado' };
+    if (now >= this.end) { this.finish(); return { ok: false, err: 'Se acabó el tiempo' }; }
+    const w = String(a.w == null ? '' : a.w).toUpperCase().replace(/[^A-ZÑ]/g, '').slice(0, 30), L = BG_LV[this.o];
+    if (w.length < L.min) return { ok: false, err: w + ' · mínimo ' + L.min + ' letras' };
+    if (this.found[i].includes(w)) return { ok: false, err: w + ' · ya la tenías' };
+    if (!ScDict.has(w)) return { ok: false, err: w + ' · no está en el diccionario' };
+    if (!bgPath(this.b, L.n, this.nb, w)) return { ok: false, err: w + ' · no se forma en la rejilla' };
+    this.found[i].push(w); this.last[i] = { w, p: this.score(w), n: this.found[i].length }; this.seq++;
+    return { ok: true };
+  }
+  /* puntos de cada jugador; con «solo únicas» las palabras de más de un jugador no puntúan */
+  tally() {
+    const cnt = {}; this.found.forEach(f => f.forEach(w => { cnt[w] = (cnt[w] || 0) + 1; }));
+    return this.found.map(f => { let sc = 0; const ws = f.map(w => { const dup = this.dup === 1 && cnt[w] > 1; if (!dup) sc += this.score(w); return { w, p: this.score(w), d: dup ? 1 : 0 }; }); return { sc, ws }; });
+  }
+  finish() {
+    if (this.over) return; this.over = true;
+    const L = BG_LV[this.o], t = this.tally(), all = bgSolve(this.b, L.n, ScDict.W, L.min), com = new Set(bgSolve(this.b, L.n, ScDict.lv[1], L.min).map(x => x.w));
+    const got = new Set(); this.found.forEach(f => f.forEach(w => got.add(w)));
+    const miss = all.filter(x => !got.has(x.w)).sort((a, z) => (com.has(z.w) - com.has(a.w)) || z.w.length - a.w.length || (a.w < z.w ? -1 : 1));
+    this.res = { pl: t.map(x => ({ sc: x.sc, ws: x.ws })), total: all.length, com: com.size, miss: miss.slice(0, 60).map(x => (com.has(x.w) ? '*' : '') + x.w), nmiss: miss.length };
+    this.seq++;
+  }
+  view(i) {
+    const now = Date.now(), L = BG_LV[this.o], go = now >= this.start;
+    const pub = { n: this.players.map(p => p.name), sz: L.n, o: this.o, dup: this.dup, min: L.min, pre: Math.max(0, this.start - now), left: Math.max(0, this.end - Math.max(now, this.start)), b: go || this.over ? this.b : null, over: this.over, res: this.res, seq: this.seq };
+    const f = this.found[i] || [];
+    return { pub, priv: { found: f, last: this.last[i], score: f.reduce((a, w) => a + this.score(w), 0) } };
+  }
+  botSeat() { return -1; }
+  bot() { }
+  toBot() { }
+  toHuman(i, name) { if (this.players[i]) this.players[i].name = name; }
+  result() {
+    const r = this.res || { pl: [] }, sc = this.players.map((p, i) => (r.pl[i] ? r.pl[i].sc : 0)), mx = Math.max.apply(null, sc.concat([0]));
+    const winners = sc.map((s, i) => (s === mx ? i : -1)).filter(i => i >= 0), tie = this.players.length > 1 && winners.length === this.players.length;
+    return {
+      win: winners[0] || 0, winners: tie ? [] : winners, tie,
+      rows: this.players.map((p, i) => ({ name: p.name, note: (r.pl[i] ? r.pl[i].ws.length : 0) + ' palabras', pts: sc[i], txt: sc[i] + ' pts' }))
+    };
+  }
+}
+
+function boggleRoomMount(el, ctx) {
+  el.innerHTML = '<div class="bg">' +
+    '<div class="bg-row"><div class="bg-lvn">Boggle · sala</div><div class="bg-hud"><span class="bg-sc">0 pts</span><span class="bg-tm">0:00</span></div></div>' +
+    '<div class="bg-cur"></div><div class="bg-bw"><div class="bg-bd"></div><svg class="bg-svg"><polyline points=""/></svg><div class="bg-pre"></div></div>' +
+    '<div class="bg-fd"></div>' +
+    '<div class="bg-act"><button data-a="clr"><b>⌫</b>Borrar</button><button data-a="ok"><b>✓</b>Enviar</button></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), bd = q('.bg-bd'), bw = q('.bg-bw'), poly = q('.bg-svg polyline'), cur = q('.bg-cur'), fd = q('.bg-fd'), pre = q('.bg-pre');
+  q('.bg-act').style.gridTemplateColumns = 'repeat(2,1fr)';
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { tap: n => tone(420 + n * 45, .05, 'triangle', .2), ok: p => [660, 880, 1100].slice(0, Math.min(3, 1 + (p > 1) + (p > 3))).forEach((f, i) => tone(f, .1, 'sine', .25, i * .07)), bad: () => tone(160, .18, 'square', .15), tick: () => tone(900, .04, 'square', .12), go: () => [523, 784].forEach((f, i) => tone(f, .15, 'sine', .25, i * .1)) };
+  let P = null, V = null, rt = 0, N = 0, nb = [], cells = [], path = [], drag = null, built = false, cs = 60, curT = 0, pend = false, lastN = -1, lastTick = -1, intId = 0, started = false;
+  const left = () => Math.max(0, P.left - Math.max(0, Date.now() - rt - P.pre)), preLeft = () => Math.max(0, P.pre - (Date.now() - rt));
+  function size() {
+    if (!N) return; const w = root.clientWidth, h = root.clientHeight, avail = Math.min(w - 12, 520, Math.max(150, h - 250)); cs = Math.floor((avail - 12 - (N - 1) * 6) / N);
+    root.style.setProperty('--cs', cs + 'px'); bd.style.gridTemplateColumns = 'repeat(' + N + ',' + cs + 'px)'; bd.style.gridAutoRows = cs + 'px';
+  }
+  function build() {
+    N = P.sz; nb = bgNbr(N); bd.innerHTML = ''; cells = [];
+    P.b.forEach((l, i) => { const c = document.createElement('div'); c.className = 'bg-c'; c.dataset.i = i; c.textContent = l; bd.appendChild(c); cells.push(c); });
+    q('.bg-svg').setAttribute('viewBox', '0 0 ' + N + ' ' + N); size(); built = true;
+  }
+  const word = () => path.map(i => P.b[i]).join('');
+  function paintPath() {
+    if (!built) return;
+    cells.forEach((c, i) => { c.classList.toggle('u', path.includes(i)); c.classList.toggle('l', path.length && path[path.length - 1] === i); });
+    poly.setAttribute('points', path.map(i => ((i % N) + .5) + ',' + ((i / N | 0) + .5)).join(' '));
+    clearTimeout(curT); cur.className = 'bg-cur'; cur.textContent = word();
+    if (!path.length) cur.innerHTML = '<small>' + (P.over ? 'Fin de la partida' : 'Une letras vecinas para formar palabras') + '</small>';
+  }
+  function flash(cls, txt) { cur.className = 'bg-cur ' + cls; cur.innerHTML = esc(txt); curT = setTimeout(() => { path = []; paintPath(); }, 650); }
+  function renderFound() {
+    const f = V ? V.found : [];
+    fd.innerHTML = f.length ? f.slice().reverse().map(w => '<span class="bg-w">' + w + '<sup>' + bgPts(w.length) + '</sup></span>').join('') : '<span class="muted small" style="padding:4px 6px">Aquí irán tus palabras (mínimo ' + P.min + ' letras). Nadie ve las tuyas ni tus puntos hasta el final.</span>';
+  }
+  function hud() {
+    if (!P) return; const pl = preLeft(), l = left();
+    q('.bg-sc').textContent = (V ? V.score : 0) + ' pts'; q('.bg-tm').textContent = bgFmt(Math.ceil(l / 1000));
+    const n = Math.ceil(l / 1000); q('.bg-tm').classList.toggle('low', pl <= 0 && !P.over && n <= 10);
+    if (pl > 0) { pre.style.display = 'flex'; pre.textContent = Math.ceil(pl / 1000); bw.classList.add('hid'); }
+    else { pre.style.display = 'none'; bw.classList.remove('hid'); if (!started && P.b) { started = true; SFX.go(); } }
+    if (pl <= 0 && !P.over && n <= 10 && n > 0 && n !== lastTick) { lastTick = n; SFX.tick(); }
+  }
+  function results() {
+    const R = P.res, me = ctx.me, order = P.n.map((nm, i) => i).sort((a, z) => R.pl[z].sc - R.pl[a].sc);
+    bw.style.display = 'none'; q('.bg-act').style.display = 'none'; cur.style.display = 'none';
+    fd.style.flex = '1'; fd.style.display = 'block';
+    fd.innerHTML = '<div class="bg-rk">' + order.map((i, k) => '<div class="bg-rr' + (i === me ? ' me' : '') + '"><div class="bg-rh"><span>' + (k + 1) + '. <b>' + (i === me ? 'Tú' : esc(P.n[i])) + '</b></span><em>' + R.pl[i].sc + ' pts</em></div><div class="bg-rw">' +
+      (R.pl[i].ws.length ? R.pl[i].ws.map(x => '<span class="' + (x.d ? 'dp' : '') + '">' + x.w + '<sup>' + (x.d ? '0' : x.p) + '</sup></span>').join(' · ') : '<span class="muted">Sin palabras</span>') + '</div></div>').join('') + '</div>' +
+      '<div class="bg-miss"><b>Nadie encontró (' + R.nmiss + ' de ' + R.total + '):</b> ' + R.miss.map(w => w[0] === '*' ? '<b>' + w.slice(1) + '</b>' : w).join(' · ') + (R.nmiss > R.miss.length ? ' · … y ' + (R.nmiss - R.miss.length) + ' más' : '') + '</div>' +
+      (P.dup === 1 ? '<p class="muted small">Las palabras tachadas las encontró más de un jugador y no puntúan.</p>' : '');
+  }
+  function submit() {
+    if (!P || P.over || pend || !path.length || preLeft() > 0 || left() <= 0) return;
+    pend = true; ctx.send({ t: 'w', w: word() });
+  }
+  function hit(e, rad) {
+    const r = bd.getBoundingClientRect(), pad = 6, g = 6, x = e.clientX - r.left - pad, y = e.clientY - r.top - pad, step = cs + g, cx = Math.floor(x / step), cy = Math.floor(y / step);
+    if (cx < 0 || cy < 0 || cx >= N || cy >= N) return -1; const dx = x - (cx * step + cs / 2), dy = y - (cy * step + cs / 2);
+    return Math.hypot(dx, dy) <= cs * rad ? cy * N + cx : -1;
+  }
+  const live = () => !!P && built && !P.over && preLeft() <= 0 && left() > 0;
+  bw.addEventListener('pointerdown', e => {
+    if (!live() || e.button > 0) return; const i = hit(e, .62); if (i < 0) return;
+    clearTimeout(curT); if (cur.classList.contains('bad') || cur.classList.contains('ok')) path = [];
+    drag = { moved: false, tapLast: false }; const last = path[path.length - 1];
+    if (!path.length) path = [i]; else if (i === last) drag.tapLast = true;
+    else if (path.length > 1 && i === path[path.length - 2]) path.pop();
+    else if (!path.includes(i) && nb[last].includes(i)) path.push(i); else path = [i];
+    SFX.tap(path.length); paintPath(); try { bw.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
+  });
+  bw.addEventListener('pointermove', e => {
+    if (!drag) return; const i = hit(e, .42); if (i < 0) return; const last = path[path.length - 1]; if (i === last) return;
+    if (path.length > 1 && i === path[path.length - 2]) { path.pop(); drag.moved = true; SFX.tap(path.length); paintPath(); }
+    else if (!path.includes(i) && nb[last].includes(i)) { path.push(i); drag.moved = true; SFX.tap(path.length); paintPath(); }
+  });
+  const up = (e, cancel) => { if (!drag) return; const d = drag; drag = null; if (cancel) return; if (d.moved && path.length >= 2) submit(); else if (d.tapLast) submit(); };
+  bw.addEventListener('pointerup', e => up(e, false)); bw.addEventListener('pointercancel', e => up(e, true));
+  q('.bg-act').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.a === 'clr') { clearTimeout(curT); path = []; paintPath(); SFX.tap(1); } else submit(); };
+  const onRs = () => { size(); }; window.addEventListener('resize', onRs);
+  intId = setInterval(() => { if (P && !P.over) hud(); }, 250);
+  return {
+    update(st) {
+      P = st.pub; V = st.priv; rt = Date.now(); pend = false;
+      if (P.b && !built) build();
+      if (V.last && V.last.n !== lastN) { if (lastN >= 0 || V.last.n > 0) { SFX.ok(V.last.p); if (P.b) flash('ok', V.last.w + ' +' + V.last.p); } lastN = V.last.n; }
+      renderFound(); hud();
+      if (P.over && P.res) { clearInterval(intId); results(); } else paintPath();
+    },
+    rejected(err) { pend = false; SFX.bad(); if (built && !P.over) flash('bad', String(err || 'Palabra no válida')); },
+    destroy() { clearInterval(intId); clearTimeout(curT); window.removeEventListener('resize', onRs); el.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'boggle', name: 'Boggle', blurb: 'Palabras en una rejilla · solo o en sala · 4 niveles', min: 2, max: 8,
+  options: [
+    { k: 'size', name: 'Rejilla y tiempo', vals: BG_LV.map(l => l.n + '×' + l.n + ' · ' + bgFmt(l.t) + (l.min > 3 ? ' · mín. ' + l.min : '')), def: 0 },
+    { k: 'dup', name: 'Palabras repetidas', vals: ['Suman a todos', 'Solo cuentan las únicas'], def: 0, desc: ['Cada jugador suma todas sus palabras', 'Las palabras que encuentre más de un jugador no puntúan'] }
+  ],
+  single: {
+    levels: BG_LV.map(l => l.k), def: 0,
+    info: i => { const L = BG_LV[i], b = (store.get('boggle-best') || {})[i]; return L.n + '×' + L.n + ' · ' + bgFmt(L.t) + ' · mínimo ' + L.min + ' letras' + (b != null ? ' · Tu mejor: ' + b + ' pts' : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Encuentra <b>palabras</b> uniendo letras <b>vecinas</b> de la rejilla (también en diagonal) antes de que se acabe el tiempo. No se puede usar dos veces la misma casilla en una palabra.</li>' +
+    '<li><b>Arrastra el dedo</b> por las letras y suelta para enviar. También puedes <b>tocarlas una a una</b> y tocar la última otra vez (o pulsar ✓) para enviar; <b>⌫</b> borra la selección.</li>' +
+    '<li>Valen todas las palabras del diccionario español (sin tildes; sin Q, Ñ, K ni W en la rejilla). Mínimo 3 letras (4 en Experto). Las repetidas no suman.</li>' +
+    '<li>Puntos: 3-4 letras = 1 · 5 = 2 · 6 = 3 · 7 = 5 · 8 o más = 11.</li>' +
+    '<li>Al terminar ves las palabras que te faltaron (las comunes en negrita). Se considera <b>victoria</b> si encuentras al menos el 25 % de las palabras comunes posibles. Se guarda tu mejor puntuación por nivel.</li>' +
+    '<li>Con <b>⏹</b> (dos toques) terminas antes de tiempo (solo en solitario).</li>' +
+    '<li><b>En sala</b> (2-8 jugadores, sin IA): tras una cuenta atrás de 4 s todos tienen la misma rejilla y el mismo tiempo. Nadie ve las palabras ni los puntos de los demás hasta el final: entonces aparecen las puntuaciones de todos a la vez, con sus palabras. Opción «Palabras repetidas»: las que encuentre más de un jugador pueden no puntuar.</li></ul>',
+  createEngine: (players, saved, opts) => new BgRoomGame(players, saved, opts),
+  mount: boggleRoomMount,
+  mountSingle: boggleMount
+});
+
+})();
+Mods.ok("boggle");
 </script>
 <script type="text/plain" data-mod="mahjong" data-deps="">
 /* CTX mahjong: Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. */

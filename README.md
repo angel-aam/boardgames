@@ -31,6 +31,7 @@ Si quieres limitar quién puede conectar, edita `ALLOWED_ORIGINS` en `wrangler.j
 ## Notas
 - Usa Durable Objects con SQLite (válido en el plan gratuito). Revisa los límites vigentes en la página de precios de Cloudflare.
 - Límites del código: 8 jugadores por sala, 128 KB por mensaje, 40 msg/s por conexión.
+- Reconexión: si el móvil se bloquea o se cambia de app, la sala se retoma sola (sesión guardada 12 h en el navegador). Al reabrir el navegador se vuelve a la sala sin código; el código sigue valiendo.
 - Probado en local con `npx wrangler dev`; no en Cloudflare real.
 - Si cambias el juego, ejecuta `node build.js` en el proyecto del juego, copia `dist/juegos.html` a `public/mesa-de-juegos.html` y lanza `npm run deploy`.
 - Observabilidad (logs y trazas) activada en `wrangler.jsonc`; se consulta en el panel de Cloudflare → Workers → boardgames → Observability, o con `npx wrangler tail`.
