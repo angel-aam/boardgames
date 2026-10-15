@@ -18,7 +18,8 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario: `node tools/mkdict.js` lee tools/dict-src/*.gz; con @gfx/zopfli instalado comprime ~4 % más).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline.html no lleva manifiesto ni SW. APP_VER 1.11.0.
+- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline.html no lleva manifiesto ni SW. APP_VER 1.12.0.
+- Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Opción del menú «Reacciones al terminar» (ACTS.rxtog, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
 - Pantalla encendida: wakeSync() (tras show(), hub.js) pide navigator.wakeLock en #stage y #lobby y lo suelta al salir; se repide en visibilitychange.
 - Enlace directo por juego: `/game/<id>` (id del catálogo: sudoku, texas, ajedrez…). El worker sirve el mismo index con `window.MJ_PATHS=1`; el hub (`urlGame/syncURL` en hub.js) abre el juego al arrancar y mantiene URL y título con replaceState. Sin esa bandera (archivo, visor, otra web) usa el hash `#/game/<id>`.
 - Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). Reconexión automática: sesión en `hub.sess` (12 h), `onLost`/`adoptTr`/`netWake`/`autoRejoin`, mensaje `bye` al cerrar el anfitrión; id de dispositivo `hub.did` (campo `d` de `join`) para no duplicar plazas; ver CLAUDE.md. En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
@@ -29,7 +30,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - `Sfx.tone(freq, dur, tipo, retardo, vol)` y `Sfx.win/lose/join`; cada juego define sus efectos con `ctx.tone`.
 - `Mods.load(nombre)` (promesa) / `Mods.ok(nombre)`.
 - `Hist` (recientes y estadísticas), `Saves` (partida en curso en disco, solo la última por juego; `put/get/forGame/latest/putSingle/getSingle`), `ClaudeNet` y `LocalNet` (transportes: `send(peer,msg) broadcast close onmsg onleave hostId`), `Hub`, `H` (estado global del hub), `ACTS` (acciones del DOM por `data-act`).
-- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
+- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.react, hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
 
 ## 4. Contrato de un juego (`Hub.register`)
 Multijugador por turnos:
@@ -251,6 +252,16 @@ input[type=text]{width:100%;min-height:42px;padding:8px 12px;border-radius:12px;
 .panel .res .w{outline:2px solid var(--accent)}
 .panel .res b.pos{color:var(--good)} .panel .res b.neg{color:var(--bad)}
 .hist{display:flex;flex-direction:column;gap:6px}
+/* reacciones al terminar una partida en sala: botonera en el resultado y emojis que suben por la pantalla */
+.rxb{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:10px 0 4px}
+.rxb button{font-size:26px;line-height:1;padding:6px 8px;border-radius:12px;background:var(--bg);border:1px solid var(--line);transition:transform .12s}
+.rxb button:active{transform:scale(.88)}
+.rxfly{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+.rxfly i{position:absolute;bottom:-60px;font-style:normal;font-size:44px;opacity:0;animation:rxUp 2.4s ease-out forwards}
+.rxfly b{position:absolute;left:50%;top:36%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:6px 14px;border-radius:12px;font-size:16px;white-space:nowrap;box-shadow:var(--shadow);animation:rxFade 2.4s forwards}
+@keyframes rxUp{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-78vh) scale(1.3) rotate(var(--r,0deg));opacity:0}}
+@keyframes rxFade{0%,80%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){ .rxfly i{bottom:auto;top:46%;animation:rxFade 2s forwards} }
 .hist div{padding:8px 12px;border-radius:12px;background:var(--bg);font-size:14px}
 #toast{position:fixed;left:50%;bottom:calc(190px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:min(90%,420px);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:14px;font-weight:600;z-index:30;text-align:center;box-shadow:var(--shadow)}
 @media (prefers-reduced-motion: reduce){ .t{transition:none} }
@@ -1148,6 +1159,17 @@ function hostMsg(from, m) {
     return;
   }
   if (m.t === 'hi') { if (H.eng) pushStateTo(from); else sendRoster(); return; }
+  if (m.t === 'rx') {
+    if (!H.eng || !H.eng.over || m.g !== H.gid || !RX_ALL.has(m.e)) return;
+    const i = H.seatPeer.indexOf(from);
+    if (i < 0) return;
+    const now = Date.now(); H.rxT = H.rxT || new Map();
+    if (now - (H.rxT.get(from) || 0) < 400) return;
+    H.rxT.set(from, now);
+    rxShow(m.e, H.matchPl[i] ? H.matchPl[i].name : 'Jugador');
+    rxRelay(m.e, i, from);
+    return;
+  }
   if (m.t === 'act') {
     if (!H.eng || m.g !== H.gid) return;
     const i = H.seatPeer.indexOf(from);
@@ -1188,6 +1210,7 @@ function guestMsg(from, m) {
     if (m.r) showResult(m.r);
     return;
   }
+  if (m.t === 'rx') { if (from === H.tr.hostId && m.g === H.gid && RX_ALL.has(m.e)) rxShow(m.e, cleanNick(m.n) || 'Jugador'); return; }
   if (m.t === 'rj') { if (H.view && H.view.rejected) H.view.rejected(String(m.e || 'Jugada no válida')); return; }
   if (m.t === 'no') { leaveAll(String(m.e || 'No se pudo entrar en la sala').slice(0, 100)); }
 }
@@ -1614,7 +1637,33 @@ function showResult(r, re) {
   if (H.role === 'solo') btns = '<button class="btn primary" data-act="again">Otra partida</button><button class="btn" data-act="tomenu">Salir</button>';
   else if (H.role === 'host') btns = '<button class="btn primary" data-act="rematch">Volver a jugar</button><button class="btn" data-act="tolobby">Volver a la sala</button><button class="btn" data-act="tomenu">Cerrar la sala</button>';
   else btns = '<p class="muted small" style="margin:0">Esperando a que el anfitrión elija…</p><button class="btn" data-act="tomenu">Salir de la sala</button>';
-  openSheet('<h2>' + (r.tie ? 'Empate' : won ? '¡Has ganado!' : (r.title ? esc(r.title) : 'Gana ' + esc(rows[r.win].name))) + '</h2><div class="res">' + list + '</div>' + btns);
+  openSheet('<h2>' + (r.tie ? 'Empate' : won ? '¡Has ganado!' : (r.title ? esc(r.title) : 'Gana ' + esc(rows[r.win].name))) + '</h2><div class="res">' + list + '</div>' + rxBar(r.tie ? 't' : won ? 'w' : 'l') + btns);
+}
+/* ---------- Reacciones al terminar (solo en sala con otras personas; opción «Reacciones» del menú, hub.react, activada por defecto) ----------
+   Mensaje {t:'rx', g, e}: el invitado lo manda al anfitrión; el anfitrión lo muestra y lo reenvía al resto con el nombre del asiento (n).
+   Solo se aceptan emojis de RX y con la partida terminada; límite de una reacción cada 0,4 s por conexión. */
+const RX = { w: ['🎉', '😄', '🥳', '👏', '😎', '🏆'], l: ['😢', '😭', '😠', '😤', '🤝', '👍'], t: ['🤝', '👍', '😅', '😮', '👏', '😄'] };
+const RX_ALL = new Set([...RX.w, ...RX.l, ...RX.t]);
+const reactOn = () => store.get('hub.react', true) !== false;
+const rxRoom = () => H.role === 'guest' || (H.role === 'host' && H.seatPeer.some((p, i) => p && i !== H.seat));
+function rxBar(k) {
+  if (!reactOn() || !rxRoom()) return '';
+  return '<div class="rxb" aria-label="Reacciones">' + RX[k].map((e, i) => '<button data-act="rxsend" data-k="' + k + '" data-e="' + i + '">' + e + '</button>').join('') + '</div>';
+}
+function rxShow(e, who) {
+  if (!reactOn()) return;
+  const box = document.createElement('div'); box.className = 'rxfly';
+  let h = '<b>' + esc(who) + ' ' + e + '</b>';
+  for (let i = 0; i < 6; i++) h += '<i style="left:' + (8 + Math.random() * 78).toFixed(1) + '%;animation-delay:' + (i * 0.12).toFixed(2) + 's;--r:' + Math.round(Math.random() * 60 - 30) + 'deg">' + e + '</i>';
+  box.innerHTML = h;
+  document.body.appendChild(box);
+  Sfx.tone(880, 0.06, 'sine', 0, 0.05); Sfx.tone(1320, 0.08, 'sine', 0.07, 0.04);
+  setTimeout(() => box.remove(), 2700);
+}
+/* anfitrión: reenvía la reacción del asiento `seat` a los demás humanos (menos a quien la mandó) */
+function rxRelay(e, seat, from) {
+  const p = H.matchPl && H.matchPl[seat], n = p ? p.name : '';
+  H.seatPeer.forEach((peer, i) => { if (peer && i !== H.seat && peer !== from && H.tr) H.tr.send(peer, { t: 'rx', g: H.gid, e, n }); });
 }
 function showRules() {
   if (!H.game) return;
@@ -1686,7 +1735,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.11.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.12.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1754,6 +1803,15 @@ const ACTS = {
   tomenu() { leaveAll(); },
   closesheet() { hideSheet(); },
   assist() { store.set('hub.assist', !assistOn()); paintAssist(); ACTS.menu(); },
+  rxtog() { store.set('hub.react', !reactOn()); ACTS.menu(); },
+  rxsend(b) {
+    const e = (RX[b.dataset.k] || [])[+b.dataset.e];
+    if (!e || !H.gid || Date.now() - (H.rxLast || 0) < 500) return;
+    H.rxLast = Date.now();
+    rxShow(e, 'Tú');
+    if (H.role === 'guest') { if (H.tr && H.tr.hostId) H.tr.send(H.tr.hostId, { t: 'rx', g: H.gid, e }); }
+    else if (H.role === 'host') rxRelay(e, H.seat, null);
+  },
   /* guarda todos los módulos en el service worker para jugar sin conexión (solo build dividido en el servidor) */
   /* instala la PWA: aviso nativo (Chrome/Edge/Android) o instrucciones (Safari de iOS) */
   async install() {
@@ -1806,8 +1864,8 @@ const ACTS = {
   async reinvite() { hideSheet(); try { await Mods.load('pair'); } catch (e) { toast('No se pudo cargar el emparejamiento'); return; } hostInvite(); },
   menu() {
     const ver = '<p class="mnu-ver">' + APP_NAME + ' · v' + APP_VER + '</p>';
-    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() && !isStandalone() && (H.installEv || isIOS()) ? '<button class="btn primary" data-act="install">Instalar aplicación</button>' : '') + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button>' + ver + '</div>');
-    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() && !isStandalone() && (H.installEv || isIOS()) ? '<button class="btn primary" data-act="install">Instalar aplicación</button>' : '') + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button>' + ver + '</div>');
+    if (H.screen === 'stage') openSheet('<div class="mnu"><h2>Menú</h2>' + (awaySeats().length ? '<button class="btn primary" data-act="reco">Reconectar jugadores</button>' : '') + '<button class="btn" data-act="rules">Cómo se juega</button><button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + '<button class="btn" data-act="rxtog">Reacciones al terminar: ' + (reactOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() && !isStandalone() && (H.installEv || isIOS()) ? '<button class="btn primary" data-act="install">Instalar aplicación</button>' : '') + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button><button class="btn danger" data-act="tomenu">' + (H.role === 'single' || H.role === 'solo' || H.role === 'host' ? 'Salir (la partida se guarda)' : 'Salir de la sala') + '</button>' + ver + '</div>');
+    else openSheet('<div class="mnu"><h2>Menú</h2>' + (H.game ? '<button class="btn" data-act="rules">Cómo se juega</button>' : '') + '<button class="btn" data-act="recents">Partidas recientes</button><button class="btn" data-act="assist">Ayuda visual: ' + (assistOn() ? 'Sí' : 'No') + '</button>' + '<button class="btn" data-act="rxtog">Reacciones al terminar: ' + (reactOn() ? 'Sí' : 'No') + '</button>' + (offlineOK() && !isStandalone() && (H.installEv || isIOS()) ? '<button class="btn primary" data-act="install">Instalar aplicación</button>' : '') + (offlineOK() ? '<button class="btn" data-act="cacheall">Guardar juegos en este dispositivo</button>' : '') + (/^https?:/.test(location.protocol) ? '<button class="btn" data-act="dl">Descarga offline</button>' : '') + '<button class="btn flat" data-act="closesheet">Cerrar</button>' + ver + '</div>');
   }
 };
 /* CTX games/catalog: Una línea Hub.catalog.push por juego: {id, cat, name, blurb, mod}. Añadir un juego = módulo + una línea aquí + su entrada en games.json. */

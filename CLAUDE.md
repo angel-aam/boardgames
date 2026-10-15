@@ -101,3 +101,6 @@ La sala se crea Pública (listada en «Sala online», por defecto) o Privada (so
 
 ## Reutilizar módulos compartidos (norma del usuario)
 - Los juegos nuevos deben reutilizar lo compartido: teclado (`teclado`, QWERTY español con Ñ; el usuario siempre quiere disposición QWERTY, igual que Wordle/Ahorcado), diccionario (`scdict`) y los colores/tema claro-oscuro del hub (variables CSS). No crear teclados ni diccionarios propios.
+
+## Reacciones al terminar (salas)
+Al acabar una partida con otras personas (`rxRoom()`: invitado, o anfitrión con algún invitado sentado), `showResult` añade `rxBar(k)`: 6 emojis según el resultado (`RX.w` alegres si ganas, `RX.l` tristes/enfado/acuerdo si pierdes, `RX.t` empate). `ACTS.rxsend` los muestra en local (`rxShow`: overlay `.rxfly`, emojis que suben ~2,4 s + nombre) y envía `{t:'rx',g,e}`: el invitado al anfitrión; el anfitrión lo muestra y lo reenvía a los demás con `n` (`rxRelay`). Validación: emoji en `RX_ALL`, `g` de la partida actual, partida terminada, ≥0,4 s por conexión. Opción del menú «Reacciones al terminar» (`ACTS.rxtog`, `store` `hub.react`, activada por defecto; apagada no muestra botones ni las recibidas). El servidor no cambia.
