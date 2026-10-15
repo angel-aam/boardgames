@@ -18,7 +18,8 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario: `node tools/mkdict.js` lee tools/dict-src/*.gz; con @gfx/zopfli instalado comprime ~4 % más).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline.html no lleva manifiesto ni SW. APP_VER 1.10.0.
+- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline.html no lleva manifiesto ni SW. APP_VER 1.11.0.
+- Pantalla encendida: wakeSync() (tras show(), hub.js) pide navigator.wakeLock en #stage y #lobby y lo suelta al salir; se repide en visibilitychange.
 - Enlace directo por juego: `/game/<id>` (id del catálogo: sudoku, texas, ajedrez…). El worker sirve el mismo index con `window.MJ_PATHS=1`; el hub (`urlGame/syncURL` en hub.js) abre el juego al arrancar y mantiene URL y título con replaceState. Sin esa bandera (archivo, visor, otra web) usa el hash `#/game/<id>`.
 - Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). Reconexión automática: sesión en `hub.sess` (12 h), `onLost`/`adoptTr`/`netWake`/`autoRejoin`, mensaje `bye` al cerrar el anfitrión; id de dispositivo `hub.did` (campo `d` de `join`) para no duplicar plazas; ver CLAUDE.md. En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
 
@@ -1394,7 +1395,23 @@ function show(name) {
   $('#ttl').textContent = (name === 'home' || !H.game) ? 'Mesa de Juegos' : H.game.name;
   if (name !== 'pair' && typeof stopScanner === 'function') stopScanner();
   syncURL();
+  wakeSync();
 }
+/* pantalla siempre encendida mientras se juega (#stage) o se espera en el lobby: Screen Wake Lock API.
+   El navegador lo suelta al ocultar la pestaña; se vuelve a pedir en visibilitychange. Sin soporte → no hace nada */
+let wakeLk = null;
+function wakeSync() {
+  const want = (H.screen === 'stage' || H.screen === 'lobby') && document.visibilityState === 'visible';
+  if (!('wakeLock' in navigator)) return;
+  if (want && !wakeLk) {
+    wakeLk = 'p';
+    navigator.wakeLock.request('screen').then(l => {
+      wakeLk = l; l.addEventListener('release', () => { if (wakeLk === l) wakeLk = null; });
+      if (!(H.screen === 'stage' || H.screen === 'lobby')) wakeSync();
+    }).catch(() => { wakeLk = null; });
+  } else if (!want && wakeLk && wakeLk !== 'p') { const l = wakeLk; wakeLk = null; l.release().catch(() => {}); }
+}
+document.addEventListener('visibilitychange', wakeSync);
 function paintTools() {
   $('#bSnd').innerHTML = Sfx.on ? ICO_SND_ON : ICO_SND_OFF;
   $('#bSnd').setAttribute('aria-pressed', Sfx.on ? 'true' : 'false');
@@ -1669,7 +1686,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.10.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.11.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }

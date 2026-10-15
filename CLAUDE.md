@@ -86,6 +86,9 @@ La sala se crea Pública (listada en «Sala online», por defecto) o Privada (so
 ## Scrabble: dirección de colocación
 `nextCell()` decide la casilla siguiente (con 1 ficha infiere la dirección —`V.dir` solo es un respaldo—; con 2+ la marcan las fichas). `render()` pinta la pista (`.sc-c.nx`, recuadro parpadeante). Tocar una casilla vacía (`setTarget`) fija `V.tcell`: la siguiente ficha tocada del atril va ahí (`tgtOk()`), después se sigue con `nextCell()`. Volver a tocarla la desmarca; `V.tcell` se reinicia al colocar, recoger o cambiar el atril.
 
+## Pantalla encendida
+`wakeSync()` (hub.js, llamado al final de `show()` y en `visibilitychange`) pide `navigator.wakeLock.request('screen')` mientras `H.screen` es `stage` o `lobby` y lo suelta al salir. Sin soporte del navegador no hace nada.
+
 ## Versión de la app
 `APP_NAME`/`APP_VER` (justo antes de `ACTS`, hub.js) se muestran al pie del menú (`.mnu-ver`). Subir `APP_VER` en cada entrega (semver: nuevas funciones → minor, arreglos → patch).
 
