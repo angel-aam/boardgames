@@ -24,6 +24,11 @@ El código fuente sin minificar vive en `public/mesa-de-juegos.html` (no se publ
 Solo generar: `npm run build`. Elimina todos los comentarios (el fuente los conserva). El núcleo pesa ≈120 KB (63 KB gzip); cada juego se descarga al abrirlo (`/m/<id>.<hash>.js`, caché inmutable) y un service worker permite jugar sin conexión tras pulsar «Guardar juegos en este dispositivo». «Descarga offline» baja `offline.html` (todo en un archivo).
 `public/index.html` es un fichero generado: está en `.gitignore`, no se edita ni se versiona.
 
+## PWA: instalar y jugar sin conexión
+En Chrome/Edge/Android: menú → «Instalar aplicación» (o el icono de instalar de la barra). En iPhone/iPad (Safari): Compartir → «Añadir a pantalla de inicio». Tras la primera visita con red el service worker guarda en segundo plano el núcleo, todos los juegos y la copia offline: la app abre y funciona sin conexión.
+Sin internet se juega solo/contra IA y en **sala sin conexión**: los móviles deben estar en la misma Wi-Fi (o punto de acceso); el anfitrión enseña un QR, el invitado lo escanea con la cámara dentro de la app (o lo lee con otra app de QR y pega el texto), y viceversa con la respuesta. Las salas online sí necesitan internet. La cámara requiere https (la web desplegada o localhost).
+«Descarga offline» sigue entregando un único `mesa-de-juegos.html` sin servidor ni instalación, para enviarlo por mensajería.
+
 ## Usarlo desde otra web (GitHub Pages, opcional) Pages (o el HTML offline)
 Abre una vez `https://TU-PAGINA/?srv=https://boardgames.<subdominio>.workers.dev`; la dirección queda guardada en ese navegador. O fíjala al construir: `MJ_SERVER=https://… node build.js`.
 Si quieres limitar quién puede conectar, edita `ALLOWED_ORIGINS` en `wrangler.jsonc` (p. ej. `"https://USUARIO.github.io,null"`; `null` es el HTML abierto desde archivo) y vuelve a desplegar.

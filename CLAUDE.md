@@ -13,7 +13,8 @@ Suite de juegos de mesa/cartas/puzles en **un solo HTML** (UI en español, móvi
 | `public/mesa-de-juegos.html` | **FUENTE** del juego (≈1 MB, sin minificar, con el comentario de contexto largo del producto). Es copia de `dist/juegos.html` del proyecto del juego. No se publica (`public/.assetsignore`). |
 | `public/index.html` | **GENERADO** por `build.js` (núcleo sin módulos + `window.MJ_MODS`); en `.gitignore`. **Nunca editar ni versionar.** |
 | `public/m/<id>.<hash>.js` | **GENERADO**: un fichero por módulo perezoso, minificado; hash sha256(10) en el nombre → inmutable (`_headers`: caché 1 año). |
-| `public/sw.js` | **GENERADO** desde `src/sw.tpl.js` (versión = hash de núcleo+módulos). No escribir los marcadores `__X__` en comentarios de la plantilla (el reemplazo toca el primero). |
+| `public/sw.js` | **GENERADO** desde `src/sw.tpl.js` (versión = hash de núcleo+módulos+manifiesto+plantilla). No escribir los marcadores `__X__` (`__VERSION__`, `__MODS__`, `__SHELL__`) en comentarios de la plantilla (el reemplazo toca el primero). |
+| `public/manifest.webmanifest`, `public/icons/*` | **ESTÁTICOS (sí se versionan)**: manifiesto PWA (`start_url /?pwa=1`, `display standalone`, `theme_color #2757d6`) e iconos (192, 512, maskable, apple-touch, svg). `build.js` inyecta en `index.html` el `<link rel=manifest>`, `theme-color` e iconos (no en `offline.html`). |
 | `public/offline.html` | **GENERADO**: todo en un solo HTML (módulos en línea) para «Descargar offline». |
 | `build.js` | terser + html-minifier-terser; reparte módulos y genera los 4 ficheros anteriores. Quita TODOS los comentarios. |
 | `public/_headers` | Caché: `/m/*` inmutable, `/sw.js` no-cache. |
@@ -26,9 +27,15 @@ Suite de juegos de mesa/cartas/puzles en **un solo HTML** (UI en español, móvi
 - `npx wrangler tail` → logs en vivo.
 - Actualizar el juego: reemplazar `public/mesa-de-juegos.html` por la nueva versión y `git push`: Workers Builds ejecuta `wrangler deploy` → hook `build` → genera todo → despliega. No hay que subir nada generado.
 
+## PWA (instalable y offline)
+- `index.html` + manifiesto + iconos + `sw.js` cumplen los requisitos de instalación (comprobado con `Page.getInstallabilityErrors`). Menú → «Instalar aplicación» (`ACTS.install`; usa `beforeinstallprompt` guardado en `H.installEv`; en iOS muestra la instrucción «Añadir a pantalla de inicio»; se oculta si ya es `isStandalone()`).
+- El SW, al activarse, descarga en segundo plano TODOS los módulos y `offline.html` (`fill()`): la app instalada va sin conexión sin pulsar nada. «Guardar juegos en este dispositivo» queda como forzado manual. Navegación sin red o lenta (>4 s con copia) → núcleo guardado.
+- Salas sin conexión: WebRTC en la red local sin servidor ICE (`LocalNet`). Módulo `qrscan` (jsQR 1.4.0 Apache-2.0 minificado + `BarcodeDetector` si existe; `QScan.ok/open/close`): botón «Escanear el QR con la cámara» en el emparejamiento (`pair`, deps `qr,qrscan`); solo si hay `getUserMedia` y contexto seguro. Sin cámara (visor de Claude, permiso denegado) sigue valiendo leer con otra app y pegar el texto.
+- `offline.html` (Descarga offline) sigue siendo un HTML independiente: sin manifiesto ni SW.
+
 ## Carga y offline (build dividido)
 - Con `MJ_MODS` presente, `Mods.load(id)` descarga `/m/<id>.<hash>.js` bajo demanda (el diccionario `scdict`, 360 KB, solo para scrabble/wordle/ahorcado). Sin `MJ_MODS` (fuente, `offline.html`, artefacto) los módulos van en línea en `<script type="text/plain" data-mod>`.
-- El service worker solo se registra en modo ruta (`MJ_PATHS`): `/` y `/game/*` red primero con respaldo en caché; `/m/*` caché primero; no toca `/ws/*` ni `/api/*`. «Guardar juegos en este dispositivo» (`ACTS.cacheall`) envía `{t:'all'}` y cachea los 41 módulos para jugar sin conexión.
+- El service worker solo se registra en modo ruta (`MJ_PATHS`): `/` y `/game/*` red primero con respaldo en caché; `/m/*` caché primero; no toca `/ws/*` ni `/api/*`. «Guardar juegos en este dispositivo» (`ACTS.cacheall`) envía `{t:'all'}` y cachea todos los módulos para jugar sin conexión.
 - Salvedad: una pestaña abierta antes de un despliegue puede dar 404 en módulos con hash antiguo hasta recargar.
 
 ## Worker (`src/worker.js`)
