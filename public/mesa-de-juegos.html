@@ -131,6 +131,9 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | buscaminas | juego puzzles «Buscaminas» | games/buscaminas/buscaminas.js (+buscaminas.css) | – | Buscaminas de un jugador, 5 niveles (8×10/10 minas … 14×26/80). Minas colocadas tras el primer toque (msPlace: sin minas en la casilla ni alrededor). Toque = descubrir, mantener o modo 🚩 = bandera, tocar número con sus banderas = descubrir alrededor (chord); pista = casilla segura. Área con scroll vertical (celda mínima 20 px). Guarda partida y récords (buscaminas-best). |
 | boggle | juego palabras «Boggle» | games/boggle/boggle.js (+boggle.css) | scdict | Boggle de un jugador, 4 niveles (4×4 3:00 / 4×4 2:00 / 5×5 3:00 / 5×5 2:30 mín. 4 letras). Rejilla aleatoria por frecuencias (bgBoard con mínimo de palabras comunes), arrastrar o tocar letras vecinas, validación ScDict.has, puntos por longitud. bgSolve/bgPath resuelven la rejilla para el resumen final (faltantes y comunes). Victoria = ≥25 % de las comunes. Guarda partida y récords (boggle-best). |
 | crucigrama | juego palabras «Crucigrama» | games/crucigrama/crucigrama.js (+crucigrama.css) | scdict | Crucigrama sin definiciones de un jugador, 4 niveles (8/12/17/24 palabras de ScDict.lv[0], 3–9 letras). cgGen cruza palabras sobre una rejilla de trabajo (sin adyacencias erróneas) y recorta al rectángulo ocupado. Se coloca una palabra de la lista en un hueco (o se arma la palabra y luego el hueco) si longitud y letras cruzadas encajan; se gana al llenar todos los huecos (cualquier relleno coherente). Pista = solución del hueco retirando las que chocan. Guarda partida y récords (crucigrama-best). |
+| retomat | juego puzzles «Reto matemático» | games/retomat/retomat.js (+retomat.css) | – | Reto matemático de un jugador, 4 niveles (5/8/12/16 ecuaciones «a ∘ b = c» cruzadas en filas y columnas, + − × ÷ según nivel). rmGen encadena ecuaciones válidas (rmEq con valor fijo en el cruce, no-adyacencia como un crucigrama), recorta y oculta números (≤2 por ecuación) que pasan a un banco ordenado (cada uno se usa una vez). Se gana con todo lleno y todas las ecuaciones ciertas (cualquier relleno coherente). Verde/rojo al completar cada ecuación; Ayuda visual atenúa números que romperían una ecuación completa. Guarda partida y récords (retomat-best). |
+| puntos | juego tablero «Puntos y cajas» | games/puntos/puntos.js (+puntos.css) | – | Puntos y cajas 2–4 jugadores (opción tamaño 3×3…6×6 cajas), sala o contra la IA (1–3 bots, Fácil/Normal/Difícil). Líneas: horizontales primero (r*N+c) y luego verticales; acción {t:'e',e}. Cerrar una caja = quedársela y repetir turno; gana quien tenga más cajas. IA: pbPick (coge cajas, evita el tercer lado, regala lo mínimo con pbSacrifice; Difícil con búsqueda exacta pbSolve si quedan ≤13 líneas). Tablero SVG; Ayuda visual marca líneas que cierran caja / regalan caja. |
+| criptograma | juego palabras «Criptograma» | games/criptograma/criptograma.js (+criptograma.css) | teclado | Criptograma de un jugador: frases (CR_PH, ~450: refranes, dichos y citas de autores de dominio público con atribución; sin repetir hasta agotar el nivel con el store criptograma-seen) cifrados por sustitución sin letras fijas (crCipher) sobre A–Z+Ñ. 4 niveles por longitud (≤22/23–29/30–38/≥39 letras) y letras regaladas (4/2/1/0). Tocar una casilla resalta su letra cifrada; teclado en pantalla y físico; una letra solo en una cifrada (se roba); Comprobar marca errores (Ayuda visual los marca sola); Pista bloquea una letra; Frecuencias. Guarda partida y récords (criptograma-best). |
 | mahjong | juego puzzles «Mahjong» | games/mahjong/mahjong.js (+mahjong.css) | – | Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
@@ -1655,7 +1658,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.5.1';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.9.1';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1794,15 +1797,18 @@ Hub.catalog.push({ id: 'domino', cat: 'tablero', name: 'Dominó', blurb: 'Doble 
 Hub.catalog.push({ id: 'tangram', cat: 'puzzles', name: 'Tangram', blurb: 'Un jugador · 3 niveles', mod: 'tangram' });
 Hub.catalog.push({ id: 'cuatro', cat: 'tablero', name: '4 en raya', blurb: 'Clásico · 2 jugadores', mod: 'cuatro' });
 Hub.catalog.push({ id: 'reversi', cat: 'tablero', name: 'Reversi', blurb: 'Clásico · 2 jugadores', mod: 'reversi' });
+Hub.catalog.push({ id: 'puntos', cat: 'tablero', name: 'Puntos y cajas', blurb: 'Cierra cajas · 2-4 jugadores', mod: 'puntos' });
 Hub.catalog.push({ id: 'mahjong', cat: 'puzzles', name: 'Mahjong', blurb: 'Un jugador · solitario de fichas', mod: 'mahjong' });
 Hub.catalog.push({ id: 'hanoi', cat: 'puzzles', name: 'Torres de Hanoi', blurb: 'Un jugador · 5 niveles', mod: 'hanoi' });
 Hub.catalog.push({ id: 'flechas', cat: 'puzzles', name: 'Flechas', blurb: 'Un jugador · 6 niveles', mod: 'flechas' });
 Hub.catalog.push({ id: 'parejas', cat: 'cartas', name: 'Parejas', blurb: 'Memoria · 2 a 4 jugadores', mod: 'parejas' });
 Hub.catalog.push({ id: 'atasco', cat: 'puzzles', name: 'Atasco', blurb: 'Un jugador · bloques deslizantes · 5 niveles', mod: 'atasco' });
 Hub.catalog.push({ id: 'hilos', cat: 'puzzles', name: 'Hilos', blurb: 'Un jugador · conecta colores · 5 niveles', mod: 'hilos' });
+Hub.catalog.push({ id: 'retomat', cat: 'puzzles', name: 'Reto matemático', blurb: 'Operaciones cruzadas · 4 niveles', mod: 'retomat' });
 Hub.catalog.push({ id: 'buscaminas', cat: 'puzzles', name: 'Buscaminas', blurb: 'Un jugador · 5 niveles', mod: 'buscaminas' });
 Hub.catalog.push({ id: 'boggle', cat: 'palabras', name: 'Boggle', blurb: 'Palabras en una rejilla · solo o en sala', mod: 'boggle' });
 Hub.catalog.push({ id: 'crucigrama', cat: 'palabras', name: 'Crucigrama', blurb: 'Coloca las palabras en el tablero · 4 niveles', mod: 'crucigrama' });
+Hub.catalog.push({ id: 'criptograma', cat: 'palabras', name: 'Criptograma', blurb: 'Descifra refranes y citas · 4 niveles', mod: 'criptograma' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
 bootHub();
 </script>
@@ -7355,7 +7361,7 @@ function scrabbleMount(el, ctx) {
   function render() {
     const P = V.pub; if (!P) return;
     const last = new Set(P.last && P.last.tiles ? P.last.tiles : []);
-    if (!Object.keys(V.pend).length) V.dir = null;
+    if (!Object.keys(V.pend).length) { V.dir = null; V.lc = -1; }
     /* pista de dirección: casilla donde irá la siguiente ficha (el toque en otra casilla cambia la dirección) */
     const nc = P.over || V.swap ? -1 : tgtOk() ? V.tcell : Object.keys(V.pend).length ? nextCell() : -1;
     cells.forEach((e, i) => {
@@ -7402,20 +7408,26 @@ function scrabbleMount(el, ctx) {
     V.ndir = dir;
     if (!dir) return -1;
     const h = dir === 'h', fix = h ? pc[0] / 15 | 0 : pc[0] % 15, at = k => h ? fix * 15 + k : k * 15 + fix, ks = pc.map(i => h ? i % 15 : i / 15 | 0), hi = Math.max.apply(null, ks), lo = Math.min.apply(null, ks);
+    /* huecos dentro de lo ya colocado (p. ej. tras quitar letras sueltas): el más cercano a la última ficha puesta, antes que el final */
+    const lk = V.lc >= 0 && V.lc !== undefined ? (h ? V.lc % 15 : V.lc / 15 | 0) : lo; let best = -1, bd2 = 99;
+    for (let k = lo + 1; k < hi; k++) { const i = at(k); if (!occ(i) && !V.pend[i]) { const d = Math.abs(k - lk) + (k < lk ? 0.5 : 0); if (d < bd2) { bd2 = d; best = i; } } }
+    if (best >= 0) return best;
     for (let k = hi + 1; k <= 14; k++) { const i = at(k); if (!occ(i) && !V.pend[i]) return i; }
     for (let k = lo - 1; k >= 0; k--) { const i = at(k); if (!occ(i) && !V.pend[i]) return i; }
     return -1;
   }
   function place(ri, cell) {
     const t = V.rack[ri]; if (!t || t.on || V.pub.bd[cell] !== '.' || V.pend[cell]) return;
-    const put = (l, b) => { V.pend[cell] = { k: ri, l, b }; t.on = true; V.tcell = -1; V.selR = -1; snd('put'); evalNow(); render(); };
+    const put = (l, b) => { V.pend[cell] = { k: ri, l, b }; V.lc = cell; t.on = true; V.tcell = -1; V.selR = -1; snd('put'); evalNow(); render(); };
     if (t.l === '?') { openPick(l => put(l, 1)); return; }
     put(t.l, 0);
   }
   function openPick(cb) {
     const o = document.createElement('div'); o.className = 'sc-pk';
     o.innerHTML = '<div class="sc-pkc"><p>¿Qué letra es el comodín?</p><div>' + [...SC_AL].map(l => '<button data-l="' + l + '">' + l + '</button>').join('') + '</div><button class="btn" data-l="">Cancelar</button></div>';
-    o.onclick = e => { const b = e.target.closest('[data-l]'); if (!b && e.target !== o) return; o.remove(); if (b && b.dataset.l) cb(b.dataset.l); };
+    /* el «click» que sigue al toque en el atril llegaba al fondo recién creado y lo cerraba al instante (solo pasaba al colocar una letra que no era la primera): se ignora un instante */
+    const t0 = Date.now();
+    o.onclick = e => { if (Date.now() - t0 < 400) return; const b = e.target.closest('[data-l]'); if (!b && e.target !== o) return; o.remove(); if (b && b.dataset.l) cb(b.dataset.l); };
     el.appendChild(o);
   }
   /* ----- arrastre ----- */
@@ -11043,7 +11055,7 @@ Mods.ok("reversi");
 <script type="text/plain" data-mod="buscaminas" data-deps="">
 /* CTX buscaminas: Buscaminas de un jugador (versión propia). 5 niveles (8×10/10 minas … 14×26/80), primer toque siempre seguro (sin minas en la casilla ni alrededor), toque = descubrir, mantener o modo 🚩 = bandera, tocar un número con sus banderas = descubrir alrededor. Área con scroll vertical si no cabe (celda mínima 20 px). Guarda partida (ctx.save) y mejores tiempos (store buscaminas-best). Prefijo ms-. */
 (function(){const s=document.createElement("style");s.textContent=`/* Buscaminas: colores del hub; todo bajo .ms */
-#stage > .ms{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:36px}
+#stage > .ms{-webkit-touch-callout:none;position:relative;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:36px}
 .ms button,.ms select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
 .ms button:active{background:var(--accent);color:var(--accent-ink)}
 .ms select{flex:1;min-width:0}
@@ -11109,7 +11121,7 @@ function buscaminasMount(el, ctx) {
     boom: () => { tone(110, .35, 'sawtooth', .35); tone(70, .45, 'square', .3, .05); }, ok: () => tone(520, .1, 'sine', .25),
     win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i]))
   };
-  let S = null, cells = [], flagMode = false, timerId = 0, recorded = false, press = null, hintI = -1, hintT = 0;
+  let S = null, cells = [], flagMode = false, timerId = 0, recorded = false, press = null, hintI = -1, hintT = 0, lastLong = null;
   const rnd = Math.random;
   const fresh = lv => { const L = MS_LV[lv]; return { lv, c: L.c, r: L.r, mines: L.m, m: [], o: new Array(L.c * L.r).fill(0), f: new Array(L.c * L.r).fill(0), t: 0, hints: 0, started: false, over: false, won: false, lose: -1 }; };
   function save() { if (!S) return; if (S.over || !S.started) { ctx.save(null); return; } ctx.save(S); }
@@ -11218,7 +11230,7 @@ function buscaminasMount(el, ctx) {
   bd.addEventListener('pointerdown', e => {
     if (!S || S.over || e.button > 0) return; const c = e.target.closest('.ms-c'); if (!c) return;
     const i = +c.dataset.i; press = { i, x: e.clientX, y: e.clientY, long: false, id: e.pointerId };
-    press.t = setTimeout(() => { if (press && press.i === i) { press.long = true; if (navigator.vibrate) { try { navigator.vibrate(15); } catch (x) { /* sin vibración */ } } if (!S.o[i]) flag(i); } }, 420);
+    press.t = setTimeout(() => { if (press && press.i === i) { press.long = true; lastLong = { i, t: Date.now() }; if (navigator.vibrate) { try { navigator.vibrate(15); } catch (x) { /* sin vibración */ } } if (!S.o[i]) flag(i); } }, 380);
   });
   const endPress = (e, cancel) => {
     if (!press) return; const p = press; press = null; clearTimeout(p.t);
@@ -11228,7 +11240,12 @@ function buscaminasMount(el, ctx) {
   };
   bd.addEventListener('pointerup', e => endPress(e, false)); bd.addEventListener('pointercancel', e => endPress(e, true));
   bd.addEventListener('pointermove', e => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) { clearTimeout(press.t); } });
-  bd.addEventListener('contextmenu', e => { e.preventDefault(); const c = e.target.closest('.ms-c'); if (c && S && !S.over) { press = null; if (!S.o[+c.dataset.i]) flag(+c.dataset.i); } });
+  /* en móvil la pulsación larga dispara además «contextmenu»: si ya puse la bandera con el temporizador no se vuelve a alternar (antes la quitaba) */
+  bd.addEventListener('contextmenu', e => {
+    e.preventDefault(); const c = e.target.closest('.ms-c'); if (!c || !S || S.over) return; const i = +c.dataset.i;
+    if (lastLong && lastLong.i === i && Date.now() - lastLong.t < 1500) return;
+    if (press) { clearTimeout(press.t); press.long = true; } if (!S.o[i]) flag(i);
+  });
   q('.ms-go').onclick = () => { SFX.tap(); newGame(+q('.ms-lv').value); };
   q('.ms-again').onclick = () => newGame(S.lv);
   q('.ms-next').onclick = () => newGame(Math.min(MS_LV.length - 1, S.lv + 1));
@@ -11934,6 +11951,1116 @@ Hub.register({
 
 })();
 Mods.ok("crucigrama");
+</script>
+<script type="text/plain" data-mod="retomat" data-deps="">
+/* CTX retomat: Reto matemático de un jugador. 4 niveles (5/8/12/16 ecuaciones «a ∘ b = c» que se cruzan en filas y columnas; + − × ÷ según nivel). rmGen encadena ecuaciones válidas (rmEq con valor fijo en el cruce, reglas de no-adyacencia como un crucigrama) y oculta números (≤2 por ecuación); banco de números ordenado, cada uno se usa una vez. Se gana al llenar todo y cumplirse todas las ecuaciones (cualquier relleno coherente). Verde/rojo al completarse cada ecuación; Ayuda visual atenúa números que romperían una ecuación completa. Pista, quitar, reiniciar; guarda partida y récords (retomat-best). Prefijo rm-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Reto matemático: colores del hub; todo bajo .rm */
+#stage > .rm{position:relative;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:4px;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cs:34px}
+.rm button,.rm select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.rm select{flex:1;min-width:0}
+.rm-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rm-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.rm-hud{display:flex;gap:14px;align-items:center;font:600 .95rem var(--f-mono)}
+.rm-go{font-weight:700}
+.rm-area{flex:none;width:100%;display:flex;align-items:center;justify-content:center}
+.rm-bd{display:grid;gap:2px;flex:none}
+.rm-c{width:var(--cs);height:var(--cs);border-radius:5px;display:flex;align-items:center;justify-content:center;font:800 calc(var(--cs)*.5) var(--f-mono);line-height:1;visibility:hidden;position:relative}
+.rm-c.t{visibility:visible}
+.rm-c.n{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 45%,var(--surface))}
+.rm-c.b{background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent);cursor:pointer;border-style:dashed}
+.rm-c.b:not(.f){box-shadow:inset 0 0 0 2px var(--accent);outline:2px dashed color-mix(in srgb,var(--accent) 60%,transparent);outline-offset:-4px}
+.rm-c.o{color:var(--accent);font-size:calc(var(--cs)*.62)}
+.rm-c.s{background:color-mix(in srgb,var(--accent) 30%,var(--surface));animation:rms .7s ease-in-out infinite alternate}
+@keyframes rms{to{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}}
+.rm-c.ok{background:color-mix(in srgb,#2e9a52 22%,var(--surface))!important;box-shadow:inset 0 0 0 2px #2e9a52!important;color:var(--ink)}
+.rm-c.o.ok{background:none!important;box-shadow:none!important;color:#2e9a52}
+.rm-c.ko{box-shadow:inset 0 0 0 2px #e8504b!important;background:color-mix(in srgb,#e8504b 14%,var(--surface))!important}
+.rm-c.o.ko{background:none!important;box-shadow:none!important;color:#e8504b}
+.rm-c.h{animation:rmh .5s ease-in-out 3}
+@keyframes rmh{50%{background:#ffd34d}}
+@media (prefers-reduced-motion: reduce){.rm-c.s,.rm-c.h{animation:none}}
+.rm-st{min-height:18px;text-align:center;font-size:.8rem;color:var(--muted);width:100%}
+.rm-bk{width:100%;max-width:520px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 2px;flex:1 0 auto;align-content:flex-start;min-height:70px}
+.rm-n{font:800 1rem var(--f-mono)!important;min-width:46px;padding:7px 8px!important}
+.rm-n.u{opacity:.35;text-decoration:line-through}
+.rm-n.a{background:var(--accent)!important;color:var(--accent-ink)!important}
+.rm-n.sh{animation:rmx .3s}
+@keyframes rmx{25%{translate:-3px 0}75%{translate:3px 0}}
+body[data-assist] .rm-n.ok{border-color:#2e9a52;box-shadow:0 0 0 2px color-mix(in srgb,#2e9a52 35%,transparent);background:color-mix(in srgb,#2e9a52 14%,var(--surface))}
+body[data-assist] .rm-n.no{opacity:.4;border-style:dashed;border-color:var(--muted);color:var(--muted)}
+.rm-act{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;max-width:520px;position:sticky;bottom:0;padding:4px 0;background:var(--bg);margin-top:auto}
+.rm-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px}.rm-act b{font-size:1.1rem}
+.rm-act button:disabled{opacity:.45}
+.rm-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.rm-ov.show{display:flex}
+.rm-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.rm-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.rm-card p{color:var(--muted);margin:0 0 14px}
+.rm-em{font-size:2.2rem;line-height:1.1;margin-bottom:6px}
+.rm-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.rm-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Reto matemático · cruce de operaciones, un jugador, 4 niveles. =====
+   Tablero de ecuaciones «a ∘ b = c» (5 casillas) en filas y columnas que se cruzan en una casilla numérica. Algunas casillas están vacías y sus números están en el banco de abajo (cada uno se usa una vez).
+   Generación (rmGen): se encadenan ecuaciones válidas (rmEq crea una con un valor fijo en la posición del cruce), con las mismas reglas de no-adyacencia que un crucigrama, y se recorta al rectángulo ocupado.
+   Modelo (S): lv, w, h, cells[] (fichas: número como texto, ∘ + − × ÷ o =, '' vacío), bl[] (1 = casilla vacía para el jugador), eqs [{r,c,d}], bank[] (números ordenados), put[] (por casilla: índice del banco o -1), t, hints, over, won.
+   Se gana con todas las casillas llenas y todas las ecuaciones ciertas (cualquier relleno coherente vale). */
+const RM_LV = [
+  { k: 'Fácil', n: 9, eq: 5, max: 20, mul: 5, ops: '+−', bl: .5 }, { k: 'Normal', n: 11, eq: 8, max: 40, mul: 9, ops: '+−×', bl: .55 },
+  { k: 'Difícil', n: 13, eq: 12, max: 99, mul: 10, ops: '+−×÷', bl: .6 }, { k: 'Experto', n: 13, eq: 16, max: 99, mul: 12, ops: '+−×÷', bl: .65 }
+];
+const rmFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+const rmIsNum = s => /^\d+$/.test(s);
+const rmOp = (a, o, b) => o === '+' ? a + b : o === '−' ? a - b : o === '×' ? a * b : (b !== 0 && a % b === 0 ? a / b : NaN);
+/* ecuación [a,op,b,c] con el valor v en la posición pos (0 = a, 2 = b, 4 = c); v == null → libre */
+function rmEq(L, v, pos, rnd) {
+  const M = L.max, K = L.mul, ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+  for (let t = 0; t < 60; t++) {
+    const op = L.ops[Math.floor(rnd() * L.ops.length)]; let a, b, c;
+    if (v == null) {
+      if (op === '+') { a = ri(1, M - 1); b = ri(1, M - a); } else if (op === '−') { a = ri(2, M); b = ri(1, a - 1); } else if (op === '×') { a = ri(2, K); b = ri(2, K); } else { b = ri(2, K); c = ri(2, K); a = b * c; }
+      if (op !== '÷') c = rmOp(a, op, b);
+    } else if (pos === 0) {
+      a = v;
+      if (op === '+') b = ri(1, M - v); else if (op === '−') b = ri(1, v - 1); else if (op === '×') b = ri(2, K);
+      else { const d = []; for (let x = 2; x <= K; x++) if (v % x === 0) d.push(x); if (!d.length) continue; b = d[Math.floor(rnd() * d.length)]; }
+      c = rmOp(a, op, b);
+    } else if (pos === 2) {
+      b = v;
+      if (op === '+') a = ri(1, M - v); else if (op === '−') a = v + ri(1, M - v); else if (op === '×') a = ri(2, K); else a = v * ri(2, K);
+      c = rmOp(a, op, b);
+    } else {
+      c = v;
+      if (op === '+') { a = ri(1, v - 1); b = v - a; } else if (op === '−') { b = ri(1, M - v); a = v + b; }
+      else if (op === '×') { const d = []; for (let x = 2; x * 2 <= v; x++) if (v % x === 0) d.push(x); if (!d.length) continue; a = d[Math.floor(rnd() * d.length)]; b = v / a; }
+      else { b = ri(2, K); a = v * b; }
+    }
+    if ([a, b, c].every(x => Number.isInteger(x) && x >= 1 && x <= M) && rmOp(a, op, b) === c) return [a, op, b, c];
+  }
+  return null;
+}
+function rmGen(L, rnd) {
+  const n = L.n; let best = null;
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  for (let att = 0; att < 40; att++) {
+    const g = new Array(n * n).fill(''), dm = new Array(n * n).fill(0), placed = [];
+    const at = (r, c) => r < 0 || c < 0 || r >= n || c >= n ? '' : g[r * n + c];
+    const fit = (tk, r, c, d) => {
+      const dr = d, dc = 1 - d;
+      if (r < 0 || c < 0 || r + dr * 4 >= n || c + dc * 4 >= n) return -1;
+      if (at(r - dr, c - dc) || at(r + dr * 5, c + dc * 5)) return -1;
+      let cross = 0;
+      for (let k = 0; k < 5; k++) {
+        const rr = r + dr * k, cc = c + dc * k, ch = g[rr * n + cc];
+        if (ch) { if (ch !== tk[k] || !rmIsNum(ch) || (dm[rr * n + cc] & (d ? 2 : 1))) return -1; cross++; }
+        else if (at(rr + dc, cc + dr) || at(rr - dc, cc - dr)) return -1;
+      }
+      return cross;
+    };
+    const put = (tk, r, c, d) => { for (let k = 0; k < 5; k++) { const i = (r + (d ? k : 0)) * n + c + (d ? 0 : k); g[i] = tk[k]; dm[i] |= d ? 2 : 1; } placed.push({ r, c, d }); };
+    const tok = e => [String(e[0]), e[1], String(e[2]), '=', String(e[3])];
+    const e0 = rmEq(L, null, 0, rnd); put(tok(e0), Math.floor(n / 2), Math.floor(rnd() * (n - 4)), 0);
+    for (let t = 0; t < 700 && placed.length < L.eq; t++) {
+      const cs = []; for (let i = 0; i < n * n; i++) if (g[i] && rmIsNum(g[i]) && dm[i] !== 3) cs.push(i);
+      if (!cs.length) break; const i = cs[Math.floor(rnd() * cs.length)], rr = i / n | 0, cc = i % n, d = dm[i] & 1 ? 1 : 0, pos = [0, 2, 4][Math.floor(rnd() * 3)];
+      const e = rmEq(L, +g[i], pos, rnd); if (!e) continue;
+      const tk = tok(e), r = d ? rr - pos : rr, c = d ? cc : cc - pos;
+      if (fit(tk, r, c, d) > 0) put(tk, r, c, d);
+    }
+    if (!best || placed.length > best.p.length) best = { p: placed, g };
+    if (placed.length >= L.eq) break;
+  }
+  const { p, g } = best; let r0 = n, c0 = n, r1 = 0, c1 = 0;
+  p.forEach(e => { r0 = Math.min(r0, e.r); c0 = Math.min(c0, e.c); r1 = Math.max(r1, e.r + (e.d ? 4 : 0)); c1 = Math.max(c1, e.c + (e.d ? 0 : 4)); });
+  const w = c1 - c0 + 1, h = r1 - r0 + 1, cells = new Array(w * h).fill('');
+  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) cells[r * w + c] = g[(r + r0) * n + c + c0];
+  const eqs = p.map(e => ({ r: e.r - r0, c: e.c - c0, d: e.d }));
+  /* casillas vacías: como mucho 2 por ecuación y al menos 1 */
+  const eqCells = e => [0, 1, 2, 3, 4].map(k => (e.r + (e.d ? k : 0)) * w + e.c + (e.d ? 0 : k)), nums = [];
+  cells.forEach((t, i) => { if (rmIsNum(t)) nums.push(i); });
+  const bl = new Array(w * h).fill(0), cnt = eqs.map(() => 0), tgt = Math.round(nums.length * L.bl);
+  const inEq = i => eqs.map((e, k) => k).filter(k => eqCells(eqs[k]).includes(i));
+  const hide = i => { if (bl[i]) return false; const ks = inEq(i); if (ks.some(k => cnt[k] >= 2)) return false; bl[i] = 1; ks.forEach(k => cnt[k]++); return true; };
+  let nb = 0; for (const i of shuf(nums.slice())) { if (nb >= tgt) break; if (hide(i)) nb++; }
+  eqs.forEach((e, k) => { if (!cnt[k]) for (const i of shuf(eqCells(e).filter(i => rmIsNum(cells[i])))) if (hide(i)) break; });
+  const bank = []; bl.forEach((f, i) => { if (f) bank.push(+cells[i]); }); bank.sort((a, b) => a - b);
+  return { w, h, cells, bl, eqs, bank };
+}
+function retomatMount(el, ctx) {
+  el.innerHTML = '<div class="rm">' +
+    '<div class="rm-row"><div class="rm-lvn"></div><div class="rm-hud"><span class="rm-pr">0/0</span><span class="rm-tm">00:00</span></div></div>' +
+    '<div class="rm-row"><select class="rm-lv">' + RM_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + ' · ' + l.eq + ' operaciones</option>').join('') + '</select><button class="rm-go">▶ Nuevo</button></div>' +
+    '<div class="rm-area"><div class="rm-bd"></div></div><div class="rm-st"></div><div class="rm-bk"></div>' +
+    '<div class="rm-act"><button data-a="clr"><b>⌫</b>Quitar</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="redo"><b>⟲</b>Reiniciar</button></div>' +
+    '<div class="rm-ov"><div class="rm-card"><div class="rm-em">🎉</div><h2>¡Todo cuadra!</h2><p class="rm-md"></p><div class="rm-btns"><button class="rm-again">Jugar de nuevo</button><button class="rm-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), bd = q('.rm-bd'), bk = q('.rm-bk'), st = q('.rm-st');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { tap: () => tone(620, .04), put: () => { tone(520, .07, 'triangle', .25); tone(780, .07, 'triangle', .2, .06); }, bad: () => tone(160, .15, 'square', .15), clr: () => tone(330, .08, 'triangle', .2), eq: () => tone(880, .1, 'sine', .22), win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i])) };
+  let S = null, cells = [], sel = -1, arm = -1, timerId = 0, recorded = false, eqc = [], doneEq = 0;
+  const rnd = Math.random, E = e => [0, 1, 2, 3, 4].map(k => (e.r + (e.d ? k : 0)) * S.w + e.c + (e.d ? 0 : k));
+  function newGame(lv) {
+    clearInterval(timerId); const g = rmGen(RM_LV[lv], rnd);
+    S = { lv, w: g.w, h: g.h, cells: g.cells, bl: g.bl, eqs: g.eqs, bank: g.bank, put: g.cells.map(() => -1), t: 0, hints: 0, over: false, won: false };
+    recorded = false; sel = -1; arm = -1; doneEq = 0; q('.rm-ov').classList.remove('show'); ctx.save(null); build(); startTimer();
+  }
+  function save() { if (!S) return; if (S.over || (!S.t && !S.put.some(x => x >= 0))) { ctx.save(null); return; } ctx.save(S); }
+  function size() { if (!S) return; const w = root.clientWidth - 8, hAv = Math.max(150, root.clientHeight - 100 - 56 - 110); const cs = Math.max(20, Math.min(48, Math.floor(Math.min((w - 2 * S.w) / S.w, (hAv - 2 * S.h) / S.h)))); root.style.setProperty('--cs', cs + 'px'); }
+  function build() {
+    bd.style.gridTemplateColumns = 'repeat(' + S.w + ',var(--cs))'; bd.innerHTML = ''; cells = [];
+    for (let i = 0; i < S.w * S.h; i++) { const e = document.createElement('div'); e.className = 'rm-c'; e.dataset.i = i; bd.appendChild(e); cells.push(e); }
+    eqc = S.eqs.map(E); size(); paint();
+  }
+  const val = i => S.bl[i] ? (S.put[i] >= 0 ? S.bank[S.put[i]] : null) : +S.cells[i];
+  /* estado de una ecuación: 0 incompleta, 1 correcta, 2 incorrecta */
+  function eqState(k) { const c = eqc[k], a = val(c[0]), b = val(c[2]), r = val(c[4]); if (a == null || b == null || r == null) return 0; return rmOp(a, S.cells[c[1]], b) === r ? 1 : 2; }
+  /* ¿el número del banco kk dejaría mal alguna ecuación ya completa si se pone en la casilla i? */
+  function okAt(i, kk) {
+    const old = S.put[i], prev = S.put.indexOf(kk); S.put[i] = kk; if (prev >= 0 && prev !== i) S.put[prev] = -1;
+    let bad = false; S.eqs.forEach((e, k) => { if (eqc[k].includes(i) && eqState(k) === 2) bad = true; });
+    S.put[i] = old; if (prev >= 0 && prev !== i) S.put[prev] = kk; return !bad;
+  }
+  function paint() {
+    const st2 = S.eqs.map((e, k) => eqState(k)), cl = new Array(S.w * S.h).fill(0);
+    eqc.forEach((c, k) => c.forEach(i => { if (st2[k] === 2) cl[i] = 2; else if (st2[k] === 1 && cl[i] !== 2) cl[i] = 1; }));
+    for (let i = 0; i < S.w * S.h; i++) {
+      const t = S.cells[i], e = cells[i]; if (!t) { e.className = 'rm-c'; e.textContent = ''; continue; }
+      let k = 'rm-c t ' + (rmIsNum(t) ? (S.bl[i] ? 'b' : 'n') : 'o'), tx = t;
+      if (S.bl[i]) { const v = val(i); tx = v == null ? '' : v; if (v != null) k += ' f'; if (i === sel) k += ' s'; }
+      if (cl[i] === 1) k += ' ok'; else if (cl[i] === 2) k += ' ko';
+      e.className = k; e.textContent = tx;
+    }
+    let html = ''; S.bank.forEach((v, kk) => {
+      const u = S.put.indexOf(kk) >= 0; let c = 'rm-n' + (u ? ' u' : '') + (arm === kk ? ' a' : '');
+      if (!u && sel >= 0) c += okAt(sel, kk) ? ' ok' : ' no';
+      html += '<button class="' + c + '" data-k="' + kk + '">' + v + '</button>';
+    });
+    bk.innerHTML = html;
+    const done = S.put.filter(x => x >= 0).length, ok = st2.filter(x => x === 1).length;
+    if (ok > doneEq) SFX.eq(); doneEq = ok;
+    q('.rm-pr').textContent = ok + '/' + S.eqs.length; q('.rm-tm').textContent = rmFmt(S.t); q('.rm-lvn').textContent = 'Reto matemático · ' + RM_LV[S.lv].k; q('.rm-lv').value = S.lv;
+    st.textContent = arm >= 0 ? 'Toca la casilla vacía donde va el ' + S.bank[arm] : sel >= 0 ? 'Elige el número que va en la casilla' : 'Toca una casilla vacía y un número, o al revés. Faltan ' + (S.bank.length - done);
+    q('[data-a=clr]').disabled = !(sel >= 0 && S.put[sel] >= 0) && arm < 0;
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && !document.hidden) { S.t++; q('.rm-tm').textContent = rmFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function place(i, kk) {
+    if (S.over) return; const prev = S.put.indexOf(kk); if (prev >= 0) S.put[prev] = -1; S.put[i] = kk; sel = -1; arm = -1; SFX.put(); paint(); if (!check()) save();
+  }
+  function check() { if (S.put.some((x, i) => S.bl[i] && x < 0)) return false; if (S.eqs.some((e, k) => eqState(k) !== 1)) return false; win(); return true; }
+  function win() {
+    S.over = S.won = true; clearInterval(timerId); ctx.save(null); paint();
+    const bt = store.get('retomat-best') || {}, o = bt[S.lv]; let extra = '';
+    if (!o || S.t < o) { bt[S.lv] = S.t; store.set('retomat-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.rm-md').textContent = rmFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') + extra; q('.rm-next').style.display = S.lv < RM_LV.length - 1 ? '' : 'none';
+    setTimeout(SFX.win, 100); setTimeout(() => q('.rm-ov').classList.add('show'), 700);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: RM_LV[S.lv].k + ' · ' + S.eqs.length + ' operaciones · ' + rmFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+  }
+  function tapCell(i) {
+    if (S.over || !S.bl[i]) return;
+    if (arm >= 0) { place(i, arm); return; }
+    if (sel === i && S.put[i] >= 0) { S.put[i] = -1; sel = -1; SFX.clr(); paint(); save(); return; }
+    sel = sel === i ? -1 : i; SFX.tap(); paint();
+  }
+  function tapNum(kk) {
+    if (S.over) return; const u = S.put.indexOf(kk);
+    if (u >= 0) { S.put[u] = -1; SFX.clr(); paint(); save(); return; }
+    if (sel >= 0) { place(sel, kk); return; }
+    arm = arm === kk ? -1 : kk; SFX.tap(); paint();
+  }
+  function hint() {
+    if (S.over) return; let i = sel;
+    if (i < 0) { const bad = []; S.bl.forEach((f, k) => { if (f && (S.put[k] < 0 || S.bank[S.put[k]] !== +S.cells[k])) bad.push(k); }); if (!bad.length) return; const emp = bad.filter(k => S.put[k] < 0); const pl = emp.length ? emp : bad; i = pl[Math.floor(rnd() * pl.length)]; }
+    const v = +S.cells[i]; if (S.put[i] >= 0 && S.bank[S.put[i]] === v) { SFX.tap(); return; }
+    let kk = -1; S.bank.forEach((x, k) => { if (x === v && kk < 0 && S.put.indexOf(k) < 0) kk = k; }); if (kk < 0) S.bank.forEach((x, k) => { if (x === v && kk < 0 && !(S.bl[S.put.indexOf(k)] && false)) kk = k; });
+    const prev = S.put.indexOf(kk); if (prev >= 0) S.put[prev] = -1; S.put[i] = kk; S.hints++; sel = -1; arm = -1; SFX.put(); paint();
+    cells[i].classList.add('h'); setTimeout(() => cells[i].classList.remove('h'), 1600); if (!check()) save();
+  }
+  bd.addEventListener('click', e => { const c = e.target.closest('.rm-c'); if (c && S) tapCell(+c.dataset.i); });
+  bk.addEventListener('click', e => { const b = e.target.closest('.rm-n'); if (b && S) tapNum(+b.dataset.k); });
+  q('.rm-go').onclick = () => { SFX.tap(); newGame(+q('.rm-lv').value); };
+  q('.rm-lv').onchange = () => { SFX.tap(); newGame(+q('.rm-lv').value); };
+  q('.rm-again').onclick = () => newGame(S.lv);
+  q('.rm-next').onclick = () => newGame(Math.min(RM_LV.length - 1, S.lv + 1));
+  q('.rm-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S) return; const a = b.dataset.a;
+    if (a === 'clr') { if (arm >= 0) { arm = -1; paint(); } else if (sel >= 0 && S.put[sel] >= 0) { S.put[sel] = -1; SFX.clr(); paint(); save(); } }
+    else if (a === 'hint') hint();
+    else if (a === 'redo') { if (S.over) return; SFX.tap(); S.put = S.cells.map(() => -1); sel = -1; arm = -1; paint(); save(); }
+  };
+  const onVis = () => { if (document.hidden) save(); }, onRs = () => size();
+  document.addEventListener('visibilitychange', onVis); window.addEventListener('resize', onRs);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(RM_LV.length - 1, ctx.level || 0);
+  const okSv = sv && !sv.over && RM_LV[sv.lv] && Array.isArray(sv.cells) && sv.cells.length === sv.w * sv.h && Array.isArray(sv.put) && sv.put.length === sv.cells.length && Array.isArray(sv.bank) && Array.isArray(sv.eqs);
+  if (okSv) { S = sv; doneEq = 0; build(); startTimer(); } else newGame(LV0);
+  return { destroy() { save(); clearInterval(timerId); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onRs); el.innerHTML = ''; }, state() { return S; } };
+}
+
+Hub.register({
+  id: 'retomat', name: 'Reto matemático', blurb: 'Operaciones cruzadas · 4 niveles',
+  single: {
+    levels: RM_LV.map(l => l.k), def: 0,
+    info: i => { const L = RM_LV[i], b = (store.get('retomat-best') || {})[i]; return L.eq + ' operaciones (' + L.ops.split('').join(' ') + ') con números hasta ' + L.max + (b != null ? ' · Tu mejor: ' + rmFmt(b) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>El tablero es un cruce de <b>operaciones</b> en filas y columnas, del tipo <b>a ∘ b = c</b>. Cada operación comparte alguna casilla numérica con otra que la cruza, así que un mismo número tiene que valer para las dos.</li>' +
+    '<li>Algunas casillas están vacías (punteadas). Abajo está el <b>banco de números</b> que faltan: cada uno se usa <b>una vez</b>. Se gana cuando todas las casillas están llenas y <b>todas las operaciones son correctas</b>.</li>' +
+    '<li>Toca una casilla vacía y luego un número del banco, o toca primero el número y luego la casilla. Para quitar uno, toca de nuevo la casilla (o el número tachado) o usa <b>Quitar</b>. Poner otro encima lo sustituye.</li>' +
+    '<li>Cuando una operación queda completa se pinta en <b>verde</b> si es correcta y en <b>rojo</b> si no lo es.</li>' +
+    '<li>Con la <b>Ayuda visual</b> (menú ☰), al elegir una casilla los números que dejarían mal alguna operación ya completa se atenúan y el resto se marca en verde.</li>' +
+    '<li>Pista: pone el número correcto en la casilla elegida (o en una al azar). Se guarda tu mejor tiempo por nivel.</li></ul>',
+  mountSingle: retomatMount
+});
+
+})();
+Mods.ok("retomat");
+</script>
+<script type="text/plain" data-mod="puntos" data-deps="">
+/* CTX puntos: Puntos y cajas 2-4 jugadores (opción tamaño 3×3…6×6 cajas). Líneas indexadas horizontales primero (r*N+c) y luego verticales; acción {t:'e',e}; cerrar caja = quedársela y repetir turno; gana quien tenga más cajas (empate si igualan en cabeza). IA (pbPick): Fácil = coge cajas casi siempre y evita el tercer lado; Normal = además regala lo mínimo (pbSacrifice); Difícil = búsqueda exacta (pbSolve, memo) con ≤13 líneas libres. Ayuda visual: líneas que cierran caja (verde) / regalan caja (rojo punteado). Prefijo pb-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Puntos y cajas: clases con prefijo pb- */
+:root{--pb0:#2f6ad8;--pb1:#d6372d;--pb2:#2b9a4b;--pb3:#d99a0c;--pbl:color-mix(in srgb,var(--accent) 22%,var(--surface))}
+:root[data-theme="dark"]{--pb0:#7db3ff;--pb1:#ff8a80;--pb2:#6ee08f;--pb3:#ffd24d;--pbl:color-mix(in srgb,var(--ink) 24%,var(--surface))}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pb0:#7db3ff;--pb1:#ff8a80;--pb2:#6ee08f;--pb3:#ffd24d;--pbl:color-mix(in srgb,var(--ink) 24%,var(--surface))}}
+.pb{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.pb-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
+.pb-who{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:2px solid var(--line);background:var(--surface);font-size:.82rem;max-width:48%}
+.pb-who.on{border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 35%,transparent)}
+.pb-who i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.pb-who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-who em{font:700 .95rem var(--f-mono);font-style:normal;color:var(--c)}
+.pb-svg{width:100%;height:auto;max-height:calc(100dvh - 230px);touch-action:manipulation}
+.pb-dot{fill:var(--ink)}
+.pb-l.d{stroke-linecap:round}
+.pb-l{stroke:var(--pbl);stroke-width:7;stroke-linecap:round}
+.pb-l.d{stroke:var(--c);stroke-width:8}
+.pb-l.nw{filter:drop-shadow(0 0 4px var(--c));animation:pbn .5s ease-out}
+@keyframes pbn{from{stroke-width:14}to{stroke-width:8}}
+.pb-hit{fill:transparent;cursor:pointer}
+.pb-hit.dis{cursor:default}
+.pb-bx{fill:var(--c);fill-opacity:.3}
+:root[data-theme="dark"] .pb-bx{fill-opacity:.38}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pb-bx{fill-opacity:.38}}
+.pb-bx.nw{animation:pbp .45s ease-out;transform-box:fill-box;transform-origin:center}
+@keyframes pbp{from{transform:scale(.3);fill-opacity:.9}to{transform:scale(1);fill-opacity:.3}}
+.pb-tx{font:800 20px var(--f-mono);fill:var(--c);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+body[data-assist] .pb-l.cap{stroke:#2e9a52;stroke-width:9;animation:pbc .7s ease-in-out infinite alternate}
+body[data-assist] .pb-l.bad{stroke:#e8504b;stroke-opacity:.55;stroke-dasharray:3 9}
+@keyframes pbc{to{stroke-opacity:.45}}
+@media (prefers-reduced-motion: reduce){.pb-l.nw,.pb-bx.nw,body[data-assist] .pb-l.cap{animation:none}}
+.pb-st{min-height:22px;text-align:center;font-weight:600;font-size:.9rem}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Puntos y cajas · 2-4 jugadores (sala o contra la IA) =====
+   Rejilla de N×N cajas (N = 3..6) con (N+1)² puntos. Líneas: primero las horizontales (fila r 0..N, col c 0..N-1 → r*N+c), luego las verticales (fila r 0..N-1, col c 0..N → N*(N+1)+r*(N+1)+c).
+   Se dibuja una línea por turno; quien cierra el cuarto lado de una caja se la queda y repite turno. Gana quien tenga más cajas. Acción: {t:'e', e:línea}. */
+const PB_COL = ['var(--pb0)', 'var(--pb1)', 'var(--pb2)', 'var(--pb3)'];   /* colores por asiento: ver CSS (más claros en modo oscuro) */
+const pbGeoC = {};
+function pbGeo(N) {
+  if (pbGeoC[N]) return pbGeoC[N];
+  const E = 2 * N * (N + 1), sides = [], eb = Array.from({ length: E }, () => []);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const b = r * N + c, s = [r * N + c, (r + 1) * N + c, N * (N + 1) + r * (N + 1) + c, N * (N + 1) + r * (N + 1) + c + 1];
+    sides.push(s); s.forEach(e => eb[e].push(b));
+  }
+  return (pbGeoC[N] = { N, E, B: N * N, sides, eb });
+}
+/* estado ligero para la IA: d (0/1 por línea), cnt (lados dibujados por caja) */
+function pbLight(N, drawn) {
+  const g = pbGeo(N), d = new Uint8Array(g.E), cnt = new Uint8Array(g.B);
+  for (let e = 0; e < g.E; e++) if (drawn[e]) { d[e] = 1; g.eb[e].forEach(b => cnt[b]++); }
+  return { g, d, cnt };
+}
+function pbDraw(g, d, cnt, e) { d[e] = 1; let k = 0; for (const b of g.eb[e]) { cnt[b]++; if (cnt[b] === 4) k++; } return k; }
+function pbUndraw(g, d, cnt, e) { d[e] = 0; for (const b of g.eb[e]) cnt[b]--; }
+const pbCaptures = (g, d, cnt, e) => g.eb[e].filter(b => cnt[b] === 3).length;
+const pbGives = (g, d, cnt, e) => g.eb[e].some(b => cnt[b] === 2);
+/* cajas que se llevaría el rival, cogiendo todo lo que pueda, si dibujo e (que no cierra caja) */
+function pbSacrifice(g, d0, cnt0, e) {
+  const d = d0.slice(), cnt = cnt0.slice(); pbDraw(g, d, cnt, e); let tot = 0, go = true;
+  while (go) {
+    go = false;
+    for (let b = 0; b < g.B; b++) if (cnt[b] === 3) { const m = g.sides[b].find(x => !d[x]); tot += pbDraw(g, d, cnt, m); go = true; break; }
+  }
+  return tot;
+}
+/* valor exacto (cajas propias − rivales de aquí al final) para quien mueve; repite turno al cerrar caja */
+function pbSolve(g, d, cnt, free, memo) {
+  if (!free) return 0;
+  let key = ''; for (let i = 0; i < g.E; i++) key += d[i]; const m = memo.get(key); if (m !== undefined) return m;
+  let best = -1e9;
+  for (let e = 0; e < g.E; e++) {
+    if (d[e]) continue; const k = pbDraw(g, d, cnt, e);
+    const v = k ? k + pbSolve(g, d, cnt, free - 1, memo) : -pbSolve(g, d, cnt, free - 1, memo);
+    pbUndraw(g, d, cnt, e); if (v > best) best = v;
+  }
+  memo.set(key, best); return best;
+}
+function pbPick(N, drawn, lv, rnd) {
+  const { g, d, cnt } = pbLight(N, drawn), free = []; for (let e = 0; e < g.E; e++) if (!d[e]) free.push(e);
+  if (!free.length) return -1; lv = lv == null ? 1 : lv;
+  const pickR = a => a[Math.floor(rnd() * a.length)];
+  const caps = free.filter(e => pbCaptures(g, d, cnt, e) > 0);
+  if (lv === 2 && free.length <= 13) {
+    const memo = new Map(); let bv = -1e9, bs = [];
+    for (const e of free) {
+      const k = pbDraw(g, d, cnt, e), v = k ? k + pbSolve(g, d, cnt, free.length - 1, memo) : -pbSolve(g, d, cnt, free.length - 1, memo);
+      pbUndraw(g, d, cnt, e); if (v > bv) { bv = v; bs = [e]; } else if (v === bv) bs.push(e);
+    }
+    return pickR(bs);
+  }
+  if (caps.length && (lv > 0 || rnd() < .75)) return pickR(caps);
+  const safe = free.filter(e => !pbCaptures(g, d, cnt, e) && !pbGives(g, d, cnt, e));
+  if (safe.length) return pickR(safe);
+  if (lv === 0) return pickR(free);
+  let bv = 1e9, bs = [];
+  for (const e of free) { const v = pbSacrifice(g, d, cnt, e); if (v < bv) { bv = v; bs = [e]; } else if (v === bv) bs.push(e); }
+  return pickR(bs);
+}
+
+class PbGame {
+  constructor(players, saved, opts) {
+    this.players = players.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+    this.N = 3 + Math.max(0, Math.min(3, opts && opts.size != null ? +opts.size : 1));
+    const g = pbGeo(this.N); this.e = new Array(g.E).fill(-1); this.bx = new Array(g.B).fill(-1);
+    this.t = 0; this.sc = players.map(() => 0); this.last = null; this.over = false; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.t; }
+  setStart(s) { this.t = s; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, N: this.N, e: this.e, bx: this.bx, t: this.t, sc: this.sc, last: this.last, over: this.over, seq: this.seq })); }
+  act(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (i !== this.t) return { ok: false, err: 'No es tu turno' };
+    const g = pbGeo(this.N), ed = a && a.t === 'e' && Number.isInteger(a.e) ? a.e : -1;
+    if (ed < 0 || ed >= g.E) return { ok: false, err: 'Línea no válida' };
+    if (this.e[ed] >= 0) return { ok: false, err: 'Esa línea ya está dibujada' };
+    this.e[ed] = i; const got = [];
+    for (const b of g.eb[ed]) if (g.sides[b].every(x => this.e[x] >= 0)) { this.bx[b] = i; got.push(b); }
+    this.sc[i] += got.length; this.last = { e: ed, p: i, got };
+    if (this.bx.every(x => x >= 0)) this.over = true; else if (!got.length) this.t = (this.t + 1) % this.players.length;
+    this.seq++; return { ok: true };
+  }
+  view() { return { pub: { N: this.N, e: this.e.map(x => x < 0 ? '.' : x).join(''), bx: this.bx.map(x => x < 0 ? '.' : x).join(''), t: this.t, sc: this.sc, n: this.players.map(p => p.name), last: this.last, over: this.over, seq: this.seq }, priv: {} }; }
+  botSeat() { return (!this.over && this.players[this.t].bot) ? this.t : -1; }
+  bot(i) {
+    if (this.over || this.t !== i) return;
+    let e = -1; try { e = pbPick(this.N, this.e.map(x => x >= 0), this.players[i].lv == null ? 1 : this.players[i].lv, Math.random); } catch (x) { e = -1; }
+    if (e < 0 || this.e[e] >= 0) { const f = []; this.e.forEach((x, k) => { if (x < 0) f.push(k); }); e = f[Math.floor(Math.random() * f.length)]; }
+    this.act(i, { t: 'e', e });
+  }
+  toHuman(i, name) { const p = this.players[i]; p.bot = false; p.lv = undefined; p.name = name; }
+  toBot(i, lv) { const p = this.players[i]; p.bot = true; p.lv = lv; if (!/\(IA\)$/.test(p.name)) p.name = p.name.slice(0, 9) + ' (IA)'; }
+  result() {
+    const mx = Math.max(...this.sc), ws = []; this.sc.forEach((s, i) => { if (s === mx) ws.push(i); });
+    return { win: ws[0], winners: ws, tie: ws.length > 1, rows: this.players.map((p, i) => ({ name: p.name, note: 'cajas', pts: this.sc[i], txt: String(this.sc[i]) })) };
+  }
+}
+
+/* ----- Pantalla ----- */
+function puntosMount(el, ctx) {
+  const V = { pub: null, pending: false };
+  el.innerHTML = '<div class="pb"><div class="pb-bar"></div><svg class="pb-svg"></svg><div class="pb-st"></div></div>';
+  const q = s => el.querySelector(s), svg = q('.pb-svg'), bar = q('.pb-bar'), st = q('.pb-st');
+  const snd = k => { const T = ctx.tone; if (k === 'line') T(380, .05, 'triangle', 0, .07); else if (k === 'box') { T(660, .08, 'sine', 0, .08); T(880, .1, 'sine', .07, .07); } else if (k === 'bad') T(150, .2, 'sawtooth', 0, .05); };
+  const myTurn = () => !!V.pub && !V.pub.over && V.pub.t === ctx.me && !V.pending;
+  const SP = 60, M = 20, col = i => PB_COL[i % 4];
+  function render(anim) {
+    const P = V.pub; if (!P) return; const N = P.N, g = pbGeo(N), W = N * SP + 2 * M, my = myTurn();
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + W);
+    const nw = new Set(anim && P.last ? [P.last.e] : []), nb = new Set(anim && P.last ? P.last.got : []);
+    let cap = new Set(), bad = new Set();
+    if (my) { const { d, cnt } = pbLight(N, P.e.split('').map(x => x !== '.')); for (let e = 0; e < g.E; e++) if (!d[e]) { if (pbCaptures(g, d, cnt, e)) cap.add(e); else if (pbGives(g, d, cnt, e)) bad.add(e); } }
+    let h = '';
+    for (let b = 0; b < g.B; b++) {
+      const o = P.bx[b]; if (o === '.') continue; const r = b / N | 0, c = b % N, x = M + c * SP, y = M + r * SP, s = col(+o);
+      h += '<g style="--c:' + s + '"><rect class="pb-bx' + (nb.has(b) ? ' nw' : '') + '" x="' + (x + 4) + '" y="' + (y + 4) + '" width="' + (SP - 8) + '" height="' + (SP - 8) + '" rx="8"/><text class="pb-tx" x="' + (x + SP / 2) + '" y="' + (y + SP / 2) + '">' + esc(String(+o === ctx.me ? 'Tú' : P.n[+o]).charAt(0).toUpperCase()) + '</text></g>';
+    }
+    const coords = e => { if (e < N * (N + 1)) { const r = e / N | 0, c = e % N; return [M + c * SP, M + r * SP, M + (c + 1) * SP, M + r * SP]; } const k = e - N * (N + 1), r = k / (N + 1) | 0, c = k % (N + 1); return [M + c * SP, M + r * SP, M + c * SP, M + (r + 1) * SP]; };
+    for (let e = 0; e < g.E; e++) {
+      const [x1, y1, x2, y2] = coords(e), o = P.e[e], dr = o !== '.';
+      h += '<line class="pb-l' + (dr ? ' d' : '') + (nw.has(e) ? ' nw' : '') + (!dr && cap.has(e) ? ' cap' : '') + (!dr && bad.has(e) ? ' bad' : '') + '"' + (dr ? ' style="--c:' + col(+o) + '"' : '') + ' x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"/>';
+    }
+    for (let e = 0; e < g.E; e++) {
+      const [x1, y1, x2, y2] = coords(e), hz = y1 === y2, can = my && P.e[e] === '.';
+      h += '<rect class="pb-hit' + (can ? '' : ' dis') + '" data-e="' + e + '" x="' + (hz ? x1 + 6 : x1 - 17) + '" y="' + (hz ? y1 - 17 : y1 + 6) + '" width="' + (hz ? SP - 12 : 34) + '" height="' + (hz ? 34 : SP - 12) + '"/>';
+    }
+    for (let r = 0; r <= N; r++) for (let c = 0; c <= N; c++) h += '<circle class="pb-dot" cx="' + (M + c * SP) + '" cy="' + (M + r * SP) + '" r="5"/>';
+    svg.innerHTML = h;
+    bar.innerHTML = P.n.map((nm, i) => '<div class="pb-who' + (!P.over && P.t === i ? ' on' : '') + '" style="--c:' + col(i) + '"><i></i><b>' + (i === ctx.me ? 'Tú' : esc(nm)) + '</b><em>' + P.sc[i] + '</em></div>').join('');
+    let msg;
+    if (P.over) { const mx = Math.max(...P.sc), ws = P.sc.map((s, i) => s === mx ? i : -1).filter(i => i >= 0); msg = ws.length > 1 ? (ws.includes(ctx.me) ? 'Empate' : 'Fin de la partida') + ' con ' + mx + ' cajas' : ws[0] === ctx.me ? '¡Ganas con ' + mx + ' cajas!' : 'Gana ' + esc(P.n[ws[0]]) + ' con ' + mx; }
+    else if (P.t === ctx.me) msg = (P.last && P.last.p === ctx.me && P.last.got.length ? '¡Caja! Sigues tú: ' : 'Tu turno: ') + 'toca una línea' + (V.pending ? '…' : '');
+    else msg = 'Juega ' + esc(P.n[P.t]) + (P.last && P.last.p === P.t && P.last.got.length ? ' (sigue)' : '') + '…';
+    st.innerHTML = msg;
+  }
+  function onClick(e) {
+    const h = e.target.closest('.pb-hit'); if (!h || !myTurn()) return; const ed = +h.dataset.e;
+    if (V.pub.e[ed] !== '.') return; V.pending = true; ctx.send({ t: 'e', e: ed }); if (V.pending) render();
+  }
+  svg.addEventListener('click', onClick);
+  return {
+    update(s) {
+      const prev = V.pub; V.pub = s.pub; V.pending = false;
+      const fresh = !!prev && s.pub.seq !== prev.seq && !!s.pub.last; render(fresh);
+      if (fresh) snd(s.pub.last.got.length ? 'box' : 'line');
+    },
+    rejected(err) { V.pending = false; ctx.toast(String(err || 'Línea no válida')); snd('bad'); render(); },
+    destroy() { svg.removeEventListener('click', onClick); el.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'puntos', name: 'Puntos y cajas', blurb: 'Cierra cajas · 2-4 jugadores', min: 2, max: 4,
+  bots: { min: 1, max: 3, levels: ['Fácil', 'Normal', 'Difícil'] },
+  options: [{ k: 'size', name: 'Tamaño', vals: ['3×3 cajas', '4×4 cajas', '5×5 cajas', '6×6 cajas'], def: 1 }],
+  rules: '<ul>' +
+    '<li>Hay una rejilla de puntos. En tu turno <b>une dos puntos contiguos</b> con una línea (horizontal o vertical) tocándola.</li>' +
+    '<li>Quien dibuja el <b>cuarto lado</b> de una caja se la queda (se pinta de su color) y <b>juega otra vez</b>. Si no cierra ninguna caja, el turno pasa al siguiente.</li>' +
+    '<li>La partida termina cuando todas las cajas tienen dueño. Gana quien tenga <b>más cajas</b>; si hay igualdad en cabeza, empate.</li>' +
+    '<li>Truco: no dibujes el <b>tercer lado</b> de una caja si puedes evitarlo, porque le regalas la caja al rival. Al final se forman cadenas: conviene que el rival tenga que abrirlas primero.</li>' +
+    '<li><b>Ayuda visual:</b> con ella activada, en tu turno parpadean en verde las líneas que cierran una caja y las que regalarían una (tercer lado) salen punteadas en rojo.</li></ul>',
+  createEngine: (players, saved, opts) => new PbGame(players, saved, opts),
+  mount: puntosMount
+});
+
+})();
+Mods.ok("puntos");
+</script>
+<script type="text/plain" data-mod="criptograma" data-deps="teclado">
+/* CTX criptograma: Criptograma de un jugador. 4 niveles según longitud del refrán (CR_PH, ~450 frases: refranes, dichos y citas de dominio público con autor, y algunas de dos refranes unidos; ≤22/23–29/30–38/≥39 letras; sin repetir hasta agotar el nivel: store criptograma-seen) y letras regaladas (4/2/1/0). Cifrado de sustitución sin letras fijas (crCipher) sobre A–Z+Ñ; tocar casilla resalta la misma letra cifrada, teclado en pantalla y físico, no hay letras duplicadas (se roba a la otra), Comprobar marca errores (Ayuda visual los marca sola), Pista bloquea una letra, Frecuencias muestra el recuento. Guarda partida y récords (criptograma-best). Prefijo cr-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Criptograma: colores del hub; todo bajo .cr */
+#stage > .cr{position:relative;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;align-items:center;gap:8px;padding-bottom:0;touch-action:manipulation;user-select:none;-webkit-user-select:none;--cw:27px}
+.cr button:not(.tk-k),.cr select{font:inherit;font-size:.8rem;color:var(--ink);background:var(--surface);border:2px solid var(--accent);border-radius:8px;padding:8px 12px;cursor:pointer}
+.cr select{flex:1;min-width:0}
+.cr-row{width:100%;max-width:520px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cr-lvn{font-weight:700;font-size:.95rem;color:var(--accent);letter-spacing:.04em}
+.cr-hud{display:flex;gap:14px;align-items:center;font:600 .95rem var(--f-mono)}
+.cr-go{font-weight:700}
+.cr-ph{flex:1 0 auto;width:100%;max-width:520px;display:flex;flex-wrap:wrap;gap:10px 14px;justify-content:center;align-content:flex-start;padding:8px 2px}
+.cr-w{display:inline-flex;gap:2px}
+.cr-c{width:var(--cw);display:flex;flex-direction:column;align-items:center;border-radius:5px;cursor:pointer;background:var(--surface);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--accent) 35%,var(--surface));padding:2px 0 3px}
+.cr-c small{font:700 calc(var(--cw)*.4) var(--f-mono);color:var(--muted);line-height:1.2}
+.cr-c b{font:800 calc(var(--cw)*.72) var(--f-mono);line-height:1.25;min-height:1.25em;color:var(--accent)}
+.cr-c.s{background:color-mix(in srgb,var(--accent) 22%,var(--surface));box-shadow:inset 0 0 0 2px var(--accent)}
+.cr-c.cur{box-shadow:inset 0 0 0 3px var(--accent),0 0 0 2px color-mix(in srgb,var(--accent) 40%,transparent);animation:crk .7s ease-in-out infinite alternate}
+@keyframes crk{to{background:color-mix(in srgb,var(--accent) 12%,var(--surface))}}
+.cr-c.lk b{color:var(--ink)}
+.cr-c.lk{background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+.cr-c.bad{box-shadow:inset 0 0 0 2px #e8504b;background:color-mix(in srgb,#e8504b 16%,var(--surface))}
+body[data-assist] .cr-c.wr{box-shadow:inset 0 0 0 2px #e8504b;background:color-mix(in srgb,#e8504b 14%,var(--surface))}
+.cr-p{align-self:flex-end;font:800 calc(var(--cw)*.8) var(--f-mono);color:var(--ink);padding-bottom:3px}
+@media (prefers-reduced-motion: reduce){.cr-c.cur{animation:none}}
+.cr-st{min-height:18px;text-align:center;font-size:.8rem;color:var(--muted);width:100%;max-width:520px}
+.cr-fq{display:none;flex-wrap:wrap;gap:4px 8px;justify-content:center;font:600 .78rem var(--f-mono);color:var(--muted);max-width:520px}
+.cr-fq.on{display:flex}
+.cr-fq span b{color:var(--accent)}
+.cr-bot{position:sticky;bottom:0;width:100%;max-width:520px;margin-top:auto;background:var(--bg);padding:4px 0;display:flex;flex-direction:column;gap:5px}
+.cr-kb{--tk-h:42px;gap:4px}
+.cr-kb .tk-k.u{opacity:.35}
+.cr-kb .tk-k:disabled{opacity:.25}
+.cr-act{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.cr-act button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 2px!important;font-size:.68rem!important}.cr-act b{font-size:1.05rem}
+.cr-act button.on{background:var(--accent);color:var(--accent-ink)}
+.cr-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 70%,transparent);z-index:20}
+.cr-ov.show{display:flex}
+.cr-card{background:var(--surface);border:3px solid var(--accent);border-radius:14px;padding:22px 26px;text-align:center;max-width:88vw}
+.cr-card h2{color:var(--accent);margin:0 0 6px;font-size:1.3rem}.cr-card p{color:var(--muted);margin:0 0 14px}
+.cr-card q{display:block;color:var(--ink);font-weight:700;margin:0 0 10px;quotes:none}
+.cr-em{font-size:2.2rem;line-height:1.1;margin-bottom:6px}
+.cr-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.cr-btns .pri{background:var(--accent);color:var(--accent-ink);font-weight:700}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Criptograma · un jugador, 4 niveles. Se descifra un refrán cuyas letras están sustituidas por otras. =====
+   Cada letra del alfabeto (A–Z con Ñ) se cambia por un número 1–27 (cifrado de sustitución); espacios y signos se dejan. Al tocar una casilla se resaltan todas las que comparten esa letra cifrada y se escribe la letra buena con el teclado.
+   Modelo (S): lv, idx (refrán), cm {letra real → número}, ent {número → letra puesta}, lk {número → 1 si viene dada o por pista}, t, hints, over, won.
+   Poner una letra ya usada en otra cifrada se la quita a esa (no hay duplicados). Se gana cuando todas las cifradas tienen su letra correcta. */
+const CR_AB = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
+const CR_PH = [   /* 'texto' (refrán popular) o 'texto|atribución' (dicho popular, cita de autor de dominio público) */
+  'Más vale tarde que nunca',
+  'El que la hace la paga',
+  'Perro que ladra no muerde',
+  'El amor es ciego',
+  'Lo barato sale caro',
+  'En abril aguas mil',
+  'Ver para creer',
+  'Sarna con gusto no pica',
+  'Poco a poco se va lejos',
+  'Por la boca muere el pez',
+  'El hábito no hace al monje',
+  'Cada oveja con su pareja',
+  'La unión hace la fuerza',
+  'Al mal tiempo buena cara',
+  'Zapatero a tus zapatos',
+  'Dios aprieta pero no ahoga',
+  'Perro ladrador poco mordedor',
+  'Quien canta su mal espanta',
+  'A quien madruga Dios le ayuda',
+  'Una golondrina no hace verano',
+  'Hombre prevenido vale por dos',
+  'Más vale prevenir que curar',
+  'Ojo por ojo diente por diente',
+  'Pueblo pequeño infierno grande',
+  'Quien ríe el último ríe mejor',
+  'Quien tiene boca se equivoca',
+  'Mal de muchos consuelo de tontos',
+  'Lo cortés no quita lo valiente',
+  'Mientras hay vida hay esperanza',
+  'Cuando el río suena agua lleva',
+  'A palabras necias oídos sordos',
+  'Dos no se pelean si uno no quiere',
+  'No es oro todo lo que reluce',
+  'A buen hambre no hay pan duro',
+  'En boca cerrada no entran moscas',
+  'Obras son amores y no buenas razones',
+  'Quien mucho abarca poco aprieta',
+  'Ojos que no ven corazón que no siente',
+  'Año de nieves año de bienes',
+  'Donde fueres haz lo que vieres',
+  'A falta de pan buenas son tortas',
+  'De noche todos los gatos son pardos',
+  'No hay mal que por bien no venga',
+  'Del dicho al hecho hay mucho trecho',
+  'Cría cuervos y te sacarán los ojos',
+  'En casa del herrero cuchillo de palo',
+  'Quien siembra vientos recoge tempestades',
+  'Cuando el gato no está los ratones bailan',
+  'Ande yo caliente y ríase la gente',
+  'A cada cerdo le llega su San Martín',
+  'El que se fue a Sevilla perdió su silla',
+  'No se ganó Zamora en una hora',
+  'Dime con quién andas y te diré quién eres',
+  'No hay peor sordo que el que no quiere oír',
+  'Más vale pájaro en mano que ciento volando',
+  'Agua que no has de beber déjala correr',
+  'Antes de que te cases mira lo que haces',
+  'Camarón que se duerme se lo lleva la corriente',
+  'Más sabe el diablo por viejo que por diablo',
+  'Más vale malo conocido que bueno por conocer',
+  'No dejes para mañana lo que puedas hacer hoy',
+  'Más vale una vez colorado que ciento amarillo',
+  'Tanto va el cántaro a la fuente que al final se rompe',
+  'A caballo regalado no le mires el diente',
+  'No por mucho madrugar amanece más temprano',
+  'El que a buen árbol se arrima buena sombra le cobija',
+  'Del agua mansa líbreme Dios que de la brava me libro yo',
+  'Poco a poco se va lejos y a quien madruga Dios le ayuda',
+  'Al mal tiempo buena cara y a caballo regalado no le mires el diente',
+  'Más vale tarde que nunca y más vale prevenir que curar',
+  'Cuando el río suena agua lleva y ojos que no ven corazón que no siente',
+  'Dime con quién andas y te diré quién eres porque cada oveja con su pareja',
+  'No hay mal que por bien no venga ni bien que cien años dure',
+  'A buen entendedor pocas palabras bastan',
+  'A cada uno lo suyo',
+  'A Dios rogando y con el mazo dando',
+  'A grandes males grandes remedios',
+  'A lo hecho pecho',
+  'A otro perro con ese hueso',
+  'A quien Dios se la dé San Pedro se la bendiga',
+  'A río revuelto ganancia de pescadores',
+  'Al buen callar llaman Sancho',
+  'Al pan pan y al vino vino',
+  'Amor con amor se paga',
+  'Aunque la mona se vista de seda mona se queda',
+  'Barriga llena corazón contento',
+  'Bien está lo que bien acaba',
+  'Cada maestrillo tiene su librillo',
+  'Caras vemos corazones no sabemos',
+  'Con pan y vino se anda el camino',
+  'Consejos vendo y para mí no tengo',
+  'Crea fama y échate a dormir',
+  'Cuando uno quiere dos no riñen',
+  'Cuentas claras y chocolate espeso',
+  'De sabios es mudar de opinión',
+  'De tal palo tal astilla',
+  'Del árbol caído todos hacen leña',
+  'Desgracias nunca vienen solas',
+  'Dios los cría y ellos se juntan',
+  'Donde hay patrón no manda marinero',
+  'Dime de qué presumes y te diré de qué careces',
+  'El comer y el rascar todo es empezar',
+  'El dinero no da la felicidad',
+  'El hombre propone y Dios dispone',
+  'El mundo es un pañuelo',
+  'El que avisa no es traidor',
+  'El que busca encuentra',
+  'El que calla otorga',
+  'El que da primero da dos veces',
+  'El que espera desespera',
+  'El que no llora no mama',
+  'El que no oye consejo no llega a viejo',
+  'El que parte y reparte se queda con la mejor parte',
+  'El saber no ocupa lugar',
+  'El sol sale para todos',
+  'El tiempo es oro',
+  'El tiempo pone a cada uno en su lugar',
+  'En el país de los ciegos el tuerto es el rey',
+  'En la variedad está el gusto',
+  'Es de bien nacidos ser agradecidos',
+  'Hecha la ley hecha la trampa',
+  'Genio y figura hasta la sepultura',
+  'Gato escaldado del agua fría huye',
+  'Haz el bien sin mirar a quién',
+  'Hasta el rabo todo es toro',
+  'La avaricia rompe el saco',
+  'La cabra tira al monte',
+  'La esperanza es lo último que se pierde',
+  'La experiencia es la madre de la ciencia',
+  'La letra con sangre entra',
+  'La ocasión la pintan calva',
+  'La suerte de la fea la guapa la desea',
+  'La venganza es un plato que se sirve frío',
+  'Las cosas de palacio van despacio',
+  'Lo prometido es deuda',
+  'Lo que abunda no daña',
+  'Lo que no mata engorda',
+  'Los trapos sucios se lavan en casa',
+  'Más vale solo que mal acompañado',
+  'Más vale maña que fuerza',
+  'Nadie es profeta en su tierra',
+  'Ni tanto ni tan calvo',
+  'No cantes victoria antes de tiempo',
+  'No hay atajo sin trabajo',
+  'No hay rosa sin espinas',
+  'No hay regla sin excepción',
+  'No juzgues un libro por su portada',
+  'No se puede estar en misa y repicando',
+  'No todo el monte es orégano',
+  'Nunca es tarde si la dicha es buena',
+  'Para gustos los colores',
+  'Perro no come perro',
+  'Piensa mal y acertarás',
+  'Quien algo quiere algo le cuesta',
+  'Quien bien te quiere te hará llorar',
+  'Quien da pan a perro ajeno pierde el pan y pierde el perro',
+  'Quien guarda halla',
+  'Quien hace un cesto hace ciento',
+  'Quien mal anda mal acaba',
+  'Quien no arriesga no gana',
+  'Quien quiere celeste que le cueste',
+  'Quien se pica ajos come',
+  'Quien tuvo retuvo',
+  'Quien tiene un amigo tiene un tesoro',
+  'Quien mucho duerme poco aprende',
+  'Rectificar es de sabios',
+  'Sobre gustos no hay nada escrito',
+  'Tal para cual',
+  'Todos los caminos llevan a Roma',
+  'Tras la tempestad viene la calma',
+  'Un grano no hace granero pero ayuda al compañero',
+  'Una imagen vale más que mil palabras',
+  'Una mano lava la otra y las dos lavan la cara',
+  'Unos nacen con estrella y otros nacen estrellados',
+  'Vísteme despacio que tengo prisa',
+  'A mal paso darle prisa',
+  'Agua pasada no mueve molino',
+  'Año nuevo vida nueva',
+  'Aprendiz de todo maestro de nada',
+  'Árbol que nace torcido jamás su tronco endereza',
+  'Ayúdate que yo te ayudaré',
+  'Bien predica quien bien vive',
+  'Obra empezada medio acabada',
+  'Cuando el hambre entra por la puerta el amor salta por la ventana',
+  'Cuando las barbas de tu vecino veas pelar pon las tuyas a remojar',
+  'Cuanto más se tiene más se quiere',
+  'De músico poeta y loco todos tenemos un poco',
+  'Donde comen dos comen tres',
+  'Dos que duermen en un colchón se vuelven de una condición',
+  'El amor todo lo puede',
+  'El buen paño en el arca se vende',
+  'El dinero llama al dinero',
+  'El ojo del amo engorda el ganado',
+  'El que algo quiere algo le cuesta',
+  'El que a hierro mata a hierro muere',
+  'El que siembra recoge',
+  'El que tiene padrinos se bautiza',
+  'El silencio es oro',
+  'En martes ni te cases ni te embarques',
+  'La cara es el espejo del alma',
+  'La práctica hace al maestro',
+  'La necesidad aguza el ingenio',
+  'Las apariencias engañan',
+  'Las penas con pan son menos',
+  'Lo mejor es enemigo de lo bueno',
+  'Lo que bien empieza bien acaba',
+  'Lo que se hereda no se hurta',
+  'Los amigos de mis amigos son mis amigos',
+  'Los extremos se tocan',
+  'Los niños y los locos dicen la verdad',
+  'Más vale llegar a tiempo que rondar un año',
+  'Más vale poco que nada',
+  'Más vale un toma que dos te daré',
+  'Más vale ser cabeza de ratón que cola de león',
+  'Mucho ruido y pocas nueces',
+  'Nadie sabe lo que tiene hasta que lo pierde',
+  'Ni son todos los que están ni están todos los que son',
+  'No dejes camino por vereda',
+  'No es tan fiero el león como lo pintan',
+  'No hay peor ciego que el que no quiere ver',
+  'No hay que vender la piel del oso antes de cazarlo',
+  'No se hizo la miel para la boca del asno',
+  'No pidas peras al olmo',
+  'Nunca digas de esta agua no beberé',
+  'Para muestra basta un botón',
+  'Pagar justos por pecadores',
+  'Pan con pan comida de tontos',
+  'Peor es nada',
+  'Pobre pero honrado',
+  'Por el hilo se saca el ovillo',
+  'Por un clavo se pierde una herradura',
+  'Quien bien ama bien castiga',
+  'Quien busca halla',
+  'Quien calla otorga',
+  'Quien con lobos anda a aullar se enseña',
+  'Quien escucha su mal oye',
+  'Quien evita la ocasión evita el peligro',
+  'Quien no te conozca que te compre',
+  'Quien rompe paga y los platos pasan a ser suyos',
+  'Se coge antes a un mentiroso que a un cojo',
+  'Sin pena ni gloria',
+  'Tanto monta monta tanto',
+  'Tiempo al tiempo',
+  'Todo tiene arreglo menos la muerte',
+  'Todo lo que sube baja',
+  'Un loco hace ciento',
+  'Una cosa es predicar y otra dar trigo',
+  'Uno no es de donde nace sino de donde pace',
+  'Ver los toros desde la barrera',
+  'Vivir para ver',
+  'Y a otra cosa mariposa',
+  'No hay mal que cien años dure',
+  'Cuando Dios cierra una puerta abre una ventana',
+  'La curiosidad mató al gato',
+  'Cada loco con su tema',
+  'El que se pica ajos come',
+  'Nunca llueve a gusto de todos',
+  'Si no quieres caldo toma dos tazas',
+  'A todo cerdo le llega su San Martín',
+  'Cada uno cuenta de la feria como le va en ella',
+  'En casa de herrero cuchillo de palo',
+  'La casa sin barrer y la mesa puesta',
+  'El pez grande se come al chico',
+  'Aquí hay gato encerrado',
+  'A la tercera va la vencida',
+  'En todas partes cuecen habas',
+  'Dar a cada cual lo que se merece',
+  'Más vale tener que desear',
+  'Antes se coge al mentiroso que al ladrón',
+  'Lo que no se empieza no se acaba',
+  'Nadie diga de este agua no beberé ni de este pan no comeré',
+  'Si el rey lo manda no hay quien lo detenga',
+  'Uno propone y otro dispone',
+  'La mejor defensa es un buen ataque',
+  'Más vale lo bueno por conocer que lo malo conocido',
+  'No hay mejor cuña que la de la misma madera',
+  'Mejor pájaro en mano que cien volando',
+  'A caballo grande andar o no andar',
+  'Pan para hoy y hambre para mañana',
+  'Estar a las duras y a las maduras',
+  'Quien tiene tienda que la atienda',
+  'Hacer una montaña de un grano de arena',
+  'Cada día trae su afán',
+  'Dar con la horma de su zapato',
+  'No dejar piedra sin remover',
+  'Ir de la ceca a la meca',
+  'Hay amores que matan',
+  'Quien bien siembra bien recoge',
+  'Las desgracias nunca vienen solas',
+  'Matar dos pájaros de un tiro',
+  'Entre col y col lechuga',
+  'Más vale paso de buey que vuelo de mosca',
+  'Cada oveja a su corral y cada gallo a su gallinero',
+  'Si la montaña no viene a Mahoma Mahoma va a la montaña',
+  'Hablando se entiende la gente',
+  'Dime lo que presumes y te diré lo que careces',
+  'Aunque la jaula sea de oro no deja de ser prisión',
+  'Pájaro que come la uva pájaro que la desgrana',
+  'Ser pan comido|Dicho popular',
+  'Estar en las nubes|Dicho popular',
+  'Meter la pata|Dicho popular',
+  'Tirar la casa por la ventana|Dicho popular',
+  'Costar un ojo de la cara|Dicho popular',
+  'Dar gato por liebre|Dicho popular',
+  'Hacer de tripas corazón|Dicho popular',
+  'No tener pelos en la lengua|Dicho popular',
+  'Ponerse las pilas|Dicho popular',
+  'Estar como una cabra|Dicho popular',
+  'Echar leña al fuego|Dicho popular',
+  'Estar en la luna de Valencia|Dicho popular',
+  'Ser uña y carne|Dicho popular',
+  'Ponerse las botas|Dicho popular',
+  'Írsele a alguien el santo al cielo|Dicho popular',
+  'Hablar por los codos|Dicho popular',
+  'Dormir a pierna suelta|Dicho popular',
+  'Tomar el pelo a alguien|Dicho popular',
+  'Estar en el quinto pino|Dicho popular',
+  'Pasar la noche en blanco|Dicho popular',
+  'Buscar tres pies al gato|Dicho popular',
+  'Dar la lata|Dicho popular',
+  'Llover sobre mojado|Dicho popular',
+  'Estar sin blanca|Dicho popular',
+  'Estar hecho polvo|Dicho popular',
+  'Salirse por la tangente|Dicho popular',
+  'No dar el brazo a torcer|Dicho popular',
+  'Poner los puntos sobre las íes|Dicho popular',
+  'Tener un nudo en la garganta|Dicho popular',
+  'Quedarse de piedra|Dicho popular',
+  'Tener mala uva|Dicho popular',
+  'Cortar el bacalao|Dicho popular',
+  'Estar al pie del cañón|Dicho popular',
+  'Estar en el ajo|Dicho popular',
+  'Tirar la toalla|Dicho popular',
+  'Dar en el clavo|Dicho popular',
+  'Ahogarse en un vaso de agua|Dicho popular',
+  'Ir de punta en blanco|Dicho popular',
+  'Hacer la vista gorda|Dicho popular',
+  'Hacerse el sueco|Dicho popular',
+  'Ser la guinda del pastel|Dicho popular',
+  'Tener la sartén por el mango|Dicho popular',
+  'Ser un cero a la izquierda|Dicho popular',
+  'Poner la mano en el fuego|Dicho popular',
+  'Ser más listo que el hambre|Dicho popular',
+  'Tener la mosca detrás de la oreja|Dicho popular',
+  'Pillar a alguien con las manos en la masa|Dicho popular',
+  'Mandar a freír espárragos|Dicho popular',
+  'Hacerse la boca agua|Dicho popular',
+  'Estar en Babia|Dicho popular',
+  'Ponerse como un tomate|Dicho popular',
+  'Tener el corazón en un puño|Dicho popular',
+  'Llevarse como el perro y el gato|Dicho popular',
+  'Empezar la casa por el tejado|Dicho popular',
+  'Eso es harina de otro costal|Dicho popular',
+  'Entrar por un oído y salir por el otro|Dicho popular',
+  'Estar de capa caída|Dicho popular',
+  'Volver a la carga|Dicho popular',
+  'Perder los papeles|Dicho popular',
+  'Llevar la voz cantante|Dicho popular',
+  'Dar calabazas|Dicho popular',
+  'Estar sin un duro|Dicho popular',
+  'Echar una mano|Dicho popular',
+  'Estar a la última|Dicho popular',
+  'Ser un hueso duro de roer|Dicho popular',
+  'No pegar ojo|Dicho popular',
+  'Con la soga al cuello|Dicho popular',
+  'Ser todo oídos|Dicho popular',
+  'En un lugar de la Mancha, de cuyo nombre no quiero acordarme|Miguel de Cervantes, Don Quijote',
+  'La libertad, Sancho, es uno de los más preciosos dones que a los hombres dieron los cielos|Miguel de Cervantes, Don Quijote',
+  'Cada uno es hijo de sus obras|Miguel de Cervantes, Don Quijote',
+  'Cada uno es artífice de su ventura|Miguel de Cervantes, Don Quijote',
+  'La pluma es la lengua del alma|Miguel de Cervantes, Don Quijote',
+  'Hasta la muerte todo es vida|Miguel de Cervantes, Don Quijote',
+  'El que lee mucho y anda mucho ve mucho y sabe mucho|Miguel de Cervantes, Don Quijote',
+  'La mejor salsa del mundo es el hambre|Miguel de Cervantes, Don Quijote',
+  'Con la iglesia hemos dado, Sancho|Miguel de Cervantes, Don Quijote',
+  'Yo sé quién soy|Miguel de Cervantes, Don Quijote',
+  'No es un hombre más que otro si no hace más que otro|Miguel de Cervantes, Don Quijote',
+  'Donde una puerta se cierra, otra se abre|Miguel de Cervantes, Don Quijote',
+  'Las verdades adelgazan y no quiebran, y siempre andan sobre la mentira como el aceite sobre el agua|Miguel de Cervantes, Don Quijote',
+  'Caminante, no hay camino, se hace camino al andar|Antonio Machado, Proverbios y cantares',
+  'Todo necio confunde valor y precio|Antonio Machado, Proverbios y cantares',
+  'Hoy es siempre todavía|Antonio Machado, Proverbios y cantares',
+  'La verdad es lo que es y sigue siendo verdad aunque se piense al revés|Antonio Machado, Proverbios y cantares',
+  'Moneda que está en la mano quizá se deba guardar; la monedita del alma se pierde si no se da|Antonio Machado, Proverbios y cantares',
+  'Es el mejor de los buenos quien sabe que en esta vida todo es cuestión de medida|Antonio Machado, Proverbios y cantares',
+  'Despacito y buena letra: el hacer las cosas bien importa más que el hacerlas|Antonio Machado, Juan de Mairena',
+  'Converso con el hombre que siempre va conmigo|Antonio Machado, Proverbios y cantares',
+  'Ya hay un español que quiere vivir y a vivir empieza entre una España que muere y otra España que bosteza|Antonio Machado, Campos de Castilla',
+  'Podrá no haber poetas, pero siempre habrá poesía|Gustavo Adolfo Bécquer, Rimas',
+  'Volverán las oscuras golondrinas en tu balcón sus nidos a colgar|Gustavo Adolfo Bécquer, Rimas',
+  'Poesía eres tú|Gustavo Adolfo Bécquer, Rimas',
+  'Que toda la vida es sueño, y los sueños, sueños son|Calderón de la Barca, La vida es sueño',
+  'Poderoso caballero es don Dinero|Francisco de Quevedo',
+  'Polvo serán, mas polvo enamorado|Francisco de Quevedo',
+  'Es hielo abrasador, es fuego helado|Francisco de Quevedo',
+  'Lo bueno, si breve, dos veces bueno|Baltasar Gracián, Oráculo manual',
+  'Nada te turbe, nada te espante, todo se pasa, Dios no se muda|Santa Teresa de Jesús',
+  'Vivo sin vivir en mí y tan alta vida espero que muero porque no muero|Santa Teresa de Jesús',
+  'Nuestras vidas son los ríos que van a dar en la mar, que es el morir|Jorge Manrique, Coplas a la muerte de su padre',
+  'Cualquiera tiempo pasado fue mejor|Jorge Manrique, Coplas a la muerte de su padre',
+  'Coged de vuestra alegre primavera el dulce fruto antes que el tiempo airado cubra de nieve la hermosa cumbre|Garcilaso de la Vega, Soneto XXIII',
+  'Con diez cañones por banda, viento en popa a toda vela|José de Espronceda, Canción del pirata',
+  'Escribir en Madrid es llorar|Mariano José de Larra',
+  'Todo hombre puede ser, si se lo propone, escultor de su propio cerebro|Santiago Ramón y Cajal',
+  '¿Quién mató al Comendador? Fuenteovejuna, señor|Lope de Vega, Fuenteovejuna',
+  'Desmayarse, atreverse, estar furioso, áspero, tierno, liberal, esquivo|Lope de Vega, Rimas',
+  '¡Qué descansada vida la del que huye el mundanal ruido!|Fray Luis de León, Vida retirada',
+  '¡Qué largo me lo fiáis!|Tirso de Molina, El burlador de Sevilla',
+  'Juventud, divino tesoro, ¡ya te vas para no volver!|Rubén Darío, Canción de otoño en primavera',
+  'Cultivo una rosa blanca en julio como en enero|José Martí, Versos sencillos',
+  'Verde que te quiero verde, verde viento, verdes ramas|Federico García Lorca, Romance sonámbulo',
+  'En este mundo traidor nada es verdad ni mentira: todo es según el color del cristal con que se mira|Ramón de Campoamor, Las doloras',
+  'Quien se pica ajos come y rectificar es de sabios|Dos refranes populares',
+  'Hecha la ley hecha la trampa y ir de la ceca a la meca|Dos refranes populares',
+  'Lo barato sale caro y en todas partes cuecen habas|Dos refranes populares',
+  'No se ganó Zamora en una hora y el sol sale para todos|Dos refranes populares',
+  'La cara es el espejo del alma y más vale tarde que nunca|Dos refranes populares',
+  'Para gustos los colores y no hay regla sin excepción|Dos refranes populares',
+  'La ocasión la pintan calva y la avaricia rompe el saco|Dos refranes populares',
+  'La curiosidad mató al gato y ojo por ojo diente por diente|Dos refranes populares',
+  'Al pan pan y al vino vino y a quien madruga Dios le ayuda|Dos refranes populares',
+  'Y a otra cosa mariposa y no todo el monte es orégano|Dos refranes populares',
+  'Perro no come perro y piensa mal y acertarás|Dos refranes populares',
+  'Quien calla otorga y las apariencias engañan|Dos refranes populares',
+  'Uno propone y otro dispone y perro que ladra no muerde|Dos refranes populares',
+  'El que calla otorga y el que la hace la paga|Dos refranes populares',
+  'El dinero llama al dinero y a mal paso darle prisa|Dos refranes populares',
+  'Tanto monta monta tanto y dar con la horma de su zapato|Dos refranes populares',
+  'Entre col y col lechuga y al mal tiempo buena cara|Dos refranes populares',
+  'Quien mal anda mal acaba y el mundo es un pañuelo|Dos refranes populares',
+  'Cada día trae su afán y el que se pica ajos come|Dos refranes populares',
+  'El que no llora no mama y el que siembra recoge|Dos refranes populares',
+  'Los extremos se tocan y año de nieves año de bienes|Dos refranes populares',
+  'Quien guarda halla y el que avisa no es traidor|Dos refranes populares',
+  'Más vale maña que fuerza y el que da primero da dos veces|Dos refranes populares',
+  'Lo que se hereda no se hurta y lo que no mata engorda|Dos refranes populares',
+  'Hasta el rabo todo es toro y un loco hace ciento|Dos refranes populares',
+  'Mucho ruido y pocas nueces y no dejes camino por vereda|Dos refranes populares',
+  'Matar dos pájaros de un tiro y todo lo que sube baja|Dos refranes populares',
+  'No hay rosa sin espinas y la práctica hace al maestro|Dos refranes populares',
+  'De sabios es mudar de opinión y a buen hambre no hay pan duro|Dos refranes populares',
+  'Lo prometido es deuda y nunca llueve a gusto de todos|Dos refranes populares',
+  'El que busca encuentra y haz el bien sin mirar a quién|Dos refranes populares',
+  'El dinero no da la felicidad y amor con amor se paga|Dos refranes populares',
+  'Para muestra basta un botón y dios aprieta pero no ahoga|Dos refranes populares',
+  'Más vale tener que desear y la letra con sangre entra|Dos refranes populares',
+  'Al buen callar llaman Sancho y quien canta su mal espanta|Dos refranes populares',
+  'A otro perro con ese hueso y pan con pan comida de tontos|Dos refranes populares',
+  'El saber no ocupa lugar y no pidas peras al olmo|Dos refranes populares',
+  'Quien bien ama bien castiga y año nuevo vida nueva|Dos refranes populares',
+  'Quien tiene boca se equivoca y no hay mal que cien años dure|Dos refranes populares',
+  'El que espera desespera y quien ríe el último ríe mejor|Dos refranes populares'
+];
+const CR_T = CR_PH.map(e => e.split('|')[0]), CR_A = CR_PH.map(e => e.split('|')[1] || 'Refrán popular');
+const crH = t => { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return h; };
+const CR_LV = [{ k: 'Fácil', lo: 0, hi: 22, give: 4 }, { k: 'Normal', lo: 23, hi: 29, give: 2 }, { k: 'Difícil', lo: 30, hi: 38, give: 1 }, { k: 'Experto', lo: 39, hi: 999, give: 0 }];
+const CR_FREQ = 'E A O S R N I D L C T U';
+const crFmt = t => String(t / 60 | 0).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+/* letra base (sin tilde, Ñ se conserva) o '' si no es letra */
+const crBase = ch => { const u = ch.toUpperCase(); if (u === 'Ñ') return 'Ñ'; const b = u.normalize('NFD')[0]; return CR_AB.includes(b) && /[A-Z]/.test(b) ? b : ''; };
+const crCount = t => [...t].filter(c => crBase(c)).length;
+function crCipher(rnd) {
+  const a = CR_AB.split(''), n = a.map((_, i) => String(i + 1));
+  for (let i = n.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [n[i], n[j]] = [n[j], n[i]]; }
+  const m = {}; a.forEach((c, i) => { m[c] = n[i]; }); return m;
+}
+function criptogramaMount(el, ctx) {
+  el.innerHTML = '<div class="cr">' +
+    '<div class="cr-row"><div class="cr-lvn"></div><div class="cr-hud"><span class="cr-pr">0/0</span><span class="cr-tm">00:00</span></div></div>' +
+    '<div class="cr-row"><select class="cr-lv">' + CR_LV.map((l, i) => '<option value="' + i + '">Nivel: ' + l.k + (l.give ? ' · ' + l.give + ' letras dadas' : ' · sin ayuda') + '</option>').join('') + '</select><button class="cr-go">▶ Nuevo</button></div>' +
+    '<div class="cr-ph"></div><div class="cr-fq"></div><div class="cr-st"></div>' +
+    '<div class="cr-bot"><div class="cr-kb"></div>' +
+    '<div class="cr-act"><button data-a="clr"><b>⌫</b>Borrar</button><button data-a="chk"><b>✓</b>Comprobar</button><button data-a="hint"><b>💡</b>Pista</button><button data-a="fq"><b>📊</b>Frecuencias</button></div></div>' +
+    '<div class="cr-ov"><div class="cr-card"><div class="cr-em">🎉</div><h2>¡Descifrado!</h2><q class="cr-txt"></q><p class="cr-md"></p><div class="cr-btns"><button class="cr-again">Otra frase</button><button class="cr-next pri">Siguiente nivel ▶</button></div></div></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s), ph = q('.cr-ph'), st = q('.cr-st'), fq = q('.cr-fq');
+  const tone = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { tap: () => tone(620, .04), put: () => tone(520, .06, 'triangle', .22), bad: () => tone(160, .15, 'square', .15), clr: () => tone(330, .06, 'triangle', .2), hint: () => { tone(660, .08, 'sine', .22); tone(880, .1, 'sine', .2, .07); }, win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, .25, 'sine', .28, [0, .1, .2, .35, .5, .65][i])) };
+  let S = null, sel = '', cur = -1, timerId = 0, recorded = false, chk = new Set(), showFq = false, inv = {}, chars = [];
+  const rnd = Math.random;
+  function pickPhrase(lv, avoid) {
+    /* sin repetir mientras queden frases del nivel sin jugar (store criptograma-seen: hashes por nivel); al agotarse se reinicia la lista */
+    const L = CR_LV[lv], all = CR_T.map((t, i) => i).filter(i => { const n = crCount(CR_T[i]); return n >= L.lo && n <= L.hi; });
+    let seen = {}; try { seen = store.get('criptograma-seen') || {}; } catch (e) { seen = {}; }
+    let sl = Array.isArray(seen[lv]) ? seen[lv] : [], pool = all.filter(i => !sl.includes(crH(CR_T[i])) && i !== avoid);
+    if (!pool.length) { sl = []; pool = all.filter(i => i !== avoid); if (!pool.length) pool = all; }
+    const pick = pool[Math.floor(rnd() * pool.length)]; sl.push(crH(CR_T[pick])); seen[lv] = sl; store.set('criptograma-seen', seen);
+    return pick;
+  }
+  function newGame(lv) {
+    clearInterval(timerId); const cm = crCipher(rnd), idx = pickPhrase(lv, S ? S.idx : -1), L = CR_LV[lv];
+    S = { lv, idx, h: crH(CR_T[idx]), cm, ent: {}, lk: {}, t: 0, hints: 0, over: false, won: false };
+    const present = [...new Set([...CR_T[idx]].map(crBase).filter(Boolean))];
+    for (let k = present.length - 1; k > 0; k--) { const j = Math.floor(rnd() * (k + 1)); [present[k], present[j]] = [present[j], present[k]]; }
+    present.slice(0, L.give).forEach(p => { S.ent[cm[p]] = p; S.lk[cm[p]] = 1; });
+    recorded = false; sel = ''; cur = -1; chk = new Set(); q('.cr-ov').classList.remove('show'); ctx.save(null); prep(); firstCell(); paint(); startTimer();
+  }
+  function save() { if (!S) return; if (S.over || (!S.t && !Object.keys(S.ent).length)) { ctx.save(null); return; } ctx.save(S); }
+  function prep() { inv = {}; Object.keys(S.cm).forEach(p => { inv[S.cm[p]] = p; }); chars = [...CR_T[S.idx]].map(ch => { const b = crBase(ch); return b ? { b, c: S.cm[b], ch } : { ch }; }); }
+  const letterIdx = () => chars.map((x, i) => x.c ? i : -1).filter(i => i >= 0);
+  function firstCell() { const l = letterIdx().find(i => !S.lk[chars[i].c]); if (l !== undefined) { cur = l; sel = chars[l].c; } }
+  const solved = c => S.ent[c] === inv[c];
+  function paint() {
+    let html = '', word = '', cnt = {};
+    const flush = () => { if (word) { html += '<span class="cr-w">' + word + '</span>'; word = ''; } };
+    chars.forEach((x, i) => {
+      if (!x.c) { if (x.ch === ' ') flush(); else word += '<span class="cr-p">' + esc(x.ch) + '</span>'; return; }
+      cnt[x.c] = (cnt[x.c] || 0) + 1; const e = S.ent[x.c] || '', k = 'cr-c' + (x.c === sel ? ' s' : '') + (i === cur ? ' cur' : '') + (S.lk[x.c] ? ' lk' : '') + (chk.has(x.c) ? ' bad' : '') + (e && e !== inv[x.c] ? ' wr' : '');
+      word += '<span class="' + k + '" data-i="' + i + '"><small>' + x.c + '</small><b>' + e + '</b></span>';
+    });
+    flush(); ph.innerHTML = html;
+    const used = new Set(Object.values(S.ent)); q('.cr-kb').querySelectorAll('.tk-k').forEach(b => { b.classList.toggle('u', used.has(b.dataset.k)); b.disabled = !sel || !!S.lk[sel] || S.over; });
+    const cs = Object.keys(cnt), done = cs.filter(solved).length;
+    q('.cr-pr').textContent = cs.filter(c => S.ent[c]).length + '/' + cs.length; q('.cr-tm').textContent = crFmt(S.t); q('.cr-lvn').textContent = 'Criptograma · ' + CR_LV[S.lv].k; q('.cr-lv').value = S.lv;
+    fq.classList.toggle('on', showFq); q('[data-a=fq]').classList.toggle('on', showFq);
+    if (showFq) fq.innerHTML = '<span>Más frecuentes en español: <b>' + CR_FREQ + '</b></span><span>En el texto:</span>' + cs.sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b, 'es', { numeric: true })).map(c => '<span' + (S.ent[c] ? ' style="opacity:.4"' : '') + '><b>' + c + '</b>×' + cnt[c] + '</span>').join('');
+    st.textContent = sel ? (S.lk[sel] ? 'Ese número ya está descubierto' : 'Elige qué letra es el «' + sel + '»') : 'Toca un número del texto cifrado';
+  }
+  function startTimer() { clearInterval(timerId); timerId = setInterval(() => { if (S && !S.over && !document.hidden) { S.t++; q('.cr-tm').textContent = crFmt(S.t); if (S.t % 10 === 0) save(); } }, 1000); }
+  function advance() {
+    const li = letterIdx(), seen = new Set(); let start = Math.max(0, li.indexOf(cur));
+    for (let k = 1; k <= li.length; k++) { const i = li[(start + k) % li.length], c = chars[i].c; if (!S.lk[c] && !S.ent[c]) { cur = i; sel = c; return; } }
+  }
+  function setLetter(L) {
+    if (S.over || !sel || S.lk[sel]) return;
+    if (Object.keys(S.lk).some(c => S.ent[c] === L)) { SFX.bad(); st.textContent = 'La «' + L + '» ya está descubierta'; return; }
+    Object.keys(S.ent).forEach(c => { if (S.ent[c] === L && !S.lk[c]) delete S.ent[c]; });
+    S.ent[sel] = L; chk = new Set(); SFX.put(); advance(); paint(); if (!check()) save();
+  }
+  function check() {
+    const cs = [...new Set(chars.filter(x => x.c).map(x => x.c))]; if (!cs.every(solved)) return false;
+    S.over = S.won = true; clearInterval(timerId); ctx.save(null); sel = ''; cur = -1; paint();
+    const bt = store.get('criptograma-best') || {}, o = bt[S.lv]; let extra = '';
+    if (!o || S.t < o) { bt[S.lv] = S.t; store.set('criptograma-best', bt); extra = ' · ¡Nuevo récord!'; }
+    q('.cr-txt').textContent = '«' + CR_T[S.idx] + '»'; q('.cr-md').textContent = CR_A[S.idx] + ' · ' + crFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') + extra; q('.cr-next').style.display = S.lv < CR_LV.length - 1 ? '' : 'none';
+    setTimeout(SFX.win, 100); setTimeout(() => q('.cr-ov').classList.add('show'), 700);
+    if (!recorded) { recorded = true; ctx.record({ won: true, info: CR_LV[S.lv].k + ' · ' + crFmt(S.t) + (S.hints ? ' · ' + S.hints + ' pistas' : '') }); }
+    return true;
+  }
+  function hint() {
+    if (S.over) return; let c = sel && !S.lk[sel] ? sel : '';
+    if (!c) { const cs = [...new Set(chars.filter(x => x.c).map(x => x.c))].filter(x => !S.lk[x]); if (!cs.length) return; const emp = cs.filter(x => !S.ent[x]); const pl = emp.length ? emp : cs; c = pl[Math.floor(rnd() * pl.length)]; }
+    const p = inv[c]; Object.keys(S.ent).forEach(x => { if (S.ent[x] === p) delete S.ent[x]; });
+    S.ent[c] = p; S.lk[c] = 1; S.hints++; chk = new Set(); sel = c; SFX.hint(); advance(); paint(); if (!check()) save();
+  }
+  ph.addEventListener('click', e => { const c = e.target.closest('.cr-c'); if (!c || !S || S.over) return; cur = +c.dataset.i; sel = chars[cur].c; SFX.tap(); paint(); });
+  /* teclado compartido (QWERTY con Ñ, como Wordle y Ahorcado); también recoge el teclado físico */
+  const kb = Teclado.mount(q('.cr-kb'), { onKey: k => { if (S) setLetter(k); } });
+  q('.cr-go').onclick = () => { SFX.tap(); newGame(+q('.cr-lv').value); };
+  q('.cr-lv').onchange = () => { SFX.tap(); newGame(+q('.cr-lv').value); };
+  q('.cr-again').onclick = () => newGame(S.lv);
+  q('.cr-next').onclick = () => newGame(Math.min(CR_LV.length - 1, S.lv + 1));
+  q('.cr-act').onclick = e => {
+    const b = e.target.closest('button'); if (!b || !S || S.over) return; const a = b.dataset.a;
+    if (a === 'clr') { if (sel && !S.lk[sel] && S.ent[sel]) { delete S.ent[sel]; chk = new Set(); SFX.clr(); paint(); save(); } }
+    else if (a === 'chk') { chk = new Set(Object.keys(S.ent).filter(c => S.ent[c] !== inv[c])); SFX.tap(); st.textContent = chk.size ? chk.size + ' letra' + (chk.size > 1 ? 's' : '') + ' mal puesta' + (chk.size > 1 ? 's' : '') : 'Todo lo puesto hasta ahora es correcto'; const msg = st.textContent; paint(); st.textContent = msg; }
+    else if (a === 'hint') hint();
+    else if (a === 'fq') { showFq = !showFq; SFX.tap(); paint(); }
+  };
+  const onKey = e => {
+    if (!S || S.over || e.ctrlKey || e.metaKey || e.altKey) return; const t = e.target; if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+    if (e.key === 'Backspace' || e.key === 'Delete') { if (sel && !S.lk[sel] && S.ent[sel]) { delete S.ent[sel]; chk = new Set(); paint(); save(); } return; }
+  };
+  const onVis = () => { if (document.hidden) save(); };
+  document.addEventListener('keydown', onKey); document.addEventListener('visibilitychange', onVis);
+  const sv = ctx.resume ? ctx.load() : null, LV0 = Math.min(CR_LV.length - 1, ctx.level || 0);
+  const okSv = sv && !sv.over && CR_LV[sv.lv] && CR_T[sv.idx] && sv.h === crH(CR_T[sv.idx]) && sv.cm && /^\d+$/.test(sv.cm.A || '') && sv.ent && sv.lk;
+  if (okSv) { S = sv; prep(); firstCell(); paint(); startTimer(); } else newGame(LV0);
+  return { destroy() { kb.destroy(); save(); clearInterval(timerId); document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); el.innerHTML = ''; }, state() { return S; } };
+}
+
+Hub.register({
+  id: 'criptograma', name: 'Criptograma', blurb: 'Descifra refranes y citas · 4 niveles',
+  single: {
+    levels: CR_LV.map(l => l.k), def: 0,
+    info: i => { const L = CR_LV[i], b = (store.get('criptograma-best') || {})[i]; return 'Frases de ' + (i === 0 ? 'hasta 22' : i === 3 ? '39 o más' : L.lo + ' a ' + L.hi) + ' letras · ' + (L.give ? L.give + ' letras dadas' : 'sin letras dadas') + (b != null ? ' · Tu mejor: ' + crFmt(b) : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Una <b>frase</b> (refrán, dicho popular o cita de un autor clásico como Cervantes o Machado) está escrita en clave: cada letra se ha cambiado por un <b>número</b> del 1 al 27, siempre el mismo (donde pone un <b>7</b> puede ir una <b>M</b> en todo el texto). Espacios y signos no cambian.</li>' +
+    '<li><b>Toca una casilla</b>: se resaltan todas las que llevan la mismo número. Luego pulsa en el teclado la letra que crees que es (o escribe con el teclado del dispositivo). Salta solo al siguiente número sin resolver.</li>' +
+    '<li>Una letra solo puede estar asignada a una cifrada: si la pones en otra, se la quita a la anterior. Las letras ya usadas salen atenuadas en el teclado.</li>' +
+    '<li><b>Consejos:</b> empieza por las palabras de una letra (suelen ser <b>A, O, Y, E</b>) y por las letras que más se repiten (en español: <b>E A O S R N I D L C T U</b>). El botón <b>Frecuencias</b> muestra cuántas veces sale cada número. Fíjate en terminaciones comunes (<b>-ar, -ción, -ente</b>) y en palabras cortas (<b>que, de, la, el, no, se</b>).</li>' +
+    '<li><b>Comprobar</b> marca en rojo las letras mal puestas; con la <b>Ayuda visual</b> (menú ☰) se marcan solas. <b>Pista</b> descubre y bloquea la letra elegida (o una al azar).</li>' +
+    '<li>Los niveles regalan 4, 2, 1 o ninguna letra al empezar. Se guarda la partida y tu mejor tiempo por nivel. No se repite una frase hasta que has visto todas las de ese nivel.</li></ul>',
+  mountSingle: criptogramaMount
+});
+
+})();
+Mods.ok("criptograma");
 </script>
 <script type="text/plain" data-mod="mahjong" data-deps="">
 /* CTX mahjong: Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. */
