@@ -18,7 +18,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario: `node tools/mkdict.js` lee tools/dict-src/*.gz; con @gfx/zopfli instalado comprime ~4 % más).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline-<idioma>.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline-<idioma>.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.23.1.
+- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline-<idioma>.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.24.0.
 - Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, sonido, tema e idioma como botones de icono (.pico: psndt/pthemet/plangt), ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
 - Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Cada uno elige sus reacciones en Preferencias → «Elegir reacciones» (ACTS.rxedit/rxadd/rxdel/rxreset; hub.rx = {w,l,t}, 1–6 de RX_POOL; el anfitrión acepta todo RX_POOL); RX_RUN (🦀) cruza corriendo de derecha a izquierda o en diagonal en vez de subir. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
 - Conexión con el móvil bloqueado: el navegador corta el WebSocket (no se puede evitar). Mitigaciones: el invitado espera al anfitrión hasta HOST_WAIT (10 min de tiempo a la vista, banner #netb con «Salir»); onLost reintenta hasta HOST_WAIT; en el lobby el invitado caído queda en H.off («Desconectado», Quitar = ACTS.rmoff) y al empezar ocupa su asiento como ausente (matchPl.was → seatBack). El Lobby del servidor mantiene listada 5 min la sala de un anfitrión caído (presence.off → «ausente»).
@@ -148,6 +148,7 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | mastermind | juego puzzles «Código secreto» | (solo en el HTML) | – | Versión propia del Mastermind: un jugador (4 niveles MM_LV: huecos/colores/repetidos/intentos; guardado y récords mastermind-best) y sala 2–8 en carrera (MmGame: mismo código para todos, cada uno ve sus filas y el progreso ajeno sin colores; tiempo límite con nextTick/tick, opciones lv y tm; acciones {t:'g',g} y {t:'q'}; sin IA). mmScore = {b, w}. Prefijo mm-. |
 | loco | juego cartas «Loco» | (solo en el HTML) | – | Versión propia del ocho loco con cartas de acción (estilo Uno), 2–6 jugadores con IA (Fácil/Normal/Difícil) y salas. Baraja LO_DECK de 108 (v 0–9, 10 salta, 11 cambio, 12 +2, 13 comodín, 14 +4); motor LoGame con acciones {t:'p',c,col?}, {t:'d'}, {t:'n'}; opciones stk (acumular +2/+4) y dr (robar una / hasta poder jugar). Color que manda: anillo, etiqueta .lo-colb «Color: …» bajo la carta y el comodín de la mesa pintado del color elegido; aviso «X elige …». La IA difícil recuerda los colores que le faltan a cada rival (lack). Animaciones con Flip (flyIn/ghost): la carta echada vuela a la mesa desde la mano o el jugador; las robadas, del mazo a la mano o al jugador. Prefijo lo-. |
 | muros | juego tablero «Muros» | (solo en el HTML) | – | Versión propia del Quoridor, 2–4 jugadores con IA (Fácil/Normal/Difícil) y salas; opción size 7×7/9×9. Casillas r*N+c, muros k=r*(N-1)+c con o 0 horizontal/1 vertical; acciones {t:'m',s} y {t:'w',k,o}; qoMoves (saltos), qoFits/qoWallOk (sin solapes ni cerrar caminos), IA qoPick/qoSearch (minimax 3 capas con 2 jugadores). La vista gira el tablero para que tu ficha salga abajo; modos Mover/Muro. Prefijo qo-. |
+| isla | juego tablero «La isla sumergida» | (solo en el HTML) | – | Versión propia de La isla prohibida: cooperativo, híbrido solo (llevas a 2–4 aventureros, store isla-n) + sala 2–4 (uno por persona, sin IA). Motor IsGame (fases act/disc/swim, advance() encadena robo de tesoro, inundación y turnos), reglas puras isMoveT/isShoreT/isSwimT/isNavT/isGiveT/isCap/isCanWin compartidas con la vista islaView. Acciones mv/sh/gv/cap/nav/end/dc/sw y especiales sb/heli. Resultado cooperativo: winners = todos o nadie (title «Ganan todos»/«Ganan las aguas»). Prefijo is-. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
 <title>Mesa de Juegos</title>
@@ -2176,7 +2177,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.23.1';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.24.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); renderHome(); }   /* repinta: la búsqueda (H.q) ya se limpió al abrir el juego */
@@ -2437,6 +2438,7 @@ Hub.catalog.push({ id: 'loco', cat: 'cartas', name: 'Loco', blurb: 'Cartas de co
 Hub.catalog.push({ id: 'crucigrama', cat: 'palabras', name: 'Crucigrama', blurb: 'Coloca las palabras en el tablero · 4 niveles', mod: 'crucigrama' });
 Hub.catalog.push({ id: 'criptograma', cat: 'palabras', name: 'Criptograma', blurb: 'Descifra refranes y citas · 4 niveles', mod: 'criptograma' });
 Hub.catalog.push({ id: 'muros', cat: 'tablero', name: 'Muros', blurb: 'Cruza el tablero entre muros · 2 a 4 jugadores', mod: 'muros' });
+Hub.catalog.push({ id: 'isla', cat: 'tablero', name: 'La isla sumergida', blurb: 'Cooperativo · rescatad los 4 tesoros · solo o en sala', mod: 'isla' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
 bootHub();
 </script>
@@ -15075,6 +15077,528 @@ Hub.register({
 })();
 Mods.ok("muros");
 </script>
+<script type="text/plain" data-mod="isla" data-deps="">
+/* CTX isla: «La isla sumergida» (versión propia de La isla prohibida), cooperativo, híbrido solo + sala como Boggle: en solitario controlas a 2–4 aventureros (cada turno juegas con el que toca; elección en la pantalla de inicio, store isla-n); en sala 2–4 personas, una por aventurero (sin IA). Opción/nivel lv = IS_LV (agua inicial 1–4). Isla de 24 casillas (IS_GRID: rombo en una rejilla 6×6; IS_T nombre, k tesoro 0–3, r rol que empieza ahí, la 0 es el helipuerto) colocadas al azar (tl[hueco] = casilla, ts 0 seca / 1 inundada / 2 hundida). Mazo de tesoro (0–3 tesoros ×5, 4 helicóptero ×3, 5 saco de arena ×2, 6 sube el agua ×3) y de inundación (huecos). Turno: 3 acciones ({t:'mv',s} moverse, {t:'sh',s} achicar, {t:'gv',p,c} dar carta, {t:'cap'} capturar, {t:'nav',p,s} la Navegante mueve a otro, {t:'end'}), luego 2 cartas de tesoro y tantas de inundación como marca el agua (isDraw). Fases ph: act, disc (más de 5 cartas: {t:'dc',c}), swim (su casilla se ha hundido: {t:'sw',s}); advance() encadena robos/inundación/turnos. Cartas especiales en act y disc por su dueño: {t:'sb',c,s} y {t:'heli',c,ps,s} / {t:'heli',c,win:1} (todos en el helipuerto con los 4 tesoros = victoria). Roles IS_R (Piloto vuela una vez por turno, Ingeniera achica 2 por acción —eg—, Exploradora en diagonal, Buceador cruza inundadas/hundidas, Mensajera da cartas a distancia, Navegante mueve a otros hasta 2). Se pierde (lost) con el agua en 10, el helipuerto hundido, los dos templos de un tesoro sin capturar hundidos o alguien sin poder nadar. Vista islaView compartida (solo: controla a todos; sala: solo su asiento). Prefijo is-. */
+(function(){const s=document.createElement("style");s.textContent=`/* La isla sumergida: clases con prefijo is- */
+:root{--is-hl:#f08c00;--is-sand:#ecdcab;--is-sand2:#d9c487;--is-fl:#86b6ea;--is-fl2:#5d95d6;--is-sea:color-mix(in srgb,#2f7fd0 16%,var(--surface));--is-tx:#3a2f14}
+:root[data-theme="dark"]{--is-hl:#ffc44d;--is-sand:#7a6a3e;--is-sand2:#5f5230;--is-fl:#2f5f96;--is-fl2:#244c7c;--is-sea:color-mix(in srgb,#2f7fd0 14%,var(--bg));--is-tx:#f6ecd0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--is-hl:#ffc44d;--is-sand:#7a6a3e;--is-sand2:#5f5230;--is-fl:#2f5f96;--is-fl2:#244c7c;--is-sea:color-mix(in srgb,#2f7fd0 14%,var(--bg));--is-tx:#f6ecd0}}
+.is{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:560px;container-type:inline-size;margin:0 auto;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.is-cn{display:flex;flex-direction:column;justify-content:center;gap:3px;padding:2px 4px;font-size:clamp(10px,2.8vw,13px);line-height:1.15;min-width:0}
+.is-cn.r{align-items:flex-end;text-align:right}
+.is-cn b{font-size:clamp(13px,3.8vw,17px)}
+.is-wm{display:flex;gap:2px}
+.is-wm i{width:clamp(5px,1.5vw,8px);height:12px;border-radius:2px;background:var(--line)}
+.is-wm i.f{background:#3d8be0}
+.is-wm i.d{background:#e8504b}
+.is-wm i.on{outline:2px solid var(--ink);outline-offset:1px}
+.is-tr{display:grid;grid-template-columns:repeat(2,auto);gap:2px 6px;font-size:clamp(17px,5vw,24px);line-height:1}
+.is-tr span{opacity:.25;filter:grayscale(1)}
+.is-tr span.got{opacity:1;filter:none}
+.is-dk{color:var(--muted);white-space:nowrap}
+.is-ap{display:flex;gap:3px;font-size:clamp(14px,4vw,18px);line-height:1}
+.is-ap i{font-style:normal;opacity:.25}
+.is-ap i.on{opacity:1}
+.is-log{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;align-items:center;min-height:20px;font-size:11px;color:var(--muted);width:100%}
+.is-lg{padding:1px 7px;border-radius:999px;background:var(--is-fl);color:var(--is-tx)}
+.is-lg.k{background:#e8504b;color:#fff}
+.is-lg.w{background:#3d8be0;color:#fff;font-weight:700}
+.is-bd{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr);gap:3px;width:calc(100% + 24px);margin-inline:-12px;height:min(calc(100cqw * 1.45),calc(100dvh - 340px));min-height:calc(100cqw * 1.02);padding:3px;border-radius:14px;background:var(--is-sea)}
+.is-t{position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:2px 3px;border-radius:8px;border:0;background:var(--is-sand);color:var(--is-tx);box-shadow:inset 0 -3px 0 var(--is-sand2);overflow:hidden;min-width:0;font:600 clamp(8px,2.45vw,12px)/1.12 var(--f-ui,inherit);text-align:left}
+.is-t.s1{background:repeating-linear-gradient(160deg,var(--is-fl) 0 6px,var(--is-fl2) 6px 8px);box-shadow:inset 0 -3px 0 var(--is-fl2)}
+.is-t.s2{background:transparent;box-shadow:none;border:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
+.is-tn{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:normal;word-break:normal;hyphens:manual}
+.is-tk{position:absolute;right:3px;bottom:4px;font-size:clamp(15px,5vw,24px);line-height:1}
+.is-tk.got{opacity:.3;filter:grayscale(1)}
+.is-pw{position:absolute;left:3px;bottom:5px;display:flex;flex-wrap:wrap;gap:2px;max-width:66%}
+.is-pw i{width:clamp(13px,4.4vw,20px);height:clamp(13px,4.4vw,20px);border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.is-t.hl{outline:3px solid var(--is-hl);outline-offset:-1px;cursor:pointer;animation:isPulse 1s ease-in-out infinite alternate}
+.is-t.fly{outline:3px dashed var(--is-hl);outline-offset:-1px;cursor:pointer}
+.is-t.src{outline:3px solid #2e9a52;outline-offset:-1px}
+.is-t.nw{animation:isNew .8s ease-out}
+@keyframes isPulse{to{outline-color:color-mix(in srgb,var(--is-hl) 35%,transparent)}}
+@keyframes isNew{0%{transform:scale(.8);filter:brightness(1.4)}100%{transform:scale(1);filter:none}}
+.is-msg{min-height:20px;text-align:center;font-weight:600;font-size:.86rem;line-height:1.25}
+.is-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:40px;width:100%}
+.is-bar .btn{min-height:38px;padding:6px 12px;font-size:.85rem}
+.is-bar .btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.is-pls{display:flex;flex-direction:column;gap:4px;width:100%}
+.is-pcs{display:flex;flex-wrap:wrap;gap:4px}
+.is-pc{display:flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;font-size:12px;max-width:100%;min-height:32px}
+.is-pc>i{width:11px;height:11px;border-radius:50%;background:var(--c);flex:none}
+.is-pc b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:9em}
+.is-pc span{font-size:14px;letter-spacing:1px;white-space:nowrap}
+.is-pc em{font-style:normal;color:var(--muted)}
+.is-pmin{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--muted);padding:0;flex:none}
+.is-pl{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:12px;border:2px solid var(--line);background:var(--surface);min-height:40px}
+.is-pl.on{border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 30%,transparent)}
+.is-pl>i{width:14px;height:14px;border-radius:50%;background:var(--c);flex:none;border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.is-pn{display:flex;flex-direction:column;min-width:0;flex:1;font-size:12px;line-height:1.15;background:none;border:0;padding:0;color:inherit;text-align:left}
+.is-pn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.is-pn small{color:var(--muted)}
+.is-hd{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end}
+.is-cd{width:30px;height:38px;border-radius:7px;border:1px solid var(--line);background:var(--bg);font-size:17px;line-height:1;display:grid;place-items:center;padding:0}
+.is-cd.k4,.is-cd.k5{background:color-mix(in srgb,var(--accent) 16%,var(--bg))}
+.is-cd:disabled{opacity:1;cursor:default}
+.is-cd.on{outline:3px solid var(--accent);outline-offset:1px;transform:translateY(-3px)}
+.is-cd.x{border-color:#e8504b;border-width:2px}
+.is-setup{max-width:420px;width:100%;margin:12px auto;display:flex;flex-direction:column;gap:10px}
+@media (prefers-reduced-motion: reduce){.is-t.hl,.is-t.nw{animation:none}}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== La isla sumergida · cooperativo 2-4 aventureros (solo o en sala) ===== */
+const IS_LV = [{ k: 'Novato', w: 1 }, { k: 'Normal', w: 2 }, { k: 'Experto', w: 3 }, { k: 'Leyenda', w: 4 }];
+const isDraw = w => w >= 8 ? 5 : w >= 6 ? 4 : w >= 3 ? 3 : 2;    /* cartas de inundación según el agua (1–9; 10 = se hunde todo) */
+const IS_K = [{ n: 'Tierra', t: 'tesoro de la Tierra', e: '⛰️' }, { n: 'Viento', t: 'tesoro del Viento', e: '🌪️' }, { n: 'Fuego', t: 'tesoro del Fuego', e: '🔥' }, { n: 'Agua', t: 'tesoro del Agua', e: '💧' }];
+const IS_CARD = ['Tierra', 'Viento', 'Fuego', 'Agua', 'Helicóptero', 'Saco de arena', 'Sube el agua'];
+const IS_CE = ['⛰️', '🌪️', '🔥', '💧', '🚁', '🧱', '🌊'];
+const IS_R = [
+  { n: 'Piloto', c: '#2f6ad8', d: 'Una vez por turno puede volar a cualquier casilla (1 acción). Si su casilla se hunde, vuela a cualquiera.' },
+  { n: 'Ingeniera', c: '#d6372d', d: 'Achica 2 casillas con una sola acción.' },
+  { n: 'Exploradora', c: '#2b9a4b', d: 'Se mueve, achica y nada también en diagonal.' },
+  { n: 'Buceador', c: '#0e8f8f', d: 'Con 1 acción atraviesa casillas inundadas o hundidas seguidas. Si su casilla se hunde, nada a la más cercana.' },
+  { n: 'Mensajera', c: '#c2408f', d: 'Da cartas de tesoro a cualquiera, esté donde esté.' },
+  { n: 'Navegante', c: '#d99a0c', d: 'Con 1 acción mueve a otro aventurero hasta 2 casillas.' }
+];
+/* casillas: n nombre, k tesoro (0–3, −1 ninguno), r rol que empieza ahí (−1 ninguno); la 0 es el helipuerto (y la salida del Piloto) */
+const IS_T = [
+  { n: 'Helipuerto', k: -1, r: 0 },
+  { n: 'Cueva de las Raíces', k: 0, r: -1 }, { n: 'Grieta de Piedra', k: 0, r: -1 },
+  { n: 'Mirador del Viento', k: 1, r: -1 }, { n: 'Cumbre de las Nubes', k: 1, r: -1 },
+  { n: 'Cráter Ardiente', k: 2, r: -1 }, { n: 'Cueva de Brasas', k: 2, r: -1 },
+  { n: 'Gruta de las Mareas', k: 3, r: -1 }, { n: 'Palacio de Coral', k: 3, r: -1 },
+  { n: 'Puerta de Bronce', k: -1, r: 1 }, { n: 'Puerta de Cobre', k: -1, r: 2 }, { n: 'Puerta de Hierro', k: -1, r: 3 },
+  { n: 'Puerta de Plata', k: -1, r: 4 }, { n: 'Puerta de Oro', k: -1, r: 5 },
+  { n: 'Playa Blanca', k: -1, r: -1 }, { n: 'Faro Viejo', k: -1, r: -1 }, { n: 'Pantano Brumoso', k: -1, r: -1 }, { n: 'Duna Dorada', k: -1, r: -1 },
+  { n: 'Acantilado Gris', k: -1, r: -1 }, { n: 'Laguna Azul', k: -1, r: -1 }, { n: 'Muelle Roto', k: -1, r: -1 }, { n: 'Torre de Vigía', k: -1, r: -1 },
+  { n: 'Valle Escondido', k: -1, r: -1 }, { n: 'Puente de Cuerda', k: -1, r: -1 }
+];
+/* huecos de la isla en una rejilla 6×6 (filas de 2, 4, 6, 6, 4 y 2) */
+const IS_GRID = [[0, 2], [0, 3], [1, 1], [1, 2], [1, 3], [1, 4], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [4, 1], [4, 2], [4, 3], [4, 4], [5, 2], [5, 3]];
+const IS_AT = (() => { const m = Array(36).fill(-1); IS_GRID.forEach(([r, c], s) => { m[r * 6 + c] = s; }); return m; })();
+const isNb = (s, D) => { const [r, c] = IS_GRID[s], o = []; for (const [a, b] of D) { const R = r + a, C = c + b; if (R >= 0 && R < 6 && C >= 0 && C < 6 && IS_AT[R * 6 + C] >= 0) o.push(IS_AT[R * 6 + C]); } return o; };
+const IS_ADJ = IS_GRID.map((_, s) => isNb(s, [[-1, 0], [0, 1], [1, 0], [0, -1]])), IS_DIA = IS_GRID.map((_, s) => isNb(s, [[-1, -1], [-1, 1], [1, -1], [1, 1]]));
+const isShuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+/* reglas puras sobre el estado S (motor o vista pública: pl, tl, ts, got, pf) */
+const isAlive = (S, s) => Number.isInteger(s) && s >= 0 && s < 24 && S.ts[s] < 2;
+const isHeli = S => S.tl.indexOf(0);
+function isMoveT(S, i) {                 /* {n: destinos normales, f: vuelo del Piloto} */
+  const P = S.pl[i], p = P.pos, n = new Set();
+  IS_ADJ[p].forEach(s => { if (isAlive(S, s)) n.add(s); });
+  if (P.role === 2) IS_DIA[p].forEach(s => { if (isAlive(S, s)) n.add(s); });
+  if (P.role === 3) { const seen = new Set([p]), q = [p]; while (q.length) { const x = q.shift(); for (const y of IS_ADJ[x]) if (!seen.has(y)) { seen.add(y); if (isAlive(S, y)) n.add(y); if (S.ts[y] >= 1) q.push(y); } } }
+  n.delete(p);
+  const f = []; if (P.role === 0 && !S.pf) for (let s = 0; s < 24; s++) if (s !== p && isAlive(S, s) && !n.has(s)) f.push(s);
+  return { n: [...n], f };
+}
+const isShoreT = (S, i) => { const P = S.pl[i], p = P.pos; return [p, ...IS_ADJ[p], ...(P.role === 2 ? IS_DIA[p] : [])].filter(s => S.ts[s] === 1); };
+function isSwimT(S, i) {
+  const P = S.pl[i], p = P.pos;
+  if (P.role === 0) { const a = []; for (let s = 0; s < 24; s++) if (s !== p && isAlive(S, s)) a.push(s); return a; }
+  if (P.role === 3) {                    /* Buceador: la casilla más cercana, pase lo que pase en medio */
+    const d = Array(24).fill(-1), q = [p], out = []; let best = -1; d[p] = 0;
+    while (q.length) { const x = q.shift(); if (best >= 0 && d[x] > best) break; if (x !== p && isAlive(S, x)) { best = d[x]; out.push(x); continue; } for (const y of IS_ADJ[x]) if (d[y] < 0) { d[y] = d[x] + 1; q.push(y); } }
+    return out;
+  }
+  return [...IS_ADJ[p], ...(P.role === 2 ? IS_DIA[p] : [])].filter(s => isAlive(S, s));
+}
+const isNavT = (S, j) => { const p = S.pl[j].pos, o = new Set(); for (const a of IS_ADJ[p]) if (isAlive(S, a)) { o.add(a); for (const b of IS_ADJ[a]) if (isAlive(S, b)) o.add(b); } o.delete(p); return [...o]; };
+const isGiveT = (S, i) => S.pl.map((_, j) => j).filter(j => j !== i && (S.pl[i].role === 4 || S.pl[j].pos === S.pl[i].pos));
+const isCap = (S, i) => { const k = IS_T[S.tl[S.pl[i].pos]].k; return k >= 0 && !S.got[k] && S.pl[i].hand.filter(c => c === k).length >= 4 ? k : -1; };
+const isCanWin = S => { const h = isHeli(S); return S.got.every(Boolean) && S.ts[h] < 2 && S.pl.every(P => P.pos === h); };
+const IS_KEYS = ['tl', 'ts', 'pl', 'fdeck', 'fdisc', 'tdeck', 'tdisc', 'lf', 'ev', 'lv', 'w', 'got', 't', 'acts', 'pf', 'eg', 'ph', 'stg', 'td', 'fl', 'pd', 'sw', 'over', 'won', 'why', 'seq'];
+const isErr = err => ({ ok: false, err });
+
+class IsGame {
+  constructor(players, saved, opts) {
+    const n = players.length, lv = Math.max(0, Math.min(3, opts && opts.lv != null ? +opts.lv || 0 : 1));
+    this.tl = isShuf([...Array(24).keys()]); this.ts = Array(24).fill(0);
+    const roles = isShuf([0, 1, 2, 3, 4, 5]).slice(0, n);
+    this.pl = players.map((p, i) => ({ name: p.name, role: roles[i], pos: this.tl.findIndex(id => IS_T[id].r === roles[i]), hand: [] }));
+    this.fdeck = isShuf([...Array(24).keys()]); this.fdisc = []; this.lf = []; this.ev = [];
+    for (let k = 0; k < 6; k++) { const s = this.fdeck.pop(); this.ts[s] = 1; this.fdisc.push(s); this.lf.push([s, 1]); }
+    const td = [4, 4, 4, 5, 5]; for (let k = 0; k < 4; k++) for (let j = 0; j < 5; j++) td.push(k);
+    this.tdeck = isShuf(td); this.tdisc = [];
+    this.pl.forEach(P => { P.hand.push(this.tdeck.pop(), this.tdeck.pop()); });
+    this.tdeck = isShuf(this.tdeck.concat([6, 6, 6]));    /* «Sube el agua» no sale en el reparto inicial */
+    this.lv = lv; this.w = IS_LV[lv].w; this.got = [0, 0, 0, 0];
+    this.t = 0; this.acts = 3; this.pf = 0; this.eg = 0; this.ph = 'act'; this.stg = 'act'; this.td = 0; this.fl = 0; this.pd = -1; this.sw = [];
+    this.over = false; this.won = false; this.why = ''; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.ph === 'act' ? this.t : this.pd; }
+  setStart(s) { this.t = s; }
+  save() { const o = {}; IS_KEYS.forEach(k => { o[k] = this[k]; }); o.players = this.pl.map(p => ({ name: p.name })); return JSON.parse(JSON.stringify(o)); }
+  act(i, a) {
+    if (this.over) return isErr('La partida ha terminado');
+    const P = this.pl[i]; if (!P || !a || typeof a.t !== 'string') return isErr('Jugada no válida');
+    const r = a.t === 'sb' || a.t === 'heli' ? this.special(i, P, a) : a.t === 'dc' ? this.discard(i, P, a) : a.t === 'sw' ? this.swim(i, P, a) : this.turnAct(i, P, a);
+    if (!r.ok) return r;
+    this.advance(); this.seq++; return { ok: true };
+  }
+  special(i, P, a) {
+    if (this.ph !== 'act' && this.ph !== 'disc') return isErr('Ahora no se pueden usar cartas');
+    const c = a.c, card = a.t === 'sb' ? 5 : 4;
+    if (!Number.isInteger(c) || P.hand[c] !== card) return isErr('Carta no válida');
+    if (a.t === 'sb') {
+      if (!isAlive(this, a.s) || this.ts[a.s] !== 1) return isErr('Elige una casilla inundada');
+      this.ev = [{ k: 'sh', s: a.s }]; this.ts[a.s] = 0;
+    } else if (a.win) {
+      if (!isCanWin(this)) return isErr('Hace falta estar todos en el helipuerto con los 4 tesoros');
+      this.ev = [{ k: 'win' }]; this.over = true; this.won = true;
+    } else {
+      const ps = a.ps;
+      if (!Array.isArray(ps) || !ps.length || ps.length > this.pl.length || new Set(ps).size !== ps.length || !ps.every(j => Number.isInteger(j) && this.pl[j])) return isErr('Elige a quién llevar');
+      const f = this.pl[ps[0]].pos;
+      if (!ps.every(j => this.pl[j].pos === f)) return isErr('Solo vuelan juntos los de una misma casilla');
+      if (!isAlive(this, a.s) || a.s === f) return isErr('Elige otra casilla');
+      this.ev = [{ k: 'heli', ps, s: a.s }]; ps.forEach(j => { this.pl[j].pos = a.s; });
+    }
+    P.hand.splice(c, 1); this.tdisc.push(card); return { ok: true };
+  }
+  discard(i, P, a) {
+    if (this.ph !== 'disc' || this.pd !== i) return isErr('Ahora no puedes descartar');
+    if (!Number.isInteger(a.c) || a.c < 0 || a.c >= P.hand.length) return isErr('Carta no válida');
+    this.ev = []; this.tdisc.push(P.hand.splice(a.c, 1)[0]); return { ok: true };
+  }
+  swim(i, P, a) {
+    if (this.ph !== 'swim' || this.sw[0] !== i) return isErr('Ahora no tienes que nadar');
+    if (!isSwimT(this, i).includes(a.s)) return isErr('No puedes nadar ahí');
+    this.ev = [{ k: 'mv', p: i, s: a.s }]; P.pos = a.s; this.sw.shift(); return { ok: true };
+  }
+  turnAct(i, P, a) {
+    if (this.ph !== 'act') return isErr(this.ph === 'disc' ? 'Antes hay que descartar' : 'Antes hay que nadar');
+    if (i !== this.t) return isErr('No es tu turno');
+    const free = P.role === 1 && this.eg && a.t === 'sh';
+    if (a.t === 'end') { this.ev = []; this.stg = 'td'; this.td = 2; this.eg = 0; return { ok: true }; }
+    if (this.acts <= 0 && !free) return isErr('No te quedan acciones');
+    if (a.t === 'mv') {
+      const T = isMoveT(this, i), fly = !T.n.includes(a.s) && T.f.includes(a.s);
+      if (!T.n.includes(a.s) && !fly) return isErr('No puedes ir ahí');
+      if (fly) this.pf = 1;
+      this.ev = [{ k: 'mv', p: i, s: a.s }]; P.pos = a.s;
+    } else if (a.t === 'sh') {
+      if (!isShoreT(this, i).includes(a.s)) return isErr('Ahí no hay nada que achicar');
+      this.ev = [{ k: 'sh', s: a.s }]; this.ts[a.s] = 0;
+      if (free) { this.eg = 0; return { ok: true }; }
+      this.acts--; this.eg = P.role === 1 ? 1 : 0; return { ok: true };
+    } else if (a.t === 'nav') {
+      if (P.role !== 5) return isErr('Solo la Navegante puede mover a otros');
+      if (!Number.isInteger(a.p) || a.p === i || !this.pl[a.p]) return isErr('Elige a quién mover');
+      if (!isNavT(this, a.p).includes(a.s)) return isErr('No puede ir ahí');
+      this.ev = [{ k: 'mv', p: a.p, s: a.s }]; this.pl[a.p].pos = a.s;
+    } else if (a.t === 'gv') {
+      if (!isGiveT(this, i).includes(a.p)) return isErr('Para dar una carta tenéis que estar en la misma casilla');
+      if (!Number.isInteger(a.c) || !(P.hand[a.c] >= 0 && P.hand[a.c] <= 3)) return isErr('Solo se pueden dar cartas de tesoro');
+      this.ev = [{ k: 'gv', p: i, to: a.p }]; this.pl[a.p].hand.push(P.hand.splice(a.c, 1)[0]);
+    } else if (a.t === 'cap') {
+      const k = isCap(this, i); if (k < 0) return isErr('Necesitas 4 cartas del tesoro y estar en uno de sus templos');
+      this.ev = [{ k: 'cap', p: i, c: k }]; let n = 4; P.hand = P.hand.filter(c => { if (c === k && n > 0) { n--; this.tdisc.push(c); return false; } return true; }); this.got[k] = 1;
+    } else return isErr('Jugada no válida');
+    this.acts--; this.eg = 0; return { ok: true };
+  }
+  lost() {
+    if (this.w >= 10) return 'El agua ha llegado a lo más alto';
+    if (this.ts[isHeli(this)] === 2) return 'Se ha hundido el helipuerto';
+    for (let k = 0; k < 4; k++) if (!this.got[k] && this.tl.every((id, s) => IS_T[id].k !== k || this.ts[s] === 2)) return 'Se han hundido los dos templos del ' + IS_K[k].t;
+    return '';
+  }
+  drawT() {
+    if (!this.tdeck.length) { this.tdeck = isShuf(this.tdisc); this.tdisc = []; }
+    const c = this.tdeck.pop(); if (c == null) return;
+    if (c === 6) { this.w++; this.ev.push({ k: 'wr' }); this.fdeck = this.fdeck.concat(isShuf(this.fdisc)); this.fdisc = []; this.tdisc.push(6); }
+    else this.pl[this.t].hand.push(c);
+  }
+  drawF() {
+    if (!this.fdeck.length) { this.fdeck = isShuf(this.fdisc); this.fdisc = []; }
+    const s = this.fdeck.pop(); if (s == null) return;
+    if (this.ts[s] === 0) { this.ts[s] = 1; this.fdisc.push(s); this.lf.push([s, 1]); this.ev.push({ k: 'fl', s }); }
+    else { this.ts[s] = 2; this.lf.push([s, 2]); this.ev.push({ k: 'sk', s }); this.pl.forEach((P, j) => { if (P.pos === s) this.sw.push(j); }); }
+  }
+  /* encadena lo automático: descartes pendientes, nadar, robar, inundar y pasar turno */
+  advance() {
+    for (let g = 0; g < 200; g++) {
+      if (this.over) return;
+      const why = this.lost(); if (why) { this.over = true; this.why = why; return; }
+      const o = this.pl.findIndex(P => P.hand.length > 5);
+      if (o >= 0) { this.ph = 'disc'; this.pd = o; return; }
+      if (this.sw.length) {
+        const j = this.sw[0];
+        if (!isSwimT(this, j).length) { this.over = true; this.why = this.pl[j].name + ' no ha podido salvarse'; return; }
+        this.ph = 'swim'; this.pd = j; return;
+      }
+      this.pd = -1;
+      if (this.stg === 'act') {
+        this.ph = 'act'; const P = this.pl[this.t];
+        if (this.acts <= 0 && !(P.role === 1 && this.eg && isShoreT(this, this.t).length)) { this.stg = 'td'; this.td = 2; this.eg = 0; continue; }
+        return;
+      }
+      if (this.stg === 'td') { if (this.td > 0) { this.td--; this.drawT(); continue; } this.stg = 'fl'; this.fl = isDraw(this.w); this.lf = []; continue; }
+      if (this.fl > 0) { this.fl--; this.drawF(); continue; }
+      this.t = (this.t + 1) % this.pl.length; this.acts = 3; this.pf = 0; this.eg = 0; this.stg = 'act';
+    }
+  }
+  view() {
+    const pub = { nt: this.tdeck.length, nf: this.fdeck.length };
+    ['tl', 'ts', 'pl', 'got', 'w', 'lv', 't', 'acts', 'pf', 'eg', 'ph', 'pd', 'sw', 'over', 'won', 'why', 'seq', 'lf', 'ev'].forEach(k => { pub[k] = this[k]; });
+    return { pub: JSON.parse(JSON.stringify(pub)), priv: {} };
+  }
+  botSeat() { return -1; }
+  bot() { }
+  toHuman(i, name) { this.pl[i].name = name; }
+  result() {
+    return {
+      win: 0, winners: this.won ? this.pl.map((_, i) => i) : [], tie: false, title: this.won ? 'Ganan todos' : 'Ganan las aguas',
+      rows: this.pl.map(P => ({ name: P.name, note: IS_R[P.role].n, pts: this.won ? 1 : 0, txt: this.won ? '✓' : '✗' }))
+    };
+  }
+}
+
+/* ----- Vista compartida: o = { solo, me, send(a, asiento), tone, toast, again? } ----- */
+function islaView(el, o) {
+  const V = { S: null, mode: 'mv', sel: null, nav: -1, hf: -1, hps: [], pend: false, open: new Set(), tap: null };   /* tap: último toque de carta (doble toque) */   /* open: aventureros desplegados a mano */
+  el.innerHTML = '<div class="is"><div class="is-log"></div><div class="is-bd"></div><div class="is-msg"></div><div class="is-bar"></div><div class="is-pls"></div></div>';
+  const q = s => el.querySelector(s), root = q('.is'), log = q('.is-log'), bd = q('.is-bd'), msg = q('.is-msg'), bar = q('.is-bar'), pls = q('.is-pls');
+  const ctl = i => i >= 0 && !V.pend && (o.solo || i === o.me);
+  const who = i => { const P = V.S.pl[i]; return o.solo ? '<b>' + IS_R[P.role].n + '</b>' : '<b translate="no">' + esc(i === o.me ? 'Tú' : P.name) + '</b>'; };
+  const sp = t => '<span>' + t + '</span>';
+  const T = o.tone, snd = k => {
+    if (k === 'mv') T(520, .05, 'triangle', 0, .06);
+    else if (k === 'sh') { T(700, .06, 'sine', 0, .06); T(900, .06, 'sine', .05, .05); }
+    else if (k === 'fl') T(260, .18, 'sine', 0, .06);
+    else if (k === 'sk') { T(220, .2, 'sawtooth', 0, .05); T(140, .3, 'sine', .12, .08); }
+    else if (k === 'wr') { T(90, .45, 'sawtooth', 0, .06); T(120, .4, 'sine', .1, .06); }
+    else if (k === 'cap' || k === 'win') { T(660, .1, 'sine', 0, .08); T(880, .12, 'sine', .09, .08); T(1100, .16, 'sine', .18, .07); }
+    else if (k === 'heli') T(330, .25, 'square', 0, .03);
+    else if (k === 'bad') T(150, .2, 'sawtooth', 0, .05);
+  };
+  const resetSel = () => { V.sel = null; V.hf = -1; V.hps = []; if (V.mode === 'sb' || V.mode === 'heli') V.mode = 'mv'; };
+  function send(a, seat) { V.pend = true; resetSel(); o.send(a, seat); }
+  function targets() {
+    const S = V.S, tg = new Set(), fly = new Set();
+    if (S.over) return { tg, fly };
+    if (S.ph === 'swim') { if (ctl(S.pd)) isSwimT(S, S.pd).forEach(s => tg.add(s)); return { tg, fly }; }
+    if (V.sel && V.mode === 'sb') { for (let s = 0; s < 24; s++) if (S.ts[s] === 1) tg.add(s); return { tg, fly }; }
+    if (V.sel && V.mode === 'heli') {
+      if (V.hf < 0) S.pl.forEach(P => tg.add(P.pos)); else for (let s = 0; s < 24; s++) if (s !== V.hf && isAlive(S, s)) tg.add(s);
+      return { tg, fly };
+    }
+    if (S.ph !== 'act' || !ctl(S.t) || V.sel) return { tg, fly };
+    const cando = S.acts > 0;
+    if (V.mode === 'mv' && cando) { const m = isMoveT(S, S.t); m.n.forEach(s => tg.add(s)); m.f.forEach(s => fly.add(s)); }
+    else if (V.mode === 'sh' && (cando || (S.eg && S.pl[S.t].role === 1))) isShoreT(S, S.t).forEach(s => tg.add(s));
+    else if (V.mode === 'nav' && V.nav >= 0 && cando) isNavT(S, V.nav).forEach(s => tg.add(s));
+    return { tg, fly };
+  }
+  /* ¿qué se puede hacer con la carta c del jugador p? */
+  function cardOps(p, c) {
+    const S = V.S, card = S.pl[p].hand[c], ops = [];
+    if (S.over || !ctl(p) || (S.ph !== 'act' && S.ph !== 'disc')) return ops;
+    if (card >= 4 && card <= 5) ops.push('use');
+    if (card <= 3 && S.ph === 'act' && p === S.t && S.acts > 0) isGiveT(S, p).forEach(j => ops.push('gv' + j));
+    if (S.ph === 'disc' && p === S.pd) ops.push('dc');
+    return ops;
+  }
+  function render(fresh) {
+    const S = V.S; if (!S) return;
+    const { tg, fly } = targets(), nw = new Set(fresh ? S.ev.filter(e => e.k === 'fl' || e.k === 'sk').map(e => e.s) : []);
+    /* esquinas vacías del rombo: agua, tesoros, mazos y acciones del turno */
+    let wm = ''; for (let k = 1; k <= 10; k++) wm += '<i class="' + (k === 10 ? 'd' : k <= S.w ? 'f' : '') + (k === S.w ? ' on' : '') + '"></i>';
+    const cn = (r, c, cls, h) => '<div class="is-cn' + cls + '" style="grid-area:' + r + '/' + c + '/span 1/span 2">' + h + '</div>';
+    const acts = S.over || S.ph !== 'act' ? '' : '<span class="is-dk">' + sp('Acciones') + '</span><span class="is-ap">' + [0, 1, 2].map(k => '<i class="' + (k < S.acts ? 'on' : '') + '">⚡</i>').join('') + '</span>';
+    const corners = cn(1, 1, '', '<b>🌊 ' + S.w + '<span class="is-dk">/10</span></b><span class="is-wm" aria-label="Nivel del agua ' + S.w + '">' + wm + '</span><span class="is-dk">' + sp('Inunda ' + isDraw(S.w)) + '</span>') +
+      cn(1, 5, ' r', '<div class="is-tr">' + IS_K.map((k, i) => '<span class="' + (S.got[i] ? 'got' : '') + '" title="' + k.t + '">' + k.e + '</span>').join('') + '</div>') +
+      cn(6, 1, '', '<span title="Mazo de tesoro">🃏 ' + S.nt + '</span><span title="Mazo de inundación">🌊 ' + S.nf + '</span>') + cn(6, 5, ' r', acts);
+    /* última inundación */
+    const lg = S.lf.map(([s, k]) => '<span class="is-lg' + (k === 2 ? ' k' : '') + '">' + IS_T[S.tl[s]].n + '</span>').join('');
+    log.innerHTML = (fresh && S.ev.some(e => e.k === 'wr') ? '<span class="is-lg w">¡Sube el agua!</span>' : '') + (lg ? sp('Inundación:') + lg : '');
+    /* tablero */
+    Flip.wrap(bd, () => {
+      let h = corners;
+      for (let x = 0; x < 36; x++) {
+        const s = IS_AT[x]; if (s < 0) continue;
+        const ga = ' style="grid-area:' + (x / 6 + 1 | 0) + '/' + (x % 6 + 1) + '"';
+        const st = S.ts[s], t = IS_T[S.tl[s]];
+        const pw = S.pl.map((P, j) => P.pos === s ? '<i data-fk="p' + j + '" style="--c:' + IS_R[P.role].c + '" title="' + IS_R[P.role].n + '"></i>' : '').join('');
+        if (st === 2) { h += '<div class="is-t s2' + (nw.has(s) ? ' nw' : '') + '"' + ga + '><span class="is-pw">' + pw + '</span></div>'; continue; }
+        const ic = t.k >= 0 ? '<span class="is-tk' + (S.got[t.k] ? ' got' : '') + '">' + IS_K[t.k].e + '</span>' : S.tl[s] === 0 ? '<span class="is-tk">🚁</span>' : '';
+        const cl = (tg.has(s) ? ' hl' : fly.has(s) ? ' fly' : '') + (V.hf === s ? ' src' : '') + (nw.has(s) ? ' nw' : '');
+        h += '<button class="is-t s' + st + cl + '" data-s="' + s + '"' + ga + '><span class="is-tn">' + t.n + '</span>' + ic + '<span class="is-pw">' + pw + '</span></button>';
+      }
+      bd.innerHTML = h;
+    });
+    /* aventureros y sus cartas (todas a la vista: es cooperativo) */
+    const on = S.over ? -1 : S.ph === 'act' ? S.t : S.pd;
+    const big = j => j === on || (!o.solo && j === o.me) || V.open.has(j);
+    const nm = (P, j) => o.solo ? '<b>' + IS_R[P.role].n + '</b>' : '<b translate="no">' + esc(j === o.me ? 'Tú' : P.name) + '</b>';
+    const chips = S.pl.map((P, j) => big(j) ? '' : '<button class="is-pc" data-o="' + j + '" style="--c:' + IS_R[P.role].c + '"><i></i>' + nm(P, j) + (o.solo ? '' : '<em>' + IS_R[P.role].n + '</em>') + '<span>' + (P.hand.map(c => IS_CE[c]).join('') || '–') + '</span></button>').join('');
+    pls.innerHTML = S.pl.map((P, j) => {
+      if (!big(j)) return '';
+      const hd = P.hand.map((c, k) => { const ok = cardOps(j, k).length > 0, sel = V.sel && V.sel.p === j && V.sel.c === k; return '<button class="is-cd k' + c + (sel ? ' on' : '') + (S.ph === 'disc' && S.pd === j ? ' x' : '') + '" data-p="' + j + '" data-c="' + k + '" title="' + IS_CARD[c] + '"' + (ok ? '' : ' disabled') + '>' + IS_CE[c] + '</button>'; }).join('');
+      return '<div class="is-pl' + (j === on ? ' on' : '') + '" style="--c:' + IS_R[P.role].c + '"><i></i><button class="is-pn" data-r="' + P.role + '">' + (o.solo ? '<b>' + IS_R[P.role].n + '</b>' : '<b translate="no">' + esc(j === o.me ? 'Tú' : P.name) + '</b><small>' + IS_R[P.role].n + '</small>') + '</button><span class="is-hd">' + hd + '</span>' + (V.open.has(j) && j !== on ? '<button class="is-pmin" data-oc="' + j + '" aria-label="Plegar">▴</button>' : '') + '</div>';
+    }).join('') + (chips ? '<div class="is-pcs">' + chips + '</div>' : '');
+    /* mensaje y botones */
+    let m = '', b = '';
+    if (S.over) {
+      m = S.won ? sp('¡Habéis escapado de la isla con los 4 tesoros!') : sp('Se acabó:') + ' <span>' + esc(S.why) + '</span>';
+      if (o.again) b = '<button class="btn primary" data-i="again">Jugar otra vez</button>';
+    } else if (V.sel) {
+      const P = S.pl[V.sel.p], card = P.hand[V.sel.c], ops = cardOps(V.sel.p, V.sel.c);
+      if (V.mode === 'sb') m = sp('Toca la casilla inundada que quieres achicar');
+      else if (V.mode === 'heli') m = sp(V.hf < 0 ? 'Toca la casilla de los que van a volar' : 'Toca la casilla de destino');
+      else m = sp(IS_CARD[card]);
+      if (V.mode === 'heli' && V.hf >= 0) S.pl.forEach((Q, j) => { if (Q.pos === V.hf) b += '<button class="btn" data-i="hp" data-p="' + j + '" aria-pressed="' + V.hps.includes(j) + '">' + IS_R[Q.role].n + '</button>'; });
+      if (V.mode !== 'sb' && V.mode !== 'heli') {
+        ops.forEach(op => {
+          if (op === 'use') { b += '<button class="btn primary" data-i="use">Usar</button>'; if (card === 4 && isCanWin(S)) b += '<button class="btn primary" data-i="win">¡Despegar!</button>'; }
+          else if (op === 'dc') b += '<button class="btn" data-i="dc">Descartar</button>';
+          else { const j = +op.slice(2); b += '<button class="btn" data-i="gv" data-p="' + j + '"><span>Dar a</span> ' + who(j) + '</button>'; }
+        });
+      }
+      b += '<button class="btn" data-i="x">Cancelar</button>';
+    } else if (S.ph === 'swim') m = who(S.pd) + ' ' + sp(ctl(S.pd) ? 'tiene que nadar: toca una casilla resaltada' : 'tiene que nadar…');
+    else if (S.ph === 'disc') m = who(S.pd) + ' ' + sp(ctl(S.pd) ? 'tiene más de 5 cartas: descarta una o usa una especial' : 'tiene que descartar una carta…');
+    else if (!ctl(S.t)) m = who(S.t) + ' ' + sp(V.pend ? '…' : 'está jugando…');
+    else {
+      const P = S.pl[S.t], free = P.role === 1 && S.eg;
+      m = who(S.t) + ' · ' + sp(S.acts <= 0 && free ? 'Puedes achicar otra casilla gratis' : V.mode === 'sh' ? 'Toca una casilla inundada' : V.mode === 'nav' ? (V.nav < 0 ? 'Elige a quién mover' : 'Toca adónde llevarlo') : 'Toca adónde moverte');
+      const btn = (k, t, x) => '<button class="btn" data-i="' + k + '" aria-pressed="' + (V.mode === k) + '"' + (x ? '' : ' disabled') + '>' + t + '</button>';
+      b = btn('mv', 'Mover', S.acts > 0) + btn('sh', 'Achicar', isShoreT(S, S.t).length && (S.acts > 0 || free)) + (P.role === 5 ? btn('nav', 'Guiar', S.acts > 0) : '');
+      if (isCap(S, S.t) >= 0) b += '<button class="btn primary" data-i="cap"><span>Capturar</span> ' + IS_K[isCap(S, S.t)].e + '</button>';
+      b += '<button class="btn" data-i="end">Terminar turno</button>';
+      if (V.mode === 'nav') S.pl.forEach((Q, j) => { if (j !== S.t) b += '<button class="btn" data-i="np" data-p="' + j + '" aria-pressed="' + (V.nav === j) + '">' + IS_R[Q.role].n + '</button>'; });
+    }
+    msg.innerHTML = m; bar.innerHTML = b;
+  }
+  function onClick(e) {
+    const S = V.S; if (!S) return;
+    const pc = e.target.closest('[data-o]'); if (pc) { V.open.add(+pc.dataset.o); render(); return; }
+    const pm = e.target.closest('[data-oc]'); if (pm) { V.open.delete(+pm.dataset.oc); render(); return; }
+    const rb = e.target.closest('.is-pn'); if (rb) { const R = IS_R[+rb.dataset.r]; o.toast(R.n + ': ' + R.d); return; }
+    const cd = e.target.closest('.is-cd');
+    if (cd && !cd.disabled) {
+      const p = +cd.dataset.p, c = +cd.dataset.c, now = Date.now(), dbl = V.tap && V.tap.p === p && V.tap.c === c && now - V.tap.t < 400;
+      V.tap = dbl ? null : { p, c, t: now };
+      if (dbl) {                         /* doble toque, como en los juegos de cartas: descartar (si toca) o usar la especial */
+        const ops = cardOps(p, c), card = S.pl[p].hand[c];
+        if (ops.includes('dc')) { send({ t: 'dc', c }, p); return; }
+        if (ops.includes('use')) { resetSel(); V.sel = { p, c }; V.mode = card === 4 ? 'heli' : 'sb'; render(); return; }
+      }
+      if (V.sel && V.sel.p === p && V.sel.c === c) resetSel(); else { resetSel(); V.sel = { p, c }; } render(); return;
+    }
+    const bt = e.target.closest('[data-i]');
+    if (bt) {
+      const k = bt.dataset.i;
+      if (k === 'again') { o.again(); return; }
+      if (k === 'x') { resetSel(); render(); return; }
+      if (V.sel) {
+        const { p, c } = V.sel, card = S.pl[p].hand[c];
+        if (k === 'use') { V.mode = card === 4 ? 'heli' : 'sb'; render(); }
+        else if (k === 'win') send({ t: 'heli', c, win: 1 }, p);
+        else if (k === 'dc') send({ t: 'dc', c }, p);
+        else if (k === 'gv') send({ t: 'gv', p: +bt.dataset.p, c }, p);
+        else if (k === 'hp') { const j = +bt.dataset.p; V.hps = V.hps.includes(j) ? V.hps.filter(x => x !== j) : V.hps.concat(j); render(); }
+        return;
+      }
+      if (k === 'mv' || k === 'sh' || k === 'nav') { V.mode = k; V.nav = -1; render(); }
+      else if (k === 'np') { V.nav = +bt.dataset.p; render(); }
+      else if (k === 'cap') send({ t: 'cap' }, S.t);
+      else if (k === 'end') send({ t: 'end' }, S.t);
+      return;
+    }
+    const tl = e.target.closest('.is-t[data-s]'); if (!tl) return;
+    const s = +tl.dataset.s, { tg, fly } = targets();
+    if (V.sel && V.mode === 'heli' && V.hf < 0) { if (tg.has(s)) { V.hf = s; V.hps = S.pl.map((P, j) => P.pos === s ? j : -1).filter(j => j >= 0); render(); } return; }
+    if (V.sel && V.mode === 'heli' && s === V.hf) { V.hf = -1; V.hps = []; render(); return; }
+    if (!tg.has(s) && !fly.has(s)) return;
+    if (S.ph === 'swim') send({ t: 'sw', s }, S.pd);
+    else if (V.sel && V.mode === 'sb') send({ t: 'sb', c: V.sel.c, s }, V.sel.p);
+    else if (V.sel && V.mode === 'heli') { if (V.hps.length) send({ t: 'heli', c: V.sel.c, ps: V.hps.slice(), s }, V.sel.p); else o.toast('Elige al menos a un aventurero'); }
+    else if (V.mode === 'mv') send({ t: 'mv', s }, S.t);
+    else if (V.mode === 'sh') send({ t: 'sh', s }, S.t);
+    else if (V.mode === 'nav' && V.nav >= 0) send({ t: 'nav', p: V.nav, s }, S.t);
+  }
+  root.addEventListener('click', onClick);
+  return {
+    update(pub) {
+      const prev = V.S; V.S = pub; V.pend = false;
+      const fresh = !!prev && prev.seq !== pub.seq;
+      if (!prev || (prev.t !== pub.t) || pub.over) { V.mode = 'mv'; V.nav = -1; }
+      if (V.sel && (!pub.pl[V.sel.p] || pub.pl[V.sel.p].hand[V.sel.c] == null || !cardOps(V.sel.p, V.sel.c).length)) resetSel();
+      if (V.mode === 'sh' && pub.ph === 'act' && !isShoreT(pub, pub.t).length) V.mode = 'mv';
+      render(fresh);
+      if (fresh) {
+        const ks = pub.ev.map(e => e.k), pick = ['win', 'wr', 'sk', 'cap', 'heli', 'fl', 'sh', 'mv'].find(k => ks.includes(k));
+        if (pick) snd(pick);
+        if (pub.ph === 'swim' && ctl(pub.pd)) o.toast('¡Se hunde la casilla! Hay que nadar');
+      }
+    },
+    rejected(err) { V.pend = false; o.toast(String(err || 'Jugada no válida')); snd('bad'); render(); },
+    destroy() { root.removeEventListener('click', onClick); el.innerHTML = ''; }
+  };
+}
+
+/* sala: cada persona es un aventurero */
+function islaRoomMount(el, ctx) {
+  const v = islaView(el, { solo: false, me: ctx.me, send: a => ctx.send(a), tone: ctx.tone, toast: ctx.toast });
+  return { update: s => v.update(s.pub), rejected: e => v.rejected(e), destroy: () => v.destroy() };
+}
+/* solitario: tú llevas a todos los aventureros */
+function islaSoloMount(el, ctx) {
+  let E = null, v = null, recorded = false;
+  const setup = () => {
+    if (v) { v.destroy(); v = null; }
+    const n = [2, 3, 4].includes(store.get('isla-n')) ? store.get('isla-n') : 2;
+    el.innerHTML = '<div class="is-setup card"><h2>Aventureros</h2><div class="seg">' + [2, 3, 4].map(k => '<button data-isn="' + k + '" aria-pressed="' + (k === n) + '">' + k + '</button>').join('') + '</div>' +
+      '<p class="muted small" style="margin:0">Llevas a todos los aventureros: cada turno juegas con el que le toca. Los papeles se reparten al azar.</p>' +
+      '<p class="muted small" style="margin:0"><span>Nivel:</span> <span>' + IS_LV[ctx.level].k + '</span> · <span>' + ('El agua empieza en el ' + IS_LV[ctx.level].w) + '</span></p>' +
+      '<button class="btn primary" data-isgo>Empezar</button></div>';
+  };
+  const push = () => {
+    v.update(E.view().pub);
+    if (E.over) { ctx.save(null); if (!recorded) { recorded = true; ctx.record({ won: E.won, info: IS_LV[E.lv].k + ' · ' + E.pl.length + ' aventureros · ' + (E.won ? 'escapan con los 4 tesoros' : E.why) }); } }
+    else ctx.save(E.save());
+  };
+  const start = saved => {
+    el.innerHTML = '';
+    const n = saved ? saved.pl.length : (store.get('isla-n') || 2);
+    E = new IsGame(Array.from({ length: n }, () => ({ name: '' })), saved, { lv: ctx.level });
+    if (!saved) { E.pl.forEach(P => { P.name = IS_R[P.role].n; }); E.t = Math.floor(Math.random() * n); }
+    recorded = false;
+    v = islaView(el, { solo: true, me: -1, tone: ctx.tone, toast: ctx.toast, again: () => { ctx.save(null); setup(); },
+      send: (a, seat) => { const r = E.act(seat, a); if (!r.ok) v.rejected(r.err); else push(); } });
+    push();
+  };
+  const onClick = e => {
+    const b = e.target.closest('[data-isn]'); if (b) { store.set('isla-n', +b.dataset.isn); setup(); return; }
+    if (e.target.closest('[data-isgo]')) start(null);
+  };
+  el.addEventListener('click', onClick);
+  const sv = ctx.resume ? ctx.load() : null;
+  if (sv && sv.pl && !sv.over) start(sv); else setup();
+  return { destroy() { el.removeEventListener('click', onClick); if (v) v.destroy(); el.innerHTML = ''; } };
+}
+
+Hub.register({
+  id: 'isla', name: 'La isla sumergida', blurb: 'Cooperativo · rescatad los 4 tesoros · solo o en sala', min: 2, max: 4,
+  options: [{ k: 'lv', name: 'Dificultad', vals: IS_LV.map(l => l.k), def: 1, desc: IS_LV.map(l => 'El agua empieza en el nivel ' + l.w + '.') }],
+  single: { levels: IS_LV.map(l => l.k), def: 1, info: i => 'El agua empieza en el nivel ' + IS_LV[i].w + ' · llevas a 2, 3 o 4 aventureros' },
+  rules: '<ul>' +
+    '<li><b>Juego cooperativo:</b> todos ganáis o todos perdéis. La isla se hunde poco a poco: hay que recoger los <b>4 tesoros</b> (⛰️ Tierra, 🌪️ Viento, 🔥 Fuego y 💧 Agua) y escapar juntos en helicóptero desde el <b>Helipuerto</b> 🚁.</li>' +
+    '<li>En tu turno tienes <b>3 acciones</b> (puedes hacer menos y pulsar <b>Terminar turno</b>). Cada una puede ser: <b>Mover</b> a una casilla vecina (arriba, abajo, izquierda o derecha); <b>Achicar</b> una casilla inundada (azul) vecina o la tuya, que vuelve a quedar seca; <b>Dar</b> una carta de tesoro a quien esté en tu casilla (toca la carta); <b>Capturar</b> un tesoro: con 4 cartas suyas, en uno de sus dos templos (los que llevan su símbolo).</li>' +
+    '<li>Después robas <b>2 cartas de tesoro</b>. Si sale <b>Sube el agua</b> 🌊, el agua sube un nivel y las casillas ya inundadas vuelven encima del mazo de inundación (se repetirán pronto). Nadie puede tener más de <b>5 cartas</b>: descarta o usa una especial.</li>' +
+    '<li>Luego se roban cartas de <b>inundación</b> (las que marca el agua, de 2 a 5): una casilla seca se inunda y una inundada <b>se hunde</b> para siempre. Si estabas en ella, tienes que nadar a una vecina.</li>' +
+    '<li><b>Cartas especiales</b> (se usan en cualquier momento de las acciones, también en el turno de otro, y no gastan acción): <b>Helicóptero</b> 🚁 lleva a uno o varios aventureros de una misma casilla a cualquier otra; <b>Saco de arena</b> 🧱 achica cualquier casilla de la isla. Toca una carta para ver qué puedes hacer con ella; con <b>doble toque</b> la descartas (si tienes más de 5) o usas la especial directamente.</li>' +
+    '<li><b>Ganáis</b> cuando, con los 4 tesoros, estáis todos en el Helipuerto y alguien usa un Helicóptero (botón <b>¡Despegar!</b>). <b>Perdéis</b> si se hunde el Helipuerto, si se hunden los dos templos de un tesoro que aún no tenéis, si alguien no puede nadar a ninguna casilla o si el agua llega a la calavera.</li>' +
+    '<li><b>Aventureros</b> (toca el nombre para ver su habilidad): <b>Piloto</b> vuela una vez por turno a cualquier casilla; <b>Ingeniera</b> achica 2 casillas con una acción; <b>Exploradora</b> se mueve y achica en diagonal; <b>Buceador</b> atraviesa casillas inundadas o hundidas; <b>Mensajera</b> da cartas a cualquiera, esté donde esté; <b>Navegante</b> mueve a otro hasta 2 casillas (botón <b>Guiar</b>).</li>' +
+    '<li><b>Solo</b>: llevas a 2, 3 o 4 aventureros. <b>En sala</b> (2-4 personas, sin IA): cada uno lleva a uno y todos ven las cartas de todos. Dificultad: el agua empieza en el nivel 1 (Novato) a 4 (Leyenda).</li></ul>',
+  createEngine: (players, saved, opts) => new IsGame(players, saved, opts),
+  mount: islaRoomMount,
+  mountSingle: islaSoloMount
+});
+})();
+Mods.ok("isla");
+</script>
 <script type="text/plain" data-mod="en-ahorcado" data-deps="">
 /* CTX en-ahorcado: diccionario inglés (módulo ahorcado); ver core/i18n. */
 I18n.mod = "ahorcado";
@@ -15838,6 +16362,7 @@ I18n.add({
 I18n.add({ 'Código secreto': 'Code Breaker', 'Descifra el código de colores · solo o en sala': 'Crack the colour code · solo or in a room' });
 I18n.add({ 'Cartas de colores · 2 a 6 jugadores': 'Colour cards · 2 to 6 players' });
 I18n.add({ 'Loco': 'Loco' });
+I18n.add({ 'La isla sumergida': 'The Sunken Island', 'Cooperativo · rescatad los 4 tesoros · solo o en sala': 'Co-op · rescue the 4 treasures · solo or in a room', 'Ganan todos': 'Everyone wins', 'Ganan las aguas': 'The sea wins' });
 I18n.add({ 'Muros': 'Walls', 'Cruza el tablero entre muros · 2 a 4 jugadores': 'Cross the board between walls · 2 to 4 players' });
 /* buscador del inicio */
 I18n.add({ 'Buscar juego…': 'Search games…', 'Buscar juegos': 'Search games', 'Borrar búsqueda': 'Clear search' }, [[/^No hay juegos que coincidan con «(.+)»$/, 'No games match “$1”']]);
@@ -16300,6 +16825,102 @@ I18n.rules['hive'] = '<ul>' +
   '<li>If you have no possible move, you pass. Against the AI you can use <b>Undo</b> to cancel your last move and the reply.</li></ul>';
 I18n.mod = '';
 Mods.ok("en-hive");
+</script>
+<script type="text/plain" data-mod="en-isla" data-deps="">
+/* CTX en-isla: diccionario inglés (módulo isla); ver core/i18n. */
+I18n.mod = "isla";
+I18n.add({
+  'La isla sumergida': 'The Sunken Island',
+  'Cooperativo · rescatad los 4 tesoros · solo o en sala': 'Co-op · rescue the 4 treasures · solo or in a room',
+  'Dificultad': 'Difficulty', 'Novato': 'Novice', 'Normal': 'Normal', 'Experto': 'Expert', 'Leyenda': 'Legend',
+  'Aventureros': 'Adventurers',
+  'Llevas a todos los aventureros: cada turno juegas con el que le toca. Los papeles se reparten al azar.': 'You control every adventurer: each turn you play the one whose turn it is. Roles are dealt at random.',
+  'Nivel:': 'Level:', 'Empezar': 'Start',
+  'Agua': 'Water', 'Tierra': 'Earth', 'Viento': 'Wind', 'Fuego': 'Fire',
+  'tesoro de la Tierra': 'Earth treasure', 'tesoro del Viento': 'Wind treasure', 'tesoro del Fuego': 'Fire treasure', 'tesoro del Agua': 'Water treasure',
+  'Helicóptero': 'Helicopter', 'Saco de arena': 'Sandbag', 'Sube el agua': 'Waters rise',
+  'Inundación:': 'Flooding:', 'Acciones': 'Actions', 'Mazo de tesoro': 'Treasure deck', 'Mazo de inundación': 'Flood deck', 'Plegar': 'Collapse', '¡Sube el agua!': 'Waters rise!',
+  'Helipuerto': 'Heliport', 'Cueva de las Raíces': 'Cave of Roots', 'Grieta de Piedra': 'Stone Rift', 'Mirador del Viento': 'Wind Lookout', 'Cumbre de las Nubes': 'Cloud Summit',
+  'Cráter Ardiente': 'Blazing Crater', 'Cueva de Brasas': 'Ember Cave', 'Gruta de las Mareas': 'Tidal Grotto', 'Palacio de Coral': 'Coral Palace',
+  'Puerta de Bronce': 'Bronze Gate', 'Puerta de Cobre': 'Copper Gate', 'Puerta de Hierro': 'Iron Gate', 'Puerta de Plata': 'Silver Gate', 'Puerta de Oro': 'Gold Gate',
+  'Playa Blanca': 'White Beach', 'Faro Viejo': 'Old Lighthouse', 'Pantano Brumoso': 'Misty Marsh', 'Duna Dorada': 'Golden Dune', 'Acantilado Gris': 'Grey Cliff',
+  'Laguna Azul': 'Blue Lagoon', 'Muelle Roto': 'Broken Pier', 'Torre de Vigía': 'Watchtower', 'Valle Escondido': 'Hidden Valley', 'Puente de Cuerda': 'Rope Bridge',
+  'Piloto': 'Pilot', 'Ingeniera': 'Engineer', 'Exploradora': 'Explorer', 'Buceador': 'Diver', 'Mensajera': 'Messenger', 'Navegante': 'Navigator',
+  'Una vez por turno puede volar a cualquier casilla (1 acción). Si su casilla se hunde, vuela a cualquiera.': 'Once per turn can fly to any square (1 action). If their square sinks, flies to any square.',
+  'Achica 2 casillas con una sola acción.': 'Shores up 2 squares with a single action.',
+  'Se mueve, achica y nada también en diagonal.': 'Also moves, shores up and swims diagonally.',
+  'Con 1 acción atraviesa casillas inundadas o hundidas seguidas. Si su casilla se hunde, nada a la más cercana.': 'With 1 action passes through a row of flooded or sunken squares. If their square sinks, swims to the nearest one.',
+  'Da cartas de tesoro a cualquiera, esté donde esté.': 'Gives treasure cards to anyone, wherever they are.',
+  'Con 1 acción mueve a otro aventurero hasta 2 casillas.': 'With 1 action moves another adventurer up to 2 squares.',
+  '¡Habéis escapado de la isla con los 4 tesoros!': 'You escaped the island with the 4 treasures!',
+  'Se acabó:': 'Game over:',
+  'El agua ha llegado a lo más alto': 'The water has reached the top',
+  'Se ha hundido el helipuerto': 'The heliport has sunk',
+  'Jugar otra vez': 'Play again',
+  'Toca la casilla inundada que quieres achicar': 'Tap the flooded square you want to shore up',
+  'Toca la casilla de los que van a volar': 'Tap the square of those who will fly',
+  'Toca la casilla de destino': 'Tap the destination square',
+  'Usar': 'Use', '¡Despegar!': 'Take off!', 'Descartar': 'Discard', 'Dar a': 'Give to', 'Cancelar': 'Cancel',
+  'tiene que nadar: toca una casilla resaltada': 'must swim: tap a highlighted square',
+  'tiene que nadar…': 'must swim…',
+  'tiene más de 5 cartas: descarta una o usa una especial': 'has more than 5 cards: discard one or use a special card',
+  'tiene que descartar una carta…': 'must discard a card…',
+  'está jugando…': 'is playing…',
+  'Puedes achicar otra casilla gratis': 'You can shore up another square for free',
+  'Toca una casilla inundada': 'Tap a flooded square',
+  'Elige a quién mover': 'Choose who to move',
+  'Toca adónde llevarlo': 'Tap where to take them',
+  'Toca adónde moverte': 'Tap where to move',
+  'Mover': 'Move', 'Achicar': 'Shore up', 'Guiar': 'Guide', 'Capturar': 'Capture', 'Terminar turno': 'End turn',
+  'Elige al menos a un aventurero': 'Choose at least one adventurer',
+  '¡Se hunde la casilla! Hay que nadar': 'The square is sinking! Time to swim',
+  'escapan con los 4 tesoros': 'escaped with the 4 treasures',
+  'La partida ha terminado': 'The game is over',
+  'Jugada no válida': 'Invalid move',
+  'Ahora no se pueden usar cartas': 'Cards can\'t be used right now',
+  'Carta no válida': 'Invalid card',
+  'Elige una casilla inundada': 'Choose a flooded square',
+  'Hace falta estar todos en el helipuerto con los 4 tesoros': 'Everyone must be on the heliport with the 4 treasures',
+  'Elige a quién llevar': 'Choose who to take',
+  'Solo vuelan juntos los de una misma casilla': 'Only adventurers on the same square can fly together',
+  'Elige otra casilla': 'Choose another square',
+  'Ahora no puedes descartar': 'You can\'t discard right now',
+  'Ahora no tienes que nadar': 'You don\'t need to swim now',
+  'No puedes nadar ahí': 'You can\'t swim there',
+  'Antes hay que descartar': 'Someone has to discard first',
+  'Antes hay que nadar': 'Someone has to swim first',
+  'No es tu turno': 'Not your turn',
+  'No te quedan acciones': 'You have no actions left',
+  'No puedes ir ahí': 'You can\'t go there',
+  'Ahí no hay nada que achicar': 'There is nothing to shore up there',
+  'Solo la Navegante puede mover a otros': 'Only the Navigator can move others',
+  'No puede ir ahí': 'They can\'t go there',
+  'Para dar una carta tenéis que estar en la misma casilla': 'To give a card you must be on the same square',
+  'Solo se pueden dar cartas de tesoro': 'Only treasure cards can be given',
+  'Necesitas 4 cartas del tesoro y estar en uno de sus templos': 'You need 4 cards of the treasure and to be on one of its temples'
+}, [
+  [/^El agua empieza en el nivel (\d+)\.$/, 'The water starts at level $1.'],
+  [/^El agua empieza en el nivel (\d+) · llevas a 2, 3 o 4 aventureros$/, 'The water starts at level $1 · you control 2, 3 or 4 adventurers'],
+  [/^El agua empieza en el (\d+)$/, 'The water starts at $1'],
+  [/^Inunda (\d+)$/, 'Floods $1'],
+  [/^Nivel del agua (\d+)$/, 'Water level $1'],
+  [/^Acciones: (\d+)$/, 'Actions: $1'],
+  [/^Se han hundido los dos templos del (tesoro .+)$/, 'Both temples of the %1 have sunk'],
+  [/^(.+) no ha podido salvarse$/, '%1 could not escape'],
+  [/^(Piloto|Ingeniera|Exploradora|Buceador|Mensajera|Navegante): (.+)$/, '%1: %2'],
+  [/^(Novato|Normal|Experto|Leyenda) · (\d) aventureros · (.+)$/, '%1 · $2 adventurers · %3']
+]);
+I18n.rules['isla'] = '<ul>' +
+  '<li><b>Co-op game:</b> you all win or all lose. The island sinks little by little: you must collect the <b>4 treasures</b> (⛰️ Earth, 🌪️ Wind, 🔥 Fire and 💧 Water) and escape together by helicopter from the <b>Heliport</b> 🚁.</li>' +
+  '<li>On your turn you have <b>3 actions</b> (you can do fewer and press <b>End turn</b>). Each one can be: <b>Move</b> to a neighbouring square (up, down, left or right); <b>Shore up</b> a flooded (blue) neighbouring square or your own, which becomes dry again; <b>Give</b> a treasure card to someone on your square (tap the card); <b>Capture</b> a treasure: with 4 of its cards, on one of its two temples (the ones with its symbol).</li>' +
+  '<li>Then you draw <b>2 treasure cards</b>. If <b>Waters rise</b> 🌊 comes up, the water goes up one level and the already flooded squares go back on top of the flood deck (they will come up again soon). Nobody can hold more than <b>5 cards</b>: discard or use a special card.</li>' +
+  '<li>Next, <b>flood</b> cards are drawn (as many as the water level shows, 2 to 5): a dry square floods and a flooded one <b>sinks</b> forever. If you were on it, you must swim to a neighbouring one.</li>' +
+  '<li><b>Special cards</b> (used at any moment during actions, also on someone else\'s turn, and they don\'t cost an action): <b>Helicopter</b> 🚁 takes one or more adventurers from the same square to any other; <b>Sandbag</b> 🧱 shores up any square on the island. Tap a card to see what you can do with it; <b>double-tap</b> to discard it (if you have more than 5) or use the special card straight away.</li>' +
+  '<li><b>You win</b> when, with the 4 treasures, you are all on the Heliport and someone uses a Helicopter (button <b>Take off!</b>). <b>You lose</b> if the Heliport sinks, if both temples of a treasure you don\'t have yet sink, if someone cannot swim to any square or if the water reaches the skull.</li>' +
+  '<li><b>Adventurers</b> (tap the name to see their ability): <b>Pilot</b> flies once per turn to any square; <b>Engineer</b> shores up 2 squares with one action; <b>Explorer</b> moves and shores up diagonally; <b>Diver</b> passes through flooded or sunken squares; <b>Messenger</b> gives cards to anyone, wherever they are; <b>Navigator</b> moves another adventurer up to 2 squares (button <b>Guide</b>).</li>' +
+  '<li><b>Solo</b>: you control 2, 3 or 4 adventurers. <b>In a room</b> (2-4 people, no AI): each person controls one and everyone sees everyone\'s cards. Difficulty: the water starts at level 1 (Novice) to 4 (Legend).</li></ul>';
+I18n.mod = '';
+Mods.ok("en-isla");
 </script>
 <script type="text/plain" data-mod="en-loco" data-deps="">
 /* CTX en-loco: diccionario inglés (módulo loco); ver core/i18n. */
