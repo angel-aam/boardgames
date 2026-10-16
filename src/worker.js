@@ -14,7 +14,8 @@
      cliente  -> servidor {to:'*'|id, m:{...}}   (el texto «ping» recibe «pong» sin despertar al objeto)
    Avisos (Web Push, para quien tiene el móvil bloqueado o la app en segundo plano), mensajes al propio servidor de la sala:
      cliente  -> servidor {t:'psub', d, h, sub}   guarda (o borra con sub null) la suscripción del dispositivo d (h=1 anfitrión)
-                          {t:'push', to:d|'host', k:'start'|'turn'|'join', gn, gm, n}   avisa con un texto fijo según k
+                          {t:'push', to:d|'host', k:'start'|'turn'|'join', gn, ge, gm, n}   avisa con un texto fijo según k,
+                          en el idioma del destinatario (l del psub: 'es'|'en'; ge = nombre del juego en inglés)
      servidor -> cliente  {t:'pushed', k, ok}
      Las suscripciones se guardan en el almacenamiento del objeto de la sala y se borran 12 h después de quedar vacía.
    Listado de salas: si el anfitrión pierde la conexión (móvil bloqueado) su sala sigue listada GRACE ms marcada off:1. */
@@ -38,6 +39,11 @@ const PUSH_TXT = {
   start: (gn, n) => ({ title: '¡Empieza la partida!', body: gn + ': ' + (n ? n + ' ha empezado' : 'ha empezado') + ' la partida. Toca para volver.' }),
   turn: gn => ({ title: 'Te toca', body: gn + ': es tu turno.' }),
   join: (gn, n) => ({ title: 'Alguien quiere jugar', body: (n || 'Un jugador') + ' quiere entrar en tu sala de ' + gn + '.' })
+};
+const PUSH_TXT_EN = {
+  start: (gn, n) => ({ title: 'The game is starting!', body: gn + ': ' + (n ? n + ' has started' : 'the game has started') + '. Tap to go back.' }),
+  turn: gn => ({ title: 'Your turn', body: gn + ': it\'s your turn.' }),
+  join: (gn, n) => ({ title: 'Someone wants to play', body: (n || 'A player') + ' wants to join your ' + gn + ' room.' })
 };
 
 const okOrigin = (req, env) => {
@@ -140,7 +146,7 @@ export class Room extends DurableObject {
     if (d.sub == null) { await st.delete(key); return; }
     const sub = validSub(d.sub);
     if (!sub) return;
-    await st.put(key, { sub, h: d.h === 1 ? 1 : 0, ts: Date.now() });
+    await st.put(key, { sub, h: d.h === 1 ? 1 : 0, l: d.l === 'en' ? 'en' : 'es', ts: Date.now() });
     const all = await st.list({ prefix: 'ps:' });
     if (all.size > MAX_SUBS) { const old = [...all].sort((x, y) => x[1].ts - y[1].ts).slice(0, all.size - MAX_SUBS); await st.delete(old.map(x => x[0])); }
     await st.setAlarm(Date.now() + SUB_TTL);
@@ -148,8 +154,7 @@ export class Room extends DurableObject {
   /* envía un aviso a otro dispositivo de la sala (nunca al propio); textos fijos, límites por destino y por hora */
   async push(a, d) {
     const v = await vapid(this.env);
-    const mk = PUSH_TXT[d.k];
-    if (!v || !mk || !a.d) return false;
+    if (!v || !PUSH_TXT[d.k] || !a.d) return false;
     const st = this.ctx.storage;
     let key = '';
     if (d.to === 'host') {
@@ -167,7 +172,8 @@ export class Room extends DurableObject {
     pc.n++; rec.last = now;
     await st.put({ pc, [key]: rec });
     const gm = typeof d.gm === 'string' && /^[a-z0-9-]{1,24}$/.test(d.gm) ? d.gm : '';
-    const txt = mk(clean(d.gn, 24) || 'Mesa de Juegos', clean(d.n, 14));
+    const en = rec.l === 'en', mk = (en ? PUSH_TXT_EN : PUSH_TXT)[d.k];
+    const txt = mk((en && clean(d.ge, 24)) || clean(d.gn, 24) || 'Mesa de Juegos', clean(d.n, 14));
     try {
       const code = await sendPush(v, rec.sub, Object.assign(txt, { url: gm ? '/game/' + gm : '/', tag: 'mj-' + d.k }), this.env.VAPID_SUBJECT || a.o || 'https://example.com');
       if (code === 404 || code === 410) await st.delete(key);

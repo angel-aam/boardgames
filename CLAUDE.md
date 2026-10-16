@@ -14,14 +14,14 @@ Suite de juegos de mesa/cartas/puzles en **un solo HTML** (UI en español, móvi
 | `public/index.html` | **GENERADO** por `build.js` (núcleo sin módulos + `window.MJ_MODS`); en `.gitignore`. **Nunca editar ni versionar.** |
 | `public/m/<id>.<hash>.js` | **GENERADO**: un fichero por módulo perezoso, minificado; hash sha256(10) en el nombre → inmutable (`_headers`: caché 1 año). |
 | `public/sw.js` | **GENERADO** desde `src/sw.tpl.js` (versión = hash de núcleo+módulos+manifiesto+plantilla). No escribir los marcadores `__X__` (`__VERSION__`, `__MODS__`, `__SHELL__`) en comentarios de la plantilla (el reemplazo toca el primero). |
-| `public/manifest.webmanifest`, `public/icons/*` | **ESTÁTICOS (sí se versionan)**: manifiesto PWA (`start_url /?pwa=1`, `display standalone`, `theme_color #2757d6`) e iconos (192, 512, maskable, apple-touch, svg). `build.js` inyecta en `index.html` el `<link rel=manifest>`, `theme-color` e iconos (no en `offline.html`). |
-| `public/offline.html` | **GENERADO**: todo en un solo HTML (módulos en línea) para «Descargar offline». |
+| `public/manifest.webmanifest`, `public/icons/*` | **ESTÁTICOS (sí se versionan)**: manifiesto PWA (`start_url /?pwa=1`, `display standalone`, `theme_color #2757d6`) e iconos (192, 512, maskable, apple-touch, svg). `build.js` inyecta en `index.html` el `<link rel=manifest>`, `theme-color` e iconos (no en `offline-<idioma>.html`). |
+| `public/offline-es.html`, `public/offline-en.html` | **GENERADOS**: todo en un solo HTML (módulos en línea) de UN idioma para «Descarga offline» (`window.MJ_LANGS=[l]`; solo los módulos de ese idioma, ver `modLang` en `build.js`). |
 | `build.js` | terser + html-minifier-terser; reparte módulos y genera los 4 ficheros anteriores. Quita TODOS los comentarios. |
 | `public/_headers` | Caché: `/m/*` inmutable, `/sw.js` no-cache. |
 
 ## Comandos
 - `npm install`
-- `npm run build` → genera `index.html`, `m/`, `sw.js`, `offline.html`.
+- `npm run build` → genera `index.html`, `m/`, `sw.js`, `offline-<idioma>.html`.
 - `npm run dev` → `wrangler dev` (el hook `build` de `wrangler.jsonc` ejecuta `node build.js` antes).
 - `npm run deploy` → `wrangler deploy` (mismo hook) (URL `https://boardgames.<subdominio>.workers.dev`).
 - `npx wrangler tail` → logs en vivo.
@@ -29,12 +29,12 @@ Suite de juegos de mesa/cartas/puzles en **un solo HTML** (UI en español, móvi
 
 ## PWA (instalable y offline)
 - `index.html` + manifiesto + iconos + `sw.js` cumplen los requisitos de instalación (comprobado con `Page.getInstallabilityErrors`). Menú → «Instalar aplicación» (Preferencias → Aplicación, `ACTS.install`; usa `beforeinstallprompt` guardado en `H.installEv`; en iOS muestra la instrucción «Añadir a pantalla de inicio»; se oculta si ya es `isStandalone()`).
-- El SW, al activarse, descarga en segundo plano TODOS los módulos y `offline.html` (`fill()`): la app instalada va sin conexión sin pulsar nada. «Guardar juegos en este dispositivo» queda como forzado manual. Navegación sin red o lenta (>4 s con copia) → núcleo guardado.
+- El SW, al activarse, descarga en segundo plano TODOS los módulos y `offline-<idioma>.html` (`fill()`): la app instalada va sin conexión sin pulsar nada. «Guardar juegos en este dispositivo» queda como forzado manual. Navegación sin red o lenta (>4 s con copia) → núcleo guardado.
 - Salas sin conexión: WebRTC en la red local sin servidor ICE (`LocalNet`). Módulo `qrscan` (jsQR 1.4.0 Apache-2.0 minificado + `BarcodeDetector` si existe; `QScan.ok/open/close`): botón «Escanear el QR con la cámara» en el emparejamiento (`pair`, deps `qr,qrscan`); solo si hay `getUserMedia` y contexto seguro. Sin cámara (visor de Claude, permiso denegado) sigue valiendo leer con otra app y pegar el texto.
-- `offline.html` (Descarga offline) sigue siendo un HTML independiente: sin manifiesto ni SW.
+- `offline-<idioma>.html` (Descarga offline) sigue siendo un HTML independiente: sin manifiesto ni SW.
 
 ## Carga y offline (build dividido)
-- Con `MJ_MODS` presente, `Mods.load(id)` descarga `/m/<id>.<hash>.js` bajo demanda (el diccionario `scdict`, 360 KB, solo para scrabble/wordle/ahorcado). Sin `MJ_MODS` (fuente, `offline.html`, artefacto) los módulos van en línea en `<script type="text/plain" data-mod>`.
+- Con `MJ_MODS` presente, `Mods.load(id)` descarga `/m/<id>.<hash>.js` bajo demanda (el diccionario `scdict`, 360 KB, solo para scrabble/wordle/ahorcado). Sin `MJ_MODS` (fuente, `offline-<idioma>.html`, artefacto) los módulos van en línea en `<script type="text/plain" data-mod>`.
 - El service worker solo se registra en modo ruta (`MJ_PATHS`): `/` y `/game/*` red primero con respaldo en caché; `/m/*` caché primero; no toca `/ws/*` ni `/api/*`. «Guardar juegos en este dispositivo» (`ACTS.cacheall`) envía `{t:'all'}` y cachea todos los módulos para jugar sin conexión.
 - Salvedad: una pestaña abierta antes de un despliegue puede dar 404 en módulos con hash antiguo hasta recargar.
 
@@ -127,3 +127,26 @@ Al acabar una partida con otras personas (`rxRoom()`: invitado, o anfitrión con
 - Worker `Lobby`: si se cae la conexión de un anfitrión con la sala abierta (`st:0`), la sala sigue listada `GRACE` (5 min) como `g:<rk>` en el almacenamiento, con `presence.off=1` (el cliente muestra «ausente»); se borra al volver a anunciarse o con la alarma.
 - Avisos push (`src/push.js`: aes128gcm RFC 8291 + VAPID ES256 con WebCrypto, sin dependencias; secreto `VAPID_JWK`, var `VAPID_SUBJECT`; `GET /api/push-key`). `Room` guarda suscripciones `ps:<DID>` (`{t:'psub',d,h,sub}`, máx. 16, alarma de borrado 12 h tras quedar vacía) y envía `{t:'push',to:DID|'host',k:'start'|'turn'|'join',gn,gm,n}` con textos fijos del servidor (límites: 20 s por destino, 120/h por sala; solo endpoints de servicios push conocidos; 404/410 borra la suscripción); responde `{t:'pushed',k,ok}`.
 - Cliente: objeto `Push` (net.js; `hub.push`; `ok/on/enable/disable/reg/send`), `t.srv`/`t.onsrv` en `SrvNet.open`. El anfitrión avisa a asientos ausentes o con la app oculta (`{t:'vis',h}` del invitado → `g.hid`): `pushStart()` en `beginMatch`, `pushTurn()` en `afterAct` (`H.lastTurn`, `H.seatDev[i]` = DID). El invitado sin respuesta del anfitrión pide `k:'join'` a `'host'` y, si `ok`, espera (`onSrv`). Activación: Preferencias → «Avisos de salas online» o tarjeta «Activar avisos» del lobby. El SW muestra la notificación salvo con la app visible y al tocarla enfoca o abre la app. Chrome no admite Push en incógnito; iPhone solo con la app instalada.
+
+## Idiomas (i18n)
+- Español = idioma fuente (todo el código y el HTML). Inglés opcional: Preferencias → Idioma (`ACTS.plang` → `I18n.set`; `store` `hub.lang`). Cambiar no recarga.
+- Idioma inicial: `hub.lang` si existe; si no (primera visita), el del sistema (`navigator.languages[0]`: `es*` → es, otro → en), sin guardarlo hasta que se elija.
+- Descargas por idioma: `I18n.sw()` manda `{t:'lang',l,keep}` al service worker (al arrancar y al cambiar; `keep` = `isStandalone()`). El SW guarda el idioma en `mj-meta` (`/__lang`) y la lista de idiomas conservados (`/__langs`); `fill()` precarga solo los módulos de esos idiomas (y su `offline-<l>.html`) y borra los demás. Navegador: queda solo el idioma actual. App instalada: se conservan los ya guardados; al terminar de guardar uno nuevo, si había otro, el SW avisa `{t:'langadded',l,others}` y la app pregunta (`I18n.ask`: «Conservar las dos» = `ACTS.lkeep`, «Borrar la versión en …» = `ACTS.ldrop` → `{t:'drop',l}`; nunca borra el idioma actual). Primera visita: hasta recibir el idioma no se precarga ningún módulo de idioma. Los módulos de idioma se reconocen por el nombre (`/m/lang-xx.*`, `/m/xx-<módulo>.*`, `/m/<m>-xx.*` y su `<m>` español): ningún módulo normal puede llamarse `xx-…`. «Descarga offline» siempre es del idioma actual.
+- Mecanismo (`core/i18n`, objeto `I18n`, justo después de `core/modules`): en inglés un `MutationObserver` sobre `body` traduce al pintarse cada nodo de texto y los atributos `title`/`aria-label`/`placeholder`. Clave = texto del nodo sin espacios en los extremos; si no hay entrada exacta se prueban patrones `[RegExp, reemplazo]` (`$1` hueco tal cual, `%1` hueco traducido). Los juegos no llevan llamadas de traducción: los textos que también son datos (nombres de barcos, palos…) siguen funcionando.
+- Diccionarios = módulos perezosos al final del HTML: `lang-en` (núcleo) y `en-<módulo>` (uno por módulo; `Mods.load(x)` carga `en-x` antes que `x` si el idioma no es es). Formato: `I18n.add({...}, [[/^…$/, '…']]); I18n.rules['<id>'] = '<ul>…</ul>';` (reglas completas en inglés, las usa `showRules`).
+- `I18n.t(texto, {k:v})` para lo que no pasa por el DOM: `document.title`, texto de compartir, la palabra «JUEGOS» del inicio.
+- Ámbitos: cada `en-<juego>` guarda su diccionario aparte (`I18n.mod`, lo pone el bloque); se busca en el del juego en pantalla, luego en el común (núcleo y compartidos: pair, baraja, poker, teclado, dados) y por último en los demás. Así una palabra puede traducirse distinto por juego («Dama»). `I18n.fix` retoca los huecos copiados tal cual (`(IA)` → `(AI)` en nombres).
+- Ensamblado: los diccionarios se generaron fuera del HTML y se insertaron como bloques al final; editarlos directamente en su bloque `data-mod="en-<m>"`.
+- `translate="no"` excluye un elemento (palabras de juegos de letras, frases del criptograma).
+- Depurar: `?i18n=debug` en la URL saca en consola cada texto sin traducción (`[i18n] falta: …`).
+- Avisos push: el `psub` lleva `l` (idioma del destinatario) y el worker elige `PUSH_TXT`/`PUSH_TXT_EN`; `push` lleva `ge` (nombre del juego en inglés).
+- Al añadir o cambiar textos visibles de un juego, añade su traducción en su bloque `en-<módulo>`.
+
+## Juegos de palabras en inglés
+- Diccionario inglés = módulo `scdict-en` (misma API que `scdict`: `ScDict.W/lv/has`, más `ScDict.lang`), ya generado (no se regenera en este repo, igual que el español; origen: SCOWL 2020.12.07, SCOWL ≤70, a–z, 2–15 letras; `lv[0]` ≤20 ≈11k, `lv[1]` ≤35 ≈39k; aviso de licencia en `ScDict.credit` y `public/licenses/scowl.txt`). El `scdict` español lleva `ScDict.lang = 'es'` añadido a mano.
+- Selección: `Mods.alt(name)` sirve `<name>-<idioma>` si existe (en inglés `scdict` → `scdict-en`, que marca `scdict` como cargado). El idioma de las palabras = idioma de la app. Cambiar de idioma con un diccionario de palabras ya cargado recarga la página (las constantes de los juegos se fijan al cargarlos); dentro de una sala no se puede cambiar.
+- Por idioma: Scrabble (`SC_EN`: alfabeto, valores y bolsa de 100 fichas inglesas), Boggle (`BG_W` sin J/Q/X/Z), teclado (`Teclado.mount(el,{lang})`; por defecto `ScDict.lang`; sin Ñ en inglés; el criptograma pasa `lang:'es'` hasta tener frases inglesas), Crucigrama (el filtro de anglicismos `FOREIGN` solo en español).
+- Partidas guardadas: los juegos con dependencia `scdict` (`Saves.word`) guardan `wl`; solo se ven las del idioma actual (una por juego e idioma; solitario: id `s-<juego>@en`). Récords/estadísticas internos (`wordle-`, `ahorcado-`, `nudos-`, `crucigrama-`, `boggle-`) llevan `@en` en inglés (`store.k`).
+- Salas: el anfitrión manda `wl` en `lo`; un invitado con otro idioma no entra («Esta sala juega con palabras en inglés…»).
+- Descargas: solo el idioma activo (service worker: los módulos `<m>-xx` y `<m>` con variantes cuentan como de idioma; `offline-<l>.html` uno por idioma).
+- Pendiente (fase 2): frases inglesas para el Criptograma (hoy siempre en español).

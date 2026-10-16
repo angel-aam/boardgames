@@ -19,9 +19,9 @@ Ids: ajedrez, ahorcado, atasco, backgammon, brisca, chinchon, cuatro, damas, dom
 ## Actualizar el juego
 El código fuente sin minificar vive en `public/mesa-de-juegos.html` (no se publica: lo excluye `public/.assetsignore`). Para actualizar:
 1. Sustituye `public/mesa-de-juegos.html` por la nueva versión.
-2. `git push` → Cloudflare (Workers Builds) ejecuta `wrangler deploy`, cuyo hook `build` (`node build.js`) genera `public/index.html`, `public/m/*.js`, `sw.js` y `offline.html`. En local: `npm run deploy`.
+2. `git push` → Cloudflare (Workers Builds) ejecuta `wrangler deploy`, cuyo hook `build` (`node build.js`) genera `public/index.html`, `public/m/*.js`, `sw.js` y `offline-es.html y offline-en.html`. En local: `npm run deploy`.
 
-Solo generar: `npm run build`. Elimina todos los comentarios (el fuente los conserva). El núcleo pesa ≈120 KB (63 KB gzip); cada juego se descarga al abrirlo (`/m/<id>.<hash>.js`, caché inmutable) y un service worker permite jugar sin conexión tras pulsar «Guardar juegos en este dispositivo». «Descarga offline» baja `offline.html` (todo en un archivo).
+Solo generar: `npm run build`. Elimina todos los comentarios (el fuente los conserva). El núcleo pesa ≈120 KB (63 KB gzip); cada juego se descarga al abrirlo (`/m/<id>.<hash>.js`, caché inmutable) y un service worker permite jugar sin conexión tras pulsar «Guardar juegos en este dispositivo». «Descarga offline» baja `offline-es.html y offline-en.html` (todo en un archivo).
 `public/index.html` es un fichero generado: está en `.gitignore`, no se edita ni se versiona.
 
 ## PWA: instalar y jugar sin conexión

@@ -3,7 +3,8 @@
 //   index.html        núcleo + estilos + manifiesto window.MJ_MODS (lo que carga el navegador; sin módulos)
 //   m/<id>.<hash>.js  un fichero por módulo, con hash del contenido (caché inmutable, ver _headers)
 //   sw.js             service worker (plantilla src/sw.tpl.js): núcleo, iconos y módulos en caché para jugar sin conexión (PWA)
-//   offline.html      todo en uno minificado = lo que baja «Descarga offline» (funciona sin servidor)
+//   offline-<l>.html  todo en uno minificado de UN idioma (es/en) = lo que baja «Descarga offline» (funciona sin servidor);
+//                     lleva window.MJ_LANGS=[l] y solo los módulos de ese idioma (ver modLang)
 // Uso: node build.js (lo ejecuta `wrangler deploy`/`wrangler dev` por el hook "build" de wrangler.jsonc).
 // Quita TODOS los comentarios (también los de contexto para IA): el fuente sin minificar conserva todo.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
@@ -36,9 +37,31 @@ for (const m of blocks) {
 const rebuild = fn => { let out = '', last = 0; for (const x of mods) { out += html.slice(last, x.m.index) + fn(x); last = x.m.index + x.m[0].length; } return out + html.slice(last); };
 const htmlOpts = { collapseWhitespace: true, conservativeCollapse: false, removeComments: true, minifyCSS: true, minifyJS: jsOpts };
 
-// 2) offline.html: todo en uno, con los módulos inline ya minificados
-const all = await minHtml(rebuild(x => x.m[1] + x.code + x.m[4]), htmlOpts);
-writeFileSync('public/offline.html', all);
+// 2) offline-<l>.html: todo en uno por idioma, con los módulos inline ya minificados
+//    Idioma de un módulo: «lang-xx» y «xx-<m>» = diccionarios de la interfaz; «<m>-xx» = variante de contenido de <m> (p. ej. scdict-en)
+//    y entonces <m> es la versión española. El resto vale para todos los idiomas. El español no lleva diccionarios de interfaz.
+const LANGS = ['es', 'en'];
+const ids = new Set(mods.map(x => x.id));
+const modLang = id => {
+  let m;
+  if ((m = /^lang-([a-z]{2})$/.exec(id))) return m[1];
+  if ((m = /^([a-z]{2})-/.exec(id))) return m[1];
+  if ((m = /^(.+)-([a-z]{2})$/.exec(id)) && ids.has(m[1])) return m[2];
+  if (LANGS.some(l => ids.has(id + '-' + l))) return 'es';
+  return '';
+};
+const headAt = s => s.indexOf('<head>', s.lastIndexOf('-->', s.indexOf('<html')) + 1);
+const offSize = {};
+rmSync('public/offline.html', { force: true });
+for (const l of LANGS) {
+  let src = rebuild(x => { const ml = modLang(x.id); return ml && ml !== l ? '' : x.m[1] + x.code + x.m[4]; });
+  const h = headAt(src);
+  if (h < 0) throw new Error('no se encontró <head> en el fuente');
+  src = src.slice(0, h + 6) + '<script>window.MJ_LANGS=' + JSON.stringify([l]) + '</script>' + src.slice(h + 6);
+  const out = await minHtml(src, htmlOpts);
+  writeFileSync(`public/offline-${l}.html`, out);
+  offSize[l] = Buffer.byteLength(out);
+}
 
 // 3) módulos sueltos con hash + manifiesto
 rmSync('public/m', { recursive: true, force: true });
@@ -52,7 +75,7 @@ for (const x of mods) {
 
 // 4) index.html: núcleo sin módulos + manifiesto en <head> (se lee al cargar un juego, no al arrancar)
 let core = rebuild(() => '');
-const hi = core.indexOf('<head>', core.lastIndexOf('-->', core.indexOf('<html')) + 1);
+const hi = headAt(core);
 if (hi < 0) throw new Error('no se encontró <head> en el fuente');
 // PWA (solo en el servidor; offline.html no lleva manifiesto): manifiesto, color de barra e iconos
 const pwa = '<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#2757d6"><link rel="icon" href="/icons/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Mesa de Juegos">';
@@ -69,4 +92,4 @@ const sw = swSrc.replace('__VERSION__', version).replace('__MODS__', JSON.string
 writeFileSync('public/sw.js', sw);
 
 const big = mods.slice().sort((a, b) => b.code.length - a.code.length).slice(0, 3).map(x => `${x.id} ${kb(x.code.length)}`).join(', ');
-console.log(`${SRC} ${kb(before)} -> index.html ${kb(Buffer.byteLength(index))} (gzip ${kb(gzipSync(index).length)}) + ${mods.length} módulos (mayores: ${big}) · offline.html ${kb(Buffer.byteLength(all))} · sw ${version}`);
+console.log(`${SRC} ${kb(before)} -> index.html ${kb(Buffer.byteLength(index))} (gzip ${kb(gzipSync(index).length)}) + ${mods.length} módulos (mayores: ${big}) · offline ${LANGS.map(l => l + ' ' + kb(offSize[l])).join(', ')} · sw ${version}`);
