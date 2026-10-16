@@ -6,6 +6,7 @@
      GET /ws/room/<codigo>    -> WebSocket de una sala (un Durable Object por código)
      GET /ws/lobby            -> WebSocket del listado de salas abiertas (un único Durable Object)
      GET /game/<id>           -> el mismo index.html (enlace directo a un juego para marcadores); el cliente abre <id>
+     GET /game/<id>/<CÓDIGO>  -> ídem; enlace compartido de una sala online (el cliente se une o la crea)
      GET /                    -> index.html
      resto                    -> páginas estáticas de ./public
    Protocolo de sala (JSON):
@@ -50,7 +51,7 @@ const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-store' }
 
 /* Enlaces directos: «/» y «/game/<id>» devuelven el index con window.MJ_PATHS=1, la señal que usa el cliente para
    mantener la URL como /game/<id> (sin ella usaría el hash #/game/<id>). El id lo valida el cliente. */
-const GAME_PATH = /^\/game\/[a-z0-9-]{1,24}\/?$/;
+const GAME_PATH = /^\/game\/[a-z0-9-]{1,24}(\/[A-Za-z]{4})?\/?$/;   /* /game/<id>/<CÓDIGO>: enlace a una sala online */
 const withPaths = res => new HTMLRewriter().on('head', { element(e) { e.prepend('<script>window.MJ_PATHS=1</script>', { html: true }); } }).transform(res);
 async function page(req, env) {
   const url = new URL('/', req.url);

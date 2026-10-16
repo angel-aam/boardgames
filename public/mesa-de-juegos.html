@@ -25,6 +25,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Avisos push (objeto Push, net.js; hub.push; Preferencias → «Avisos de salas online» y tarjeta «Activar avisos» del lobby): la suscripción va a la sala ({t:'psub',d:DID,h}); el anfitrión pide {t:'push',to:DID,k:'start'|'turn'} para asientos ausentes o con la app oculta (el invitado manda {t:'vis',h}); H.seatDev[i] = DID por asiento; pushStart() en beginMatch y pushTurn() en afterAct (H.lastTurn). El invitado que no recibe respuesta pide k:'join' a 'host' y, si el servidor confirma ({t:'pushed',ok}), espera (onSrv). Solo con servidor (VAPID_JWK), SW y permiso; iPhone solo instalada. El SW muestra la notificación salvo que la app esté a la vista y al tocarla enfoca/abre la app.
 - Pantalla encendida: wakeSync() (tras show(), hub.js) pide navigator.wakeLock en #stage y #lobby y lo suelta al salir; se repide en visibilitychange.
 - Enlace directo por juego: `/game/<id>` (id del catálogo: sudoku, texas, ajedrez…). El worker sirve el mismo index con `window.MJ_PATHS=1`; el hub (`urlGame/syncURL` en hub.js) abre el juego al arrancar y mantiene URL y título con replaceState. Sin esa bandera (archivo, visor, otra web) usa el hash `#/game/<id>`.
+- Enlace de sala online: `/game/<id>/<CÓDIGO>` (o `#/game/<id>/<CÓDIGO>`). Estando en una sala online (lobby o partida) `syncURL` pone el código en la URL; el botón «Compartir enlace» del lobby (`ACTS.share`: `navigator.share` o copia al portapapeles, `roomURL()`) lo envía. Al abrir el enlace `bootHub` → `joinLink(code)`: se une como invitado y, si la sala no existe (servidor: nadie conectado en `hello.peers` y no listada en el Lobby; capacidad de claude.ai: el anfitrión no contesta en `startHello`), la crea como anfitrión con ese código (`H.linkCode` → `linkHost` → `createOnline`). Si la sesión guardada (`hub.sess`) es de esa misma sala se usa `autoRejoin` como siempre.
 - Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). Reconexión automática: sesión en `hub.sess` (12 h), `onLost`/`adoptTr`/`netWake`/`autoRejoin`, mensaje `bye` al cerrar el anfitrión; id de dispositivo `hub.did` (campo `d` de `join`) para no duplicar plazas; ver CLAUDE.md. En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
 
 ## 3. Globales del núcleo
@@ -644,7 +645,7 @@ const SrvNet = {
         SrvNet.lob = ws; SrvNet.me = hello.me;
         ws.onmessage = ev => {
           let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
-          if (d && d.t === 'rooms' && Array.isArray(d.rooms)) { ClaudeNet.rooms = d.rooms.filter(p => p && p.peer !== SrvNet.me && p.presence && p.presence.rk); if (SrvNet.onRooms) SrvNet.onRooms(ClaudeNet.rooms); }
+          if (d && d.t === 'rooms' && Array.isArray(d.rooms)) { SrvNet.got = true; ClaudeNet.rooms = d.rooms.filter(p => p && p.peer !== SrvNet.me && p.presence && p.presence.rk); if (SrvNet.onRooms) SrvNet.onRooms(ClaudeNet.rooms); }
         };
         ws.onclose = () => { SrvNet.lob = null; clearTimeout(SrvNet.lobT); SrvNet.lobT = setTimeout(go, 4000); };
         SrvNet.pushPresence();
@@ -985,7 +986,7 @@ function resetRoom() {
 }
 
 function leaveAll(msg) {
-  clearSess();
+  clearSess(); H.linkCode = '';
   resetRoom();
   hideSheet();
   if (msg) toast(msg);
@@ -1133,7 +1134,7 @@ async function autoRejoin(sv) {
 
 async function createOnline() {
   if (!ClaudeNet.ns) { toast('La sala online no está disponible'); return; }
-  const keep = H.rejoinCode, auto = H.autoStart; H.rejoinCode = '';
+  const keep = H.rejoinCode, auto = H.autoStart; H.rejoinCode = ''; H.linkCode = '';
   resetRoom();
   H.autoStart = auto; H.sid = '';   /* sala sin partida (openSave fija el sid después) */
   const code = keep || genCode();
@@ -1145,6 +1146,15 @@ async function createOnline() {
   show('lobby'); renderLobby();
 }
 
+/* entrar por un enlace compartido: invitado si la sala existe; si no, se crea como anfitrión con ese código */
+async function joinLink(code) {
+  if (!ClaudeNet.ns) { toast('La sala online no está disponible'); return; }
+  if (ClaudeNet.srv) for (let i = 0; i < 10 && !SrvNet.got; i++) await new Promise(r => setTimeout(r, 200));   /* lista del Lobby (salas con el anfitrión ausente) */
+  H.linkCode = code;
+  await joinOnline(code);
+}
+const linkHost = () => { const c = H.linkCode; H.linkCode = ''; resetRoom(); H.rejoinCode = c; createOnline(); };
+
 async function joinOnline(code, auto) {
   if (!ClaudeNet.ns) { toast('La sala online no está disponible'); return; }
   if (!/^[A-Z]{4}$/.test(code)) { toast('Escribe el código de 4 letras'); return; }
@@ -1154,6 +1164,9 @@ async function joinOnline(code, auto) {
   let t;
   try { t = await ClaudeNet.open(code); } catch (e) { H.joining = false; if (auto) { clearSess(); show('gmenu'); renderGMenu(); } toast('No se pudo abrir la sala. Inténtalo de nuevo'); return; }
   H.joining = false;
+  if (H.linkCode !== code) H.linkCode = '';
+  /* enlace a una sala vacía (nadie conectado ni anunciada por un anfitrión ausente): quien lo abre pasa a ser el anfitrión */
+  if (H.linkCode && t.peers0 && !t.peers0.length && !ClaudeNet.rooms.some(p => String(p.presence.rk).toUpperCase() === code)) { try { t.close(); } catch (e) { /* ya cerrado */ } linkHost(); return; }
   H.role = 'guest'; H.kind = 'claude'; H.code = code;
   setupTr(t); saveSess();
   show('lobby'); renderLobby();
@@ -1173,7 +1186,11 @@ function startHello(broadcast, persist) {
     if (!document.hidden) tries++;   /* con el móvil bloqueado no cuenta: la espera es de tiempo a la vista */
     if (persist ? !H.hostWait : (H.lobby || H.screen === 'stage')) { clearInterval(H.helloT); return; }
     if (!persist && tries === 2 && H.kind === 'claude') Push.send('host', 'join');   /* el anfitrión no contesta: se le avisa (onSrv) */
-    if (tries > (persist ? HOST_WAIT / 2000 : 5)) { clearInterval(H.helloT); leaveAll(persist ? 'El anfitrión no ha vuelto a la sala' : H.kind === 'claude' ? 'No hay ninguna sala abierta con ese código' : 'El anfitrión no responde'); return; }
+    if (tries > (persist ? HOST_WAIT / 2000 : 5)) {
+      clearInterval(H.helloT);
+      if (!persist && H.linkCode && H.linkCode === H.code && H.kind === 'claude') { linkHost(); return; }   /* enlace sin anfitrión: se crea la sala */
+      leaveAll(persist ? 'El anfitrión no ha vuelto a la sala' : H.kind === 'claude' ? 'No hay ninguna sala abierta con ese código' : 'El anfitrión no responde'); return;
+    }
     hi();
   }, 2000);
 }
@@ -1389,7 +1406,7 @@ function renderLobby() {
   if (host) pl = roster();
   else if (H.lobby) pl = H.lobby.pl.map((p, i) => ({ name: p.n, bot: !!p.b, host: !!p.h, wait: !!p.w, off: !!p.o, me: i === H.lobby.you }));
   const top = H.kind === 'claude'
-    ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><p class="muted small" style="margin:0;text-align:center">' + (H.priv ? 'Sala privada: no aparece en la lista. Solo entra quien tenga el código.' : 'Sala pública: quien tenga esta página abierta la verá en «Sala online». También puede escribir el código.') + '</p>' + (host ? '<button class="btn flat" data-act="togvis">' + (H.priv ? 'Hacerla pública' : 'Hacerla privada') + '</button>' : '')
+    ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><button class="btn primary" data-act="share">Compartir enlace</button><p class="muted small" style="margin:0;text-align:center">' + (H.priv ? 'Sala privada: no aparece en la lista. Solo entra quien tenga el código.' : 'Sala pública: quien tenga esta página abierta la verá en «Sala online». También puede escribir el código.') + '</p>' + (host ? '<button class="btn flat" data-act="togvis">' + (H.priv ? 'Hacerla pública' : 'Hacerla privada') + '</button>' : '')
     : '<h2>Sala sin conexión</h2><p class="muted small" style="margin:0">' + (host ? 'Añade a cada jugador con un código QR (lector de QR del móvil + pegar el texto). Todos deben estar en la misma red Wi-Fi o en el punto de acceso de uno de los móviles.' : 'Conectado con el anfitrión.') + '</p>';
   const rs = host && H.resume;
   let h = '<div class="card">' + (rs ? '<h2>Partida guardada</h2><p class="muted small" style="margin:0">Los jugadores deben conectarse con el mismo nombre que tenían (' + esc(Saves.humans(H.resume).join(', ')) + ').</p>' : '') + top + '</div>';
@@ -1806,17 +1823,25 @@ const paintAssist = () => document.body.toggleAttribute('data-assist', assistOn(
    (archivo abierto, visor de Claude, otra web) se usa el hash #/game/<id>. Se lee al arrancar y se mantiene con replaceState
    (sin añadir entradas al historial); el título de la pestaña lleva el nombre del juego para que el marcador salga bien nombrado. */
 const pathMode = () => window.MJ_PATHS === 1 && /^https?:$/.test(location.protocol);
-function urlGame() {
-  const m = location.pathname.match(/^\/game\/([a-z0-9-]{1,24})\/?$/) || location.hash.match(/^#\/?game\/([a-z0-9-]{1,24})$/);
-  return m ? m[1] : '';
+/* enlace de sala online: /game/<id>/<CÓDIGO> (o #/game/<id>/<CÓDIGO>); el código se pone en la URL mientras se está en la sala */
+function urlParts() {
+  const m = location.pathname.match(/^\/game\/([a-z0-9-]{1,24})(?:\/([A-Za-z]{4}))?\/?$/) || location.hash.match(/^#\/?game\/([a-z0-9-]{1,24})(?:\/([A-Za-z]{4}))?$/);
+  return m ? { g: m[1], c: (m[2] || '').toUpperCase() } : { g: '', c: '' };
+}
+const urlGame = () => urlParts().g;
+const urlRoom = () => H.kind === 'claude' && H.code && H.game && (H.screen === 'lobby' || H.screen === 'stage') ? H.code : '';
+function roomURL() {
+  const p = 'game/' + H.game.id + '/' + H.code;
+  return pathMode() ? location.origin + '/' + p : location.href.split('#')[0] + '#/' + p;
 }
 function syncURL() {
   if (!H.urlOn) return;                    /* hasta que el arranque haya leído la URL no se toca */
   const id = H.screen === 'home' || !H.game ? '' : H.game.id;
   try {
     document.title = id ? H.game.name + ' · Mesa de Juegos' : 'Mesa de Juegos';
-    const base = pathMode() ? '/' + (id ? 'game/' + id : '') : location.pathname;
-    const want = base + location.search + (!pathMode() && id ? '#/game/' + id : '');
+    const rc = id && urlRoom() ? '/' + urlRoom() : '';
+    const base = pathMode() ? '/' + (id ? 'game/' + id + rc : '') : location.pathname;
+    const want = base + location.search + (!pathMode() && id ? '#/game/' + id + rc : '');
     if (want !== location.pathname + location.search + location.hash) history.replaceState(null, '', want);
   } catch (e) { /* entorno sin historial (visor): el enlace directo no se actualiza */ }
 }
@@ -1826,9 +1851,12 @@ const offlineOK = () => pathMode() && 'serviceWorker' in navigator && !!window.M
 const isStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function bootHub() {
-  let start = urlGame();
-  const sess = getSess(), rejoin = !!sess && (!start || start === sess.game);
-  if (rejoin) start = null;   /* si hay una sala a la que volver, se va a ella en vez de al menú del juego */
+  const up = urlParts(), sess = getSess();
+  let start = up.g;
+  /* enlace de sala (/game/<id>/<CÓDIGO>): si la sesión guardada es de esa sala se vuelve como siempre; si no, se entra por el enlace */
+  const rejoin = !!sess && (!start || start === sess.game) && (!up.c || up.c === sess.code);
+  const link = !rejoin && up.c && Hub.catalog.some(g => g.id === start) ? up.c : '';
+  if (rejoin || link) start = null;   /* si hay una sala a la que volver, se va a ella en vez de al menú del juego */
   paintAssist(); paintTools();
   show('home'); renderHome();
   H.urlOn = true; if (!start || !Hub.catalog.some(g => g.id === start)) syncURL();
@@ -1837,6 +1865,12 @@ function bootHub() {
       if (document.readyState === 'loading') await new Promise(rs => document.addEventListener('DOMContentLoaded', rs, { once: true }));
       let ok = false; try { ok = await autoRejoin(sess); } catch (e) { ok = false; }
       if (!ok && H.screen === 'home') { const g = Hub.catalog.some(x => x.id === sess.game) ? sess.game : ''; if (g) ACTS.pick({ dataset: { g } }); }
+      return;
+    }
+    if (link) {
+      if (document.readyState === 'loading') await new Promise(rs => document.addEventListener('DOMContentLoaded', rs, { once: true }));
+      await ACTS.pick({ dataset: { g: up.g } });
+      if (H.game && H.game.id === up.g && H.screen === 'gmenu') joinLink(link);
       return;
     }
     if (H.screen === 'gmenu') renderGMenu();
@@ -1856,7 +1890,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.15.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.16.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1898,6 +1932,15 @@ const ACTS = {
   },
   join() { const c = $('#code'); joinOnline(c ? c.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) : ''); },
   joinroom(b) { joinOnline(b.dataset.c); },
+  /* enlace de la sala (/game/<id>/<CÓDIGO>): quien lo abre entra directamente (joinLink) */
+  async share() {
+    if (H.kind !== 'claude' || !H.code || !H.game) return;
+    const url = roomURL(), text = '¡Juega conmigo a ' + H.game.name + '! Sala ' + H.code;
+    if (navigator.share) {
+      try { await navigator.share({ title: H.game.name + ' · Mesa de Juegos', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    try { await navigator.clipboard.writeText(url); toast('Enlace copiado'); } catch (e) { toast(url); }
+  },
   createlocal() { createLocal(); },
   async joinlocal() { try { await Mods.load('pair'); } catch (e) { toast('No se pudo cargar el emparejamiento'); return; } joinLocalStart(); },
   async invite() { try { await Mods.load('pair'); } catch (e) { toast('No se pudo cargar el emparejamiento'); return; } hostInvite(); },
