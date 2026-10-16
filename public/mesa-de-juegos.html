@@ -225,6 +225,8 @@ input[type=text]{width:100%;min-height:42px;padding:8px 12px;border-radius:12px;
 .rooms{display:flex;flex-direction:column;gap:6px}
 .room{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line);text-align:left}
 .room b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shr{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;font-size:17px;box-shadow:var(--shadow)}
+.shr svg{width:24px;height:24px;flex:none}
 .code{font-family:var(--f-mono);font-weight:700;font-size:44px;letter-spacing:.18em;text-align:center;color:var(--accent);padding-left:.18em}
 .plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .plist li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
@@ -1406,7 +1408,7 @@ function renderLobby() {
   if (host) pl = roster();
   else if (H.lobby) pl = H.lobby.pl.map((p, i) => ({ name: p.n, bot: !!p.b, host: !!p.h, wait: !!p.w, off: !!p.o, me: i === H.lobby.you }));
   const top = H.kind === 'claude'
-    ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><button class="btn primary" data-act="share">Compartir enlace</button><p class="muted small" style="margin:0;text-align:center">' + (H.priv ? 'Sala privada: no aparece en la lista. Solo entra quien tenga el código.' : 'Sala pública: quien tenga esta página abierta la verá en «Sala online». También puede escribir el código.') + '</p>' + (host ? '<button class="btn flat" data-act="togvis">' + (H.priv ? 'Hacerla pública' : 'Hacerla privada') + '</button>' : '')
+    ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><button class="btn primary shr" data-act="share" aria-label="Compartir enlace de la sala">' + ICO_SHARE + '<span>Invitar: compartir enlace</span></button><p class="muted small" style="margin:0;text-align:center">' + (H.priv ? 'Sala privada: no aparece en la lista. Solo entra quien tenga el código.' : 'Sala pública: quien tenga esta página abierta la verá en «Sala online». También puede escribir el código.') + '</p>' + (host ? '<button class="btn flat" data-act="togvis">' + (H.priv ? 'Hacerla pública' : 'Hacerla privada') + '</button>' : '')
     : '<h2>Sala sin conexión</h2><p class="muted small" style="margin:0">' + (host ? 'Añade a cada jugador con un código QR (lector de QR del móvil + pegar el texto). Todos deben estar en la misma red Wi-Fi o en el punto de acceso de uno de los móviles.' : 'Conectado con el anfitrión.') + '</p>';
   const rs = host && H.resume;
   let h = '<div class="card">' + (rs ? '<h2>Partida guardada</h2><p class="muted small" style="margin:0">Los jugadores deben conectarse con el mismo nombre que tenían (' + esc(Saves.humans(H.resume).join(', ')) + ').</p>' : '') + top + '</div>';
@@ -1567,6 +1569,7 @@ const HOME_CATS = { tablero: { name: 'Tablero' }, cartas: { name: 'Cartas' }, pu
 function saveOpt() { store.set('hub.opt', H.opt); if (H.game) { const m = store.get('hub.optg', {}); m[H.game.id] = { opp: H.opt.opp, lvl: H.opt.lvl, first: H.opt.first === 1 ? 1 : 0 }; store.set('hub.optg', m); } }
 function gcardHTML(g) { return '<button class="gcard" data-act="pick" data-g="' + g.id + '"><b>' + esc(g.name) + '</b><span>' + esc(g.blurb) + '</span></button>'; }
 const esSort = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' });
+const ICO_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 const ICO_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
 const helloHTML = () => '¡Hola, ' + esc(H.nick) + '!' + ICO_EDIT;
 function renderHome() {
@@ -1890,7 +1893,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.16.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.16.1';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
