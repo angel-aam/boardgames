@@ -18,9 +18,9 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario: `node tools/mkdict.js` lee tools/dict-src/*.gz; con @gfx/zopfli instalado comprime ~4 % más).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline-<idioma>.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline-<idioma>.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.18.0.
-- Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, tema claro/oscuro/automático, sonido, ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
-- Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
+- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline-<idioma>.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.22.1.
+- Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, sonido, tema e idioma como botones de icono (.pico: psndt/pthemet/plangt), ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
+- Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Cada uno elige sus reacciones en Preferencias → «Elegir reacciones» (ACTS.rxedit/rxadd/rxdel/rxreset; hub.rx = {w,l,t}, 1–6 de RX_POOL; el anfitrión acepta todo RX_POOL); RX_RUN (🦀) cruza corriendo de derecha a izquierda o en diagonal en vez de subir. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
 - Conexión con el móvil bloqueado: el navegador corta el WebSocket (no se puede evitar). Mitigaciones: el invitado espera al anfitrión hasta HOST_WAIT (10 min de tiempo a la vista, banner #netb con «Salir»); onLost reintenta hasta HOST_WAIT; en el lobby el invitado caído queda en H.off («Desconectado», Quitar = ACTS.rmoff) y al empezar ocupa su asiento como ausente (matchPl.was → seatBack). El Lobby del servidor mantiene listada 5 min la sala de un anfitrión caído (presence.off → «ausente»).
 - Avisos push (objeto Push, net.js; hub.push; Preferencias → «Avisos de salas online» y tarjeta «Activar avisos» del lobby): la suscripción va a la sala ({t:'psub',d:DID,h}); el anfitrión pide {t:'push',to:DID,k:'start'|'turn'} para asientos ausentes o con la app oculta (el invitado manda {t:'vis',h}); H.seatDev[i] = DID por asiento; pushStart() en beginMatch y pushTurn() en afterAct (H.lastTurn). El invitado que no recibe respuesta pide k:'join' a 'host' y, si el servidor confirma ({t:'pushed',ok}), espera (onSrv). Solo con servidor (VAPID_JWK), SW y permiso; iPhone solo instalada. El SW muestra la notificación salvo que la app esté a la vista y al tocarla enfoca/abre la app.
 - Idiomas (core/i18n, objeto I18n; preferencia hub.lang 'es'|'en', Preferencias → Idioma = ACTS.plang): el código está en español; en inglés un MutationObserver traduce al pintarse cada nodo de texto y title/aria-label/placeholder (clave = texto sin espacios de los extremos; patrones RegExp con $1 tal cual y %1 traducido). Diccionarios perezosos: módulo «lang-en» (núcleo) y «en-<módulo>» (Mods.load lo carga antes del módulo). Reglas en inglés: I18n.rules[id]. I18n.t(texto,{k}) para lo que no pasa por el DOM (título, compartir). translate="no" excluye contenido-dato (palabras, frases). ?i18n=debug lista en consola los textos sin traducción. Los avisos push llevan el idioma del destinatario (psub l). Al añadir o cambiar textos visibles de un juego, añade su traducción en su bloque en-<módulo>.
@@ -36,7 +36,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - `Sfx.tone(freq, dur, tipo, retardo, vol)` y `Sfx.win/lose/join`; cada juego define sus efectos con `ctx.tone`.
 - `Mods.load(nombre)` (promesa) / `Mods.ok(nombre)`.
 - `Hist` (recientes y estadísticas), `Saves` (partida en curso en disco, solo la última por juego; `put/get/forGame/latest/putSingle/getSingle`), `ClaudeNet` y `LocalNet` (transportes: `send(peer,msg) broadcast close onmsg onleave hostId`), `Hub`, `H` (estado global del hub), `ACTS` (acciones del DOM por `data-act`).
-- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.react, hub.push, hub.lang, hub.fav (juegos favoritos: lista de ids), hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
+- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.react, hub.rx (reacciones elegidas {w,l,t}), hub.push, hub.lang, hub.fav (juegos favoritos: lista de ids), hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
 
 ## 4. Contrato de un juego (`Hub.register`)
 Multijugador por turnos:
@@ -145,6 +145,8 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | puntos | juego tablero «Puntos y cajas» | games/puntos/puntos.js (+puntos.css) | – | Puntos y cajas 2–4 jugadores (opción tamaño 3×3…6×6 cajas), sala o contra la IA (1–3 bots, Fácil/Normal/Difícil). Líneas: horizontales primero (r*N+c) y luego verticales; acción {t:'e',e}. Cerrar una caja = quedársela y repetir turno; gana quien tenga más cajas. IA: pbPick (coge cajas, evita el tercer lado, regala lo mínimo con pbSacrifice; Difícil con búsqueda exacta pbSolve si quedan ≤13 líneas). Tablero SVG; Ayuda visual marca líneas que cierran caja / regalan caja. |
 | criptograma | juego palabras «Criptograma» | games/criptograma/criptograma.js (+criptograma.css) | teclado | Criptograma de un jugador: frases (CR_PH, ~450: refranes, dichos y citas de autores de dominio público con atribución; sin repetir hasta agotar el nivel con el store criptograma-seen) cifrados por sustitución sin letras fijas (crCipher) sobre A–Z+Ñ. 4 niveles por longitud (≤22/23–29/30–38/≥39 letras) y letras regaladas (4/2/1/0). Tocar una casilla resalta su letra cifrada; teclado en pantalla y físico; una letra solo en una cifrada (se roba); Comprobar marca errores (Ayuda visual los marca sola); Pista bloquea una letra; Frecuencias. Guarda partida y récords (criptograma-best). |
 | mahjong | juego puzzles «Mahjong» | games/mahjong/mahjong.js (+mahjong.css) | – | Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. |
+| mastermind | juego puzzles «Código secreto» | (solo en el HTML) | – | Versión propia del Mastermind: un jugador (4 niveles MM_LV: huecos/colores/repetidos/intentos; guardado y récords mastermind-best) y sala 2–8 en carrera (MmGame: mismo código para todos, cada uno ve sus filas y el progreso ajeno sin colores; tiempo límite con nextTick/tick, opciones lv y tm; acciones {t:'g',g} y {t:'q'}; sin IA). mmScore = {b, w}. Prefijo mm-. |
+| loco | juego cartas «Loco» | (solo en el HTML) | – | Versión propia del ocho loco con cartas de acción (estilo Uno), 2–6 jugadores con IA (Fácil/Normal/Difícil) y salas. Baraja LO_DECK de 108 (v 0–9, 10 salta, 11 cambio, 12 +2, 13 comodín, 14 +4); motor LoGame con acciones {t:'p',c,col?}, {t:'d'}, {t:'n'}; opciones stk (acumular +2/+4) y dr (robar una / hasta poder jugar). Color que manda: anillo, etiqueta .lo-colb «Color: …» bajo la carta y el comodín de la mesa pintado del color elegido; aviso «X elige …». La IA difícil recuerda los colores que le faltan a cada rival (lack). Animaciones con Flip (flyIn/ghost): la carta echada vuela a la mesa desde la mano o el jugador; las robadas, del mazo a la mano o al jugador. Prefijo lo-. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
 <title>Mesa de Juegos</title>
@@ -213,7 +215,7 @@ button{cursor:pointer;touch-action:manipulation}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .row>*{min-width:0}
 .fld{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
-input[type=text]{width:100%;min-height:42px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+input[type=text],input[type=search]{width:100%;min-height:42px;padding:8px 12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .btn{min-height:42px;padding:8px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font-weight:600}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.flat{background:transparent}
@@ -271,7 +273,17 @@ input[type=text]{width:100%;min-height:42px;padding:8px 12px;border-radius:12px;
 .rxfly b{position:absolute;left:50%;top:36%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:6px 14px;border-radius:12px;font-size:16px;white-space:nowrap;box-shadow:var(--shadow);animation:rxFade 2.4s forwards}
 @keyframes rxUp{0%{transform:translateY(0) scale(.6);opacity:0}15%{opacity:1}100%{transform:translateY(-78vh) scale(1.3) rotate(var(--r,0deg));opacity:0}}
 @keyframes rxFade{0%,80%{opacity:1}100%{opacity:0}}
-@media (prefers-reduced-motion: reduce){ .rxfly i{bottom:auto;top:46%;animation:rxFade 2s forwards} }
+/* emojis que cruzan corriendo (el cangrejo): de derecha a izquierda o en diagonal, con un traqueteo de patas */
+.rxfly i.run{left:0;top:0;bottom:auto;opacity:1;animation:rxRun 2.4s linear forwards}
+.rxfly i.run span{display:inline-block;animation:rxScut .16s ease-in-out infinite alternate}
+@keyframes rxRun{0%{transform:translate(var(--x0),var(--y0))}100%{transform:translate(var(--x1),var(--y1))}}
+@keyframes rxScut{0%{transform:rotate(-9deg) translateY(0)}100%{transform:rotate(9deg) translateY(-4px)}}
+/* editor de reacciones (Preferencias): elegidas arriba (tocar = quitar), disponibles abajo (tocar = añadir) */
+.rxed{display:flex;flex-wrap:wrap;gap:6px}
+.rxed button{font-size:24px;line-height:1;width:44px;height:44px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.rxed button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.rxed button:disabled{opacity:.35}
+@media (prefers-reduced-motion: reduce){ .rxfly i,.rxfly i.run{bottom:auto;left:auto;top:46%;transform:none;animation:rxFade 2s forwards} .rxfly i.run span{animation:none} }
 .hist div{padding:8px 12px;border-radius:12px;background:var(--bg);font-size:14px}
 #toast{position:fixed;left:50%;bottom:calc(190px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:min(90%,420px);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:12px;font-size:14px;font-weight:600;z-index:30;text-align:center;box-shadow:var(--shadow)}
 @media (prefers-reduced-motion: reduce){ .t{transition:none} }
@@ -312,6 +324,18 @@ textarea{width:100%;border-radius:10px;border:1px solid var(--line);background:v
 .mnu-hd h2{padding-right:0}
 .mnu .gsec{margin:6px 2px -2px}
 .mnu .fld .seg{color:var(--ink)}
+.gsrch{position:relative;display:flex;align-items:center}
+.gsrch svg{position:absolute;left:12px;width:20px;height:20px;color:var(--muted);pointer-events:none}
+.gsrch input{padding-left:40px;padding-right:40px;-webkit-appearance:none;appearance:none}
+.gsrch input::-webkit-search-cancel-button{display:none}
+.gsrch .gx{position:absolute;right:4px;width:34px;height:34px;border:0;background:transparent;color:var(--muted);font-size:18px;display:none}
+.gsrch.has .gx{display:block}
+.gnone{margin:4px 2px;color:var(--muted);font-size:14px}
+.pico{display:flex;gap:22px;padding:2px 2px 0}
+.pico label{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.pico .ibtn{width:44px;height:44px}
+.pico-lg span{font:700 15px var(--f-mono);text-transform:uppercase;letter-spacing:.04em}
+.pico .ibtn:disabled{opacity:.45}
 .mnu-note{margin:-4px 2px 0;font-size:12px;color:var(--muted)}
 /* saludo del inicio: toca para abrir Preferencias */
 .hello{display:flex;align-items:center;gap:8px;max-width:100%;padding:2px 0;border:0;background:transparent;color:var(--ink);font:inherit;letter-spacing:inherit;text-align:left}
@@ -396,7 +420,14 @@ function toast(msg) {
 function openSheet(html) { $('#sheetBody').innerHTML = html; $('#sheet').hidden = false; }
 function hideSheet() { $('#sheet').hidden = true; }
 const sheetOpen = () => !$('#sheet').hidden;
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetOpen()) { e.preventDefault(); hideSheet(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sheetOpen()) { e.preventDefault(); hideSheet(); return; }
+  /* buscador del inicio: Intro abre el primer resultado; Escape borra */
+  if (e.target && e.target.id === 'gsearch') {
+    if (e.key === 'Enter') { const f = searchGames(H.q); if (f && f.length) { e.preventDefault(); ACTS.pick({ dataset: { g: f[0].id } }); } }
+    else if (e.key === 'Escape' && H.q) { e.preventDefault(); ACTS.gclear(); }
+  }
+});
 
 const ICO_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>';
 
@@ -560,7 +591,7 @@ const I18n = {
     return null;
   },
   /* huecos que se copian tal cual (nombres…): retoques del idioma, p. ej. «Marcos (IA)» → «Marcos (AI)» (I18n.fix lo pone el diccionario) */
-  fixed(g) { for (const [re, r] of I18n.fix) g = g.replace(re, r); return g; },
+  fixed(g) { if (I18n.lang === 'es') return g; for (const [re, r] of I18n.fix) g = g.replace(re, r); return g; },
   skip(el) { return !el || !!el.closest('[translate="no"],script,style,textarea,title'); },
   text(n) {
     const v = n.nodeValue, p = I18n.src.get(n);
@@ -1780,6 +1811,30 @@ const esSort = (a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' });
 const ICO_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';
 const ICO_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
 const helloHTML = () => '<span>¡Hola, ' + esc(H.nick) + '!</span>' + ICO_EDIT;
+/* búsqueda del inicio: sin tildes ni mayúsculas; cada palabra debe aparecer en el nombre, la descripción o la categoría (en español o traducidos) */
+const normQ = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function searchGames(q) {
+  const ws = normQ(q).split(/\s+/).filter(Boolean);
+  if (!ws.length) return null;
+  return Hub.catalog.filter(g => {
+    const cat = g.cat && HOME_CATS[g.cat] ? HOME_CATS[g.cat].name : '';
+    const txt = normQ([g.name, g.blurb, cat, I18n.t(g.name), I18n.t(g.blurb), I18n.t(cat), g.id].join(' '));
+    return ws.every(w => txt.includes(w));
+  }).sort((a, b) => esSort(I18n.t(a.name), I18n.t(b.name)));
+}
+function homeList() {
+  const found = searchGames(H.q);
+  if (found) return found.length ? found.map(gcardHTML).join('') : '<p class="gnone">No hay juegos que coincidan con «' + esc(H.q.trim()) + '»</p>';
+  const fv = favs().map(id => Hub.catalog.find(g => g.id === id)).sort((a, b) => esSort(a.name, b.name));
+  return (H.homeCat
+      ? '<button class="gcard back" data-act="homecat" data-c=""><b>‹ Todos los juegos</b><span>Volver al inicio</span></button>' +
+        (H.homeCat === 'fav'
+          ? '<h3 class="gsec">Favoritos</h3>' + fv.map(gcardHTML).join('')
+          : '<h3 class="gsec">' + esc(HOME_CATS[H.homeCat].name) + '</h3>' + Hub.catalog.filter(g => g.cat === H.homeCat).sort((a, b) => esSort(a.name, b.name)).map(gcardHTML).join(''))
+      : (fv.length ? '<button class="gcard" data-act="homecat" data-c="fav"><b><i class="fst">★</i> Favoritos</b><span>' + fv.map(g => esc(g.name)).join(' · ') + '</span></button>' : '') + [].concat(Hub.catalog.filter(g => !g.cat).map(g => ({ n: g.name, h: gcardHTML(g) })),
+          Object.keys(HOME_CATS).map(k => ({ n: HOME_CATS[k].name, h: '<button class="gcard" data-act="homecat" data-c="' + k + '"><b>' + HOME_CATS[k].name + '</b><span>' + Hub.catalog.filter(g => g.cat === k).map(g => g.name).sort(esSort).join(' · ') + '</span></button>' })))
+        .sort((a, b) => esSort(a.n, b.n)).map(x => x.h).join(''));
+}
 function renderHome() {
   if (H.homeCat === 'fav' && !favs().length) H.homeCat = '';   /* sin favoritos no hay sección: se vuelve al inicio */
   const fv = favs().map(id => Hub.catalog.find(g => g.id === id)).sort((a, b) => esSort(a.name, b.name));
@@ -1787,14 +1842,11 @@ function renderHome() {
     '<div class="hero"><div class="word" aria-label="Juegos">' + wordHTML(I18n.t('JUEGOS')) + '</div>' +
     '<p>Juega contra la IA, en una sala online o sin conexión con quienes tengas cerca.</p></div>' +
     (Saves.latest() ? '<button class="btn primary" data-act="resume">Continuar la partida anterior</button>' : '') +
-    '<div class="glist">' + (H.homeCat
-      ? '<button class="gcard back" data-act="homecat" data-c=""><b>‹ Todos los juegos</b><span>Volver al inicio</span></button>' +
-        (H.homeCat === 'fav'
-          ? '<h3 class="gsec">Favoritos</h3>' + fv.map(gcardHTML).join('')
-          : '<h3 class="gsec">' + esc(HOME_CATS[H.homeCat].name) + '</h3>' + Hub.catalog.filter(g => g.cat === H.homeCat).sort((a, b) => esSort(a.name, b.name)).map(gcardHTML).join(''))
-      : (fv.length ? '<button class="gcard" data-act="homecat" data-c="fav"><b><i class="fst">★</i> Favoritos</b><span>' + fv.map(g => esc(g.name)).join(' · ') + '</span></button>' : '') + [].concat(Hub.catalog.filter(g => !g.cat).map(g => ({ n: g.name, h: gcardHTML(g) })),
-          Object.keys(HOME_CATS).map(k => ({ n: HOME_CATS[k].name, h: '<button class="gcard" data-act="homecat" data-c="' + k + '"><b>' + HOME_CATS[k].name + '</b><span>' + Hub.catalog.filter(g => g.cat === k).map(g => g.name).sort(esSort).join(' · ') + '</span></button>' })))
-        .sort((a, b) => esSort(a.n, b.n)).map(x => x.h).join('')) + '</div>' +
+    /* buscador: justo encima de la lista de juegos */
+    '<label class="gsrch' + (H.q ? ' has' : '') + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>' +
+      '<input type="search" id="gsearch" placeholder="Buscar juego…" aria-label="Buscar juegos" autocomplete="off" spellcheck="false" enterkeyhint="search" value="' + esc(H.q || '') + '">' +
+      '<button class="gx" data-act="gclear" aria-label="Borrar búsqueda">✕</button></label>' +
+    '<div class="glist">' + homeList() + '</div>' +
     '<div class="row"><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
 }
 function slvGet() { const m = store.get('hub.slv', {}); const v = m[H.game.id]; return Number.isInteger(v) && v >= 0 && v < H.game.single.levels.length ? v : H.game.single.def; }
@@ -1987,29 +2039,41 @@ function showResult(r, re) {
   const won = winners.includes(H.seat) && !r.tie;
   const rows = r.rows;
   if (!re) { if (won) Sfx.win(); else Sfx.lose(); Hist.record(r, won); }
-  const list = rows.map((x, i) => '<div class="' + (winners.includes(i) ? 'w' : '') + '"><span>' + (i === H.seat ? '<bdi>Tú</bdi>' : '<bdi translate="no">' + esc(x.name) + '</bdi>') + '<bdi translate="no"> · </bdi>' + esc(x.note) + '</span>' + (x.txt !== undefined ? '<b>' + esc(x.txt) + '</b>' : '<b class="' + (x.pts >= 0 ? 'pos' : 'neg') + '">' + (x.pts > 0 ? '+' : '') + x.pts + '</b>') + '</div>').join('');
+  const list = rows.map((x, i) => '<div class="' + (winners.includes(i) ? 'w' : '') + '"><span>' + (i === H.seat ? '<bdi>Tú</bdi>' : '<bdi translate="no">' + esc(I18n.fixed(x.name)) + '</bdi>') + '<bdi translate="no"> · </bdi>' + esc(x.note) + '</span>' + (x.txt !== undefined ? '<b>' + esc(x.txt) + '</b>' : '<b class="' + (x.pts >= 0 ? 'pos' : 'neg') + '">' + (x.pts > 0 ? '+' : '') + x.pts + '</b>') + '</div>').join('');
   let btns;
   if (H.role === 'solo') btns = '<button class="btn primary" data-act="again">Otra partida</button><button class="btn" data-act="tomenu">Salir</button>';
   else if (H.role === 'host') btns = '<button class="btn primary" data-act="rematch">Volver a jugar</button><button class="btn" data-act="tolobby">Volver a la sala</button><button class="btn" data-act="tomenu">Cerrar la sala</button>';
   else btns = '<p class="muted small" style="margin:0">Esperando a que el anfitrión elija…</p><button class="btn" data-act="tomenu">Salir de la sala</button>';
-  openSheet('<h2>' + (r.tie ? 'Empate' : won ? '¡Has ganado!' : (r.title ? esc(r.title) : 'Gana <bdi translate="no">' + esc(rows[r.win].name) + '</bdi>')) + '</h2><div class="res">' + list + '</div>' + rxBar(r.tie ? 't' : won ? 'w' : 'l') + btns);
+  openSheet('<h2>' + (r.tie ? 'Empate' : won ? '¡Has ganado!' : (r.title ? esc(r.title) : 'Gana <bdi translate="no">' + esc(I18n.fixed(rows[r.win].name)) + '</bdi>')) + '</h2><div class="res">' + list + '</div>' + rxBar(r.tie ? 't' : won ? 'w' : 'l') + btns);
 }
 /* ---------- Reacciones al terminar (solo en sala con otras personas; opción «Reacciones» del menú, hub.react, activada por defecto) ----------
    Mensaje {t:'rx', g, e}: el invitado lo manda al anfitrión; el anfitrión lo muestra y lo reenvía al resto con el nombre del asiento (n).
    Solo se aceptan emojis de RX y con la partida terminada; límite de una reacción cada 0,4 s por conexión. */
+/* RX = reacciones por defecto (w gana, l pierde, t empate); cada uno puede cambiarlas en Preferencias → «Elegir reacciones»
+   (store hub.rx = {w,l,t}, de 1 a RX_MAX de RX_POOL). El anfitrión acepta cualquier emoji de RX_POOL (RX_ALL), no solo los suyos.
+   RX_RUN: los que cruzan la pantalla corriendo en vez de subir (el cangrejo). */
 const RX = { w: ['🎉', '😄', '🥳', '👏', '😎', '🏆'], l: ['😢', '😭', '😠', '😤', '🤝', '👍'], t: ['🤝', '👍', '😅', '😮', '👏', '😄'] };
-const RX_ALL = new Set([...RX.w, ...RX.l, ...RX.t]);
+const RX_POOL = ['🎉', '😄', '🥳', '👏', '😎', '🏆', '😢', '😭', '😠', '😤', '🤝', '👍', '😅', '😮', '🦀', '😂', '🤣', '😜', '😏', '😱', '🤯', '🥲', '😴', '🙈', '🔥', '💪', '🙌', '🍀', '⭐', '👋'];
+const RX_ALL = new Set(RX_POOL), RX_RUN = new Set(['🦀']), RX_MAX = 6;
+const rxSet = k => { const c = (store.get('hub.rx', null) || {})[k]; const a = Array.isArray(c) ? c.filter(e => RX_ALL.has(e)).slice(0, RX_MAX) : []; return a.length ? a : RX[k]; };
 const reactOn = () => store.get('hub.react', true) !== false;
 const rxRoom = () => H.role === 'guest' || (H.role === 'host' && H.seatPeer.some((p, i) => p && i !== H.seat));
 function rxBar(k) {
   if (!reactOn() || !rxRoom()) return '';
-  return '<div class="rxb" aria-label="Reacciones">' + RX[k].map((e, i) => '<button data-act="rxsend" data-k="' + k + '" data-e="' + i + '">' + e + '</button>').join('') + '</div>';
+  return '<div class="rxb" aria-label="Reacciones">' + rxSet(k).map((e, i) => '<button data-act="rxsend" data-k="' + k + '" data-e="' + i + '">' + e + '</button>').join('') + '</div>';
 }
 function rxShow(e, who) {
   if (!reactOn()) return;
   const box = document.createElement('div'); box.className = 'rxfly';
   let h = '<b>' + esc(who) + ' ' + e + '</b>';
-  for (let i = 0; i < 6; i++) h += '<i style="left:' + (8 + Math.random() * 78).toFixed(1) + '%;animation-delay:' + (i * 0.12).toFixed(2) + 's;--r:' + Math.round(Math.random() * 60 - 30) + 'deg">' + e + '</i>';
+  if (RX_RUN.has(e)) {
+    /* corren de derecha a izquierda, o en diagonal (bajando o subiendo), cada uno a su altura */
+    const diag = Math.random() < 0.5, up = Math.random() < 0.5;
+    for (let i = 0; i < 5; i++) {
+      const y = 12 + i * 15 + Math.random() * 6, dy = diag ? (up ? -38 : 38) : 0;
+      h += '<i class="run" style="--x0:105vw;--x1:-20vw;--y0:' + (diag && up ? y + 30 : y).toFixed(1) + 'vh;--y1:' + ((diag && up ? y + 30 : y) + dy).toFixed(1) + 'vh;animation-delay:' + (i * 0.18).toFixed(2) + 's;animation-duration:' + (1.7 + Math.random() * 0.5).toFixed(2) + 's"><span>' + e + '</span></i>';
+    }
+  } else for (let i = 0; i < 6; i++) h += '<i style="left:' + (8 + Math.random() * 78).toFixed(1) + '%;animation-delay:' + (i * 0.12).toFixed(2) + 's;--r:' + Math.round(Math.random() * 60 - 30) + 'deg">' + e + '</i>';
   box.innerHTML = h;
   document.body.appendChild(box);
   Sfx.tone(880, 0.06, 'sine', 0, 0.05); Sfx.tone(1320, 0.08, 'sine', 0.07, 0.04);
@@ -2031,6 +2095,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => {
   if (e.target.id === 'nick') { H.nick = cleanNick(e.target.value); store.set('hub.nick', H.nick); const h = $('#ttl .hello'); if (h) h.innerHTML = helloHTML(); }
+  if (e.target.id === 'gsearch') { H.q = e.target.value; const l = $('#home .glist'), w = $('#home .gsrch'); if (l) l.innerHTML = homeList(); if (w) w.classList.toggle('has', !!H.q); }
   if (e.target.id === 'code') e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
 });
 /* «Ayuda visual»: marca en el DOM (body[data-assist]) que activan los estilos de ayuda de cada juego; apagado por defecto */
@@ -2110,16 +2175,18 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.18.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.22.1';
 const ACTS = {
   back() {
-    if (H.screen === 'gmenu') { show('home'); }
+    if (H.screen === 'gmenu') { show('home'); renderHome(); }   /* repinta: la búsqueda (H.q) ya se limpió al abrir el juego */
     else if (H.screen === 'lobby') { leaveAll(); }
     else if (H.screen === 'pair') { backToLobbyScreen(); }
   },
+  gclear() { H.q = ''; renderHome(); const i = $('#gsearch'); if (i) i.focus(); },
   async pick(b) {
     const ce = Hub.catalog.find(g => g.id === b.dataset.g);
     if (!ce) return;
+    H.q = '';   /* al volver al inicio la búsqueda está limpia */
     if (H.homeCat !== 'fav' || !favs().includes(ce.id)) H.homeCat = ce.cat || '';   /* al volver se regresa a la sección de la que vino */
     try { await Mods.load(ce.mod); } catch (e) { toast('No se pudo cargar el juego'); return; }
     H.game = Hub.games.find(g => g.id === ce.id);
@@ -2206,12 +2273,16 @@ const ACTS = {
       '<label class="fld">Tu nombre<input type="text" id="nick" maxlength="14" autocomplete="off" spellcheck="false" value="' + esc(H.nick) + '"' + (room ? ' disabled' : '') + '></label>' +
       (room ? '<p class="mnu-note">Se puede cambiar al salir de la sala.</p>' : '') +
       '<h3 class="gsec">Apariencia y sonido</h3>' +
-      (I18n.langs.length > 1 ? '<div class="fld">Idioma<div class="seg" translate="no">' + segHTML(['Español', 'English'], I18n.lang === 'en' ? 1 : 0, 'plang') + '</div></div>' + (room ? '<p class="mnu-note">El idioma se puede cambiar al salir de la sala.</p>' : '') : '') +
-      '<div class="fld">Tema<div class="seg">' + segHTML(['Claro', 'Oscuro', 'Automático'], th === 'light' ? 0 : th === 'dark' ? 1 : 2, 'ptheme') + '</div></div>' +
-      '<div class="fld">Sonido' + sw('psnd', Sfx.on) + '</div>' +
+      /* los mismos botones de icono de la cabecera (sonido, tema) y uno de idioma con el código («es»/«en») */
+      '<div class="pico">' +
+        '<label><button class="ibtn" data-act="psndt" aria-label="Sonido" aria-pressed="' + (Sfx.on ? 'true' : 'false') + '">' + (Sfx.on ? ICO_SND_ON : ICO_SND_OFF) + '</button>Sonido</label>' +
+        '<label><button class="ibtn" data-act="pthemet" aria-label="Cambiar tema">' + (effectiveDark() ? ICO_SUN : ICO_MOON) + '</button>Tema</label>' +
+        (I18n.langs.length > 1 ? '<label><button class="ibtn pico-lg" data-act="plangt" aria-label="Idioma"' + (room ? ' disabled' : '') + '><span translate="no">' + I18n.lang + '</span></button>Idioma</label>' : '') +
+      '</div>' + (room && I18n.langs.length > 1 ? '<p class="mnu-note">El idioma se puede cambiar al salir de la sala.</p>' : '') +
       '<h3 class="gsec">Partidas</h3>' +
       '<div class="fld">Ayuda visual (marca lo que se puede jugar)' + sw('passist', assistOn()) + '</div>' +
       '<div class="fld">Reacciones al terminar en sala' + sw('preact', reactOn()) + '</div>' +
+      (reactOn() ? '<button class="btn" data-act="rxedit">Elegir reacciones</button>' : '') +
       (Push.ok() ? '<div class="fld">Avisos de salas online (notificaciones)<div class="seg">' + segHTML(['Sí', 'No'], Push.on() ? 0 : 1, 'ppush') + '</div></div>' +
         (Notification.permission === 'denied' ? '<p class="mnu-note">Las notificaciones están bloqueadas en este navegador: actívalas en sus ajustes.</p>' : '<p class="mnu-note">Te avisa si bloqueas el móvil en una sala: cuando empieza la partida, cuando te toca o cuando alguien quiere entrar.</p>')
         : offlineOK() && isIOS() && !isStandalone() ? '<p class="mnu-note">En iPhone, instala la app para recibir avisos de las salas.</p>' : '') +
@@ -2231,12 +2302,39 @@ const ACTS = {
     syncURL(); Push.reg();
     if (sheetOpen()) ACTS.prefs();
   },
+  psndt() { ACTS.snd(); ACTS.prefs(); },
+  pthemet() { ACTS.theme(); ACTS.prefs(); },
+  plangt() { ACTS.plang({ dataset: { v: I18n.lang === 'en' ? '0' : '1' } }); },
   psnd(b) { if ((+b.dataset.v === 0) !== Sfx.on) ACTS.snd(); ACTS.prefs(); },
   passist(b) { store.set('hub.assist', +b.dataset.v === 0); paintAssist(); ACTS.prefs(); },
   preact(b) { store.set('hub.react', +b.dataset.v === 0); ACTS.prefs(); },
+  /* editor de reacciones: pestaña (w/l/t), elegidas (tocar = quitar) y disponibles (tocar = añadir y verla) */
+  rxedit(b) {
+    if (b && b.dataset && b.dataset.v != null) H.rxk = ['w', 'l', 't'][+b.dataset.v] || 'w';
+    const k = H.rxk || 'w', cur = rxSet(k), full = cur.length >= RX_MAX;
+    openSheet('<div class="mnu"><div class="mnu-hd"><button class="ibtn" data-act="prefs" aria-label="Volver a Preferencias">' + ICO_BACK + '</button><h2>Reacciones</h2></div>' +
+      '<div class="seg">' + segHTML(['Al ganar', 'Al perder', 'Empate'], ['w', 'l', 't'].indexOf(k), 'rxedit') + '</div>' +
+      '<h3 class="gsec">Elegidas (' + cur.length + '/' + RX_MAX + ')</h3><div class="rxed">' + cur.map(e => '<button data-act="rxdel" data-e="' + e + '" aria-label="Quitar ' + e + '">' + e + '</button>').join('') + '</div>' +
+      '<p class="mnu-note">Toca una para quitarla. Abajo, toca para añadir (máximo ' + RX_MAX + '). 🦀 cruza la pantalla corriendo.</p>' +
+      '<h3 class="gsec">Disponibles</h3><div class="rxed">' + RX_POOL.map(e => '<button data-act="rxadd" data-e="' + e + '" aria-pressed="' + (cur.includes(e) ? 'true' : 'false') + '"' + (!cur.includes(e) && full ? ' disabled' : '') + '>' + e + '</button>').join('') + '</div>' +
+      '<button class="btn flat" data-act="rxreset">Restablecer las de siempre</button></div>');
+  },
+  rxadd(b) {
+    const k = H.rxk || 'w', e = b.dataset.e, all = store.get('hub.rx', null) || {}, cur = rxSet(k).slice();
+    if (!RX_ALL.has(e)) return;
+    if (cur.includes(e)) { if (cur.length > 1) cur.splice(cur.indexOf(e), 1); }
+    else if (cur.length < RX_MAX) { cur.push(e); rxShow(e, 'Tú'); }
+    all[k] = cur; store.set('hub.rx', all); ACTS.rxedit();
+  },
+  rxdel(b) {
+    const k = H.rxk || 'w', all = store.get('hub.rx', null) || {}, cur = rxSet(k).filter(e => e !== b.dataset.e);
+    if (!cur.length) { toast('Deja al menos una reacción'); return; }
+    all[k] = cur; store.set('hub.rx', all); ACTS.rxedit();
+  },
+  rxreset() { const k = H.rxk || 'w', all = store.get('hub.rx', null) || {}; delete all[k]; store.set('hub.rx', all); ACTS.rxedit(); },
   pvis(b) { store.set('hub.vis', +b.dataset.v === 1 ? 1 : 0); if (H.screen === 'gmenu') renderGMenu(); ACTS.prefs(); },
   rxsend(b) {
-    const e = (RX[b.dataset.k] || [])[+b.dataset.e];
+    const e = (RX[b.dataset.k] ? rxSet(b.dataset.k) : [])[+b.dataset.e];
     if (!e || !H.gid || Date.now() - (H.rxLast || 0) < 500) return;
     H.rxLast = Date.now();
     rxShow(e, 'Tú');
@@ -2333,6 +2431,8 @@ Hub.catalog.push({ id: 'hilos', cat: 'puzzles', name: 'Hilos', blurb: 'Un jugado
 Hub.catalog.push({ id: 'retomat', cat: 'puzzles', name: 'Reto matemático', blurb: 'Operaciones cruzadas · 4 niveles', mod: 'retomat' });
 Hub.catalog.push({ id: 'buscaminas', cat: 'puzzles', name: 'Buscaminas', blurb: 'Un jugador · 5 niveles', mod: 'buscaminas' });
 Hub.catalog.push({ id: 'boggle', cat: 'palabras', name: 'Boggle', blurb: 'Palabras en una rejilla · solo o en sala', mod: 'boggle' });
+Hub.catalog.push({ id: 'mastermind', cat: 'puzzles', name: 'Código secreto', blurb: 'Descifra el código de colores · solo o en sala', mod: 'mastermind' });
+Hub.catalog.push({ id: 'loco', cat: 'cartas', name: 'Loco', blurb: 'Cartas de colores · 2 a 6 jugadores', mod: 'loco' });
 Hub.catalog.push({ id: 'crucigrama', cat: 'palabras', name: 'Crucigrama', blurb: 'Coloca las palabras en el tablero · 4 niveles', mod: 'crucigrama' });
 Hub.catalog.push({ id: 'criptograma', cat: 'palabras', name: 'Criptograma', blurb: 'Descifra refranes y citas · 4 niveles', mod: 'criptograma' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
@@ -13975,6 +14075,631 @@ Hub.register({
 Mods.ok("mahjong");
 
 </script>
+<script type="text/plain" data-mod="mastermind" data-deps="">
+/* CTX mastermind: «Código secreto» (versión propia del Mastermind), un jugador y en sala 2–8 (carrera: todos descifran el mismo código a la vez; reloj del anfitrión con nextTick/tick; sin IA). Niveles MM_LV (huecos n, colores c, repetidos rep, intentos max). mmCode genera, mmScore puntúa {b: color y sitio, w: solo color}. Motor de sala MmGame: acciones {t:'g', g:[colores]} y {t:'q'} (rendirse); view: priv = mis filas, pub = progreso de todos (intentos, pistas sin colores, resuelto) y el código al terminar. Solitario: mountSingle con guardado (ctx.save) y récords (mastermind-best). Prefijo mm-. */
+(function () {
+const css = document.createElement('style');
+css.textContent = `
+#stage > .mm{flex:1;min-height:0}
+.mm{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;min-height:0;
+  --pg:min(calc((100vw - 150px)/var(--n)),calc((100dvh - 360px)/(var(--rows) + .4)),40px);
+  --c0:#e5484d;--c1:#3b82f6;--c2:#22a55b;--c3:#f5c518;--c4:#9b5de5;--c5:#f97316;--c6:#14b8c4;--c7:#ec4899;--hit:#d93636;--near:#fff}
+.mm-top{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-size:14px}
+.mm-top b{font-size:15px}
+.mm-tm{font:700 15px var(--f-mono);color:var(--muted)}
+.mm-ops{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.mm-op{display:flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;max-width:100%}
+.mm-op b{max-width:10ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-op.ok{border-color:var(--good)}
+.mm-op.out{opacity:.55}
+.mm-board{display:flex;flex-direction:column;gap:4px;padding:8px;border-radius:14px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);min-height:0;overflow-y:auto}
+.mm-row{display:flex;align-items:center;gap:8px;padding:2px 4px;border-radius:10px}
+.mm-row.cur{background:var(--accent-soft)}
+.mm-row.sec{border-bottom:2px dashed var(--line);border-radius:0;padding-bottom:6px;margin-bottom:2px}
+.mm-i{width:1.6em;text-align:right;font:600 12px var(--f-mono);color:var(--muted)}
+.mm-pegs{display:flex;gap:5px}
+.mm-p{width:var(--pg);height:var(--pg);border-radius:50%;border:2px solid var(--line);background:var(--bg);display:grid;place-items:center;font-size:calc(var(--pg)*.38);line-height:1;color:rgba(0,0,0,.38);padding:0;flex:none}
+.mm-p.f{border-color:rgba(0,0,0,.18);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18),inset 0 2px 0 rgba(255,255,255,.35)}
+.mm-p.sel{outline:3px solid var(--accent);outline-offset:2px}
+.mm-p.q{color:var(--muted);font-weight:700}
+.mm-fb{display:grid;grid-template-columns:repeat(var(--fc),calc(var(--pg)*.3));gap:3px}
+.mm-fb i{width:calc(var(--pg)*.3);height:calc(var(--pg)*.3);border-radius:50%;background:var(--line);opacity:.5}
+.mm-fb i.h{background:var(--hit);opacity:1}
+.mm-fb i.n{background:var(--near);opacity:1;box-shadow:0 0 0 1.5px #6b7690}
+.mm-pal{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.mm-pal .mm-p{--pg:min(44px,calc((100vw - 60px)/8));cursor:pointer}
+.mm-pal .mm-p:disabled{opacity:.3}
+.mm-act{display:flex;gap:8px;width:100%}
+.mm-act .btn{flex:1}
+.mm-msg{min-height:1.3em;font-size:14px;font-weight:600;text-align:center}
+.mm-ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(5,10,24,.55);z-index:5}
+.mm-ov.show{display:flex}
+.mm-ov .card{max-width:340px;width:100%;text-align:center}
+.mm-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;flex:1;min-height:0}
+`;
+document.head.appendChild(css);
+
+/* niveles: n huecos, c colores, rep = se pueden repetir colores, max intentos */
+const MM_LV = [
+  { k: 'Fácil', n: 4, c: 6, rep: false, max: 10 },
+  { k: 'Normal', n: 4, c: 6, rep: true, max: 10 },
+  { k: 'Difícil', n: 5, c: 8, rep: true, max: 12 },
+  { k: 'Experto', n: 6, c: 8, rep: true, max: 12 }
+];
+const MM_SYM = ['●', '▲', '■', '◆', '★', '✚', '♥', '▼'];   /* símbolo dentro de cada color (se distinguen sin ver el color) */
+const MM_TM = [5, 10, 15];                                    /* minutos de la partida en sala */
+const mmCode = (L, rnd) => { const a = []; while (a.length < L.n) { const c = Math.floor(rnd() * L.c); if (L.rep || !a.includes(c)) a.push(c); } return a; };
+function mmScore(sec, g) {
+  let b = 0, w = 0; const cs = [], cg = [];
+  for (let i = 0; i < sec.length; i++) { if (sec[i] === g[i]) b++; else { cs[sec[i]] = (cs[sec[i]] || 0) + 1; cg[g[i]] = (cg[g[i]] || 0) + 1; } }
+  for (const k in cs) w += Math.min(cs[k], cg[k] || 0);
+  return { b, w };
+}
+const mmValid = (L, g) => Array.isArray(g) && g.length === L.n && g.every(c => Number.isInteger(c) && c >= 0 && c < L.c) && (L.rep || new Set(g).size === g.length);
+const mmFmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const mmIntro = L => L.n + ' huecos · ' + L.c + ' colores · ' + (L.rep ? 'pueden repetirse' : 'sin repetir') + ' · ' + L.max + ' intentos';
+const mmLv = o => Math.max(0, Math.min(MM_LV.length - 1, o | 0));
+
+/* ---------- motor de sala: carrera por descifrar el mismo código ---------- */
+class MmGame {
+  constructor(players, saved, opts) {
+    this.players = players.map(p => ({ name: p.name, bot: false }));
+    this.o = mmLv(opts && opts.lv); this.tm = MM_TM[Math.max(0, Math.min(MM_TM.length - 1, (opts && opts.tm) == null ? 1 : opts.tm | 0))];
+    this.sec = mmCode(MM_LV[this.o], Math.random); this.start = Date.now(); this.limit = this.start + this.tm * 60000;
+    this.rows = players.map(() => []); this.ok = players.map(() => false); this.out = players.map(() => false); this.end = players.map(() => 0);
+    this.over = false; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return 0; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, o: this.o, tm: this.tm, sec: this.sec, start: this.start, limit: this.limit, rows: this.rows, ok: this.ok, out: this.out, end: this.end, over: this.over, seq: this.seq })); }
+  done(i) { return this.ok[i] || this.out[i] || this.rows[i].length >= MM_LV[this.o].max; }
+  check() { if (!this.over && this.players.every((p, k) => this.done(k))) this.over = true; }
+  nextTick() { return this.over ? 0 : this.limit; }
+  tick() { if (!this.over && Date.now() >= this.limit) { this.players.forEach((p, k) => { if (!this.done(k)) { this.out[k] = true; this.end[k] = this.limit; } }); this.over = true; } this.seq++; }
+  act(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (!a || !this.rows[i]) return { ok: false, err: 'Acción no válida' };
+    if (this.done(i)) return { ok: false, err: 'Ya has terminado' };
+    if (Date.now() >= this.limit) { this.tick(); return { ok: false, err: 'Se acabó el tiempo' }; }
+    if (a.t === 'q') { this.out[i] = true; this.end[i] = Date.now(); this.check(); this.seq++; return { ok: true }; }
+    if (a.t !== 'g') return { ok: false, err: 'Acción no válida' };
+    const L = MM_LV[this.o], g = Array.isArray(a.g) ? a.g.map(Number) : null;
+    if (!mmValid(L, g)) return { ok: false, err: L.rep ? 'Completa el código' : 'Completa el código sin repetir colores' };
+    const r = mmScore(this.sec, g);
+    this.rows[i].push({ g, b: r.b, w: r.w });
+    if (r.b === L.n) { this.ok[i] = true; this.end[i] = Date.now(); } else if (this.rows[i].length >= L.max) this.end[i] = Date.now();
+    this.check(); this.seq++;
+    return { ok: true };
+  }
+  view(i) {
+    const pub = {
+      o: this.o, n: this.players.map(p => p.name), start: this.start, limit: this.limit, over: this.over, seq: this.seq,
+      prog: this.players.map((p, k) => ({ t: this.rows[k].length, ok: this.ok[k] ? 1 : 0, d: this.done(k) ? 1 : 0, ms: this.end[k] ? this.end[k] - this.start : 0 })),
+      sec: this.over || (this.rows[i] && this.done(i)) ? this.sec : null
+    };
+    return { pub, priv: { rows: this.rows[i] || [] } };
+  }
+  botSeat() { return -1; }
+  bot() { }
+  toBot(i) { if (this.rows[i] && !this.done(i)) { this.out[i] = true; this.end[i] = Date.now(); this.check(); this.seq++; } }
+  toHuman(i, name) { if (this.players[i]) this.players[i].name = name; }
+  /* gana quien lo descifra en menos intentos (y, a igualdad, en menos tiempo) */
+  result() {
+    const P = this.players.map((p, k) => ({ k, ok: this.ok[k], t: this.rows[k].length, ms: this.end[k] ? this.end[k] - this.start : Infinity }));
+    const sol = P.filter(x => x.ok).sort((a, z) => a.t - z.t || a.ms - z.ms), best = sol[0];
+    const winners = best ? sol.filter(x => x.t === best.t && x.ms === best.ms).map(x => x.k) : [];
+    return {
+      win: winners[0] || 0, winners, tie: !best,
+      title: best ? undefined : 'Nadie lo ha descifrado',
+      rows: P.map(x => ({ name: this.players[x.k].name, note: x.ok ? x.t + (x.t === 1 ? ' intento · ' : ' intentos · ') + mmFmt(x.ms) : 'Sin descifrar', pts: x.ok ? MM_LV[this.o].max + 1 - x.t : 0, txt: x.ok ? '✓' : '✗' }))
+    };
+  }
+}
+
+/* ---------- tablero compartido por solitario y sala ---------- */
+function mmBoard(el, o) {
+  /* o: { L, onSend(g), onQuit?, solo } → { paint(rows, sec, done), sel, destroy } */
+  const L = o.L;
+  el.style.setProperty('--n', L.n); el.style.setProperty('--rows', L.max + 1);
+  el.querySelector('.mm-pal').innerHTML = Array.from({ length: L.c }, (_, c) => '<button class="mm-p f" data-c="' + c + '" style="background:var(--c' + c + ')" aria-label="Color ' + (c + 1) + '">' + MM_SYM[c] + '</button>').join('');
+  let cur = Array(L.n).fill(-1), sel = 0, rows = [], fin = false, sec = null;
+  const peg = (c, extra, attrs) => '<span class="mm-p' + (c >= 0 ? ' f' : '') + (extra || '') + '"' + (c >= 0 ? ' style="background:var(--c' + c + ')"' : '') + (attrs || '') + '>' + (c >= 0 ? MM_SYM[c] : '') + '</span>';
+  const fb = r => { let h = ''; for (let i = 0; i < L.n; i++) h += '<i class="' + (i < r.b ? 'h' : i < r.b + r.w ? 'n' : '') + '"></i>'; return '<span class="mm-fb" style="--fc:' + Math.ceil(L.n / 2) + '">' + h + '</span>'; };
+  function draw() {
+    const bd = el.querySelector('.mm-board');
+    let h = '<div class="mm-row sec"><span class="mm-i"></span><span class="mm-pegs">' + (sec ? sec.map(c => peg(c)).join('') : Array.from({ length: L.n }, () => '<span class="mm-p q">?</span>').join('')) + '</span></div>';
+    for (let r = 0; r < L.max; r++) {
+      const done = rows[r], isCur = !fin && r === rows.length;
+      h += '<div class="mm-row' + (isCur ? ' cur' : '') + '"><span class="mm-i">' + (r + 1) + '</span><span class="mm-pegs">';
+      if (done) h += done.g.map(c => peg(c)).join('') + '</span>' + fb(done);
+      else if (isCur) h += cur.map((c, i) => peg(c, i === sel ? ' sel' : '', ' data-s="' + i + '" role="button"')).join('') + '</span>';
+      else h += Array.from({ length: L.n }, () => peg(-1)).join('') + '</span>';
+      h += '</div>';
+    }
+    bd.innerHTML = h;
+    const cr = bd.querySelector('.mm-row.cur'); if (cr && cr.scrollIntoView) cr.scrollIntoView({ block: 'nearest' });
+    el.querySelectorAll('.mm-pal .mm-p').forEach(b => { b.disabled = fin || (!L.rep && cur.includes(+b.dataset.c)); });
+    el.querySelector('[data-mm=send]').disabled = fin || cur.includes(-1);
+    el.querySelector('[data-mm=del]').disabled = fin || cur.every(c => c < 0);
+  }
+  el.onclick = e => {
+    const s = e.target.closest('[data-s]'), p = e.target.closest('.mm-pal [data-c]'), b = e.target.closest('[data-mm]');
+    if (fin) { if (b && b.dataset.mm === 'quit' && o.onQuit) o.onQuit(); return; }
+    if (s) { const i = +s.dataset.s; if (sel === i && cur[i] >= 0) cur[i] = -1; sel = i; o.tone(520, .04); draw(); return; }
+    if (p && !p.disabled) {
+      cur[sel] = +p.dataset.c; o.tone(440 + 40 * +p.dataset.c, .05);
+      const nx = cur.findIndex((c, i) => c < 0 && i > sel), any = cur.indexOf(-1);
+      sel = nx >= 0 ? nx : any >= 0 ? any : sel; draw(); return;
+    }
+    if (!b) return;
+    if (b.dataset.mm === 'del') { const i = cur[sel] >= 0 ? sel : (() => { for (let k = L.n - 1; k >= 0; k--) if (cur[k] >= 0) return k; return sel; })(); cur[i] = -1; sel = i; draw(); }
+    else if (b.dataset.mm === 'send' && !cur.includes(-1)) o.onSend(cur.slice());
+    else if (b.dataset.mm === 'quit' && o.onQuit) o.onQuit();
+  };
+  return {
+    paint(r, s, done) { const grew = r.length !== rows.length; rows = r; sec = s; fin = done; if (grew) { cur = Array(L.n).fill(-1); sel = 0; } draw(); },
+    reset() { cur = Array(L.n).fill(-1); sel = 0; draw(); }
+  };
+}
+const mmShell = (title, room) => '<div class="mm"><div class="mm-top"><b>' + title + '</b><span class="mm-tm">0:00</span></div>' + (room ? '<div class="mm-ops"></div>' : '') +
+  '<div class="mm-wrap"><div class="mm-board"></div><div class="mm-msg"></div><div class="mm-pal"></div>' +
+  '<div class="mm-act"><button class="btn" data-mm="del">⌫ Borrar</button><button class="btn primary" data-mm="send">Comprobar</button>' + (room ? '<button class="btn flat" data-mm="quit">Rendirse</button>' : '') + '</div>' +
+  (room ? '' : '<div class="mm-ov"><div class="card"></div></div>') + '</div></div>';
+function mmSfx(ctx) {
+  const t = (f, d, ty, at, v) => ctx.tone(f, d, ty || 'sine', at || 0, (v || .2) * .3);
+  return { t, hit(b, w) { for (let i = 0; i < b; i++) t(880, .07, 'triangle', i * .07); for (let i = 0; i < w; i++) t(620, .06, 'sine', (b + i) * .07); if (!b && !w) t(220, .12, 'sawtooth', 0, .12); }, win() { [523, 659, 784, 1047].forEach((f, i) => t(f, .16, 'triangle', i * .1)); }, bad() { t(180, .15, 'sawtooth', 0, .15); } };
+}
+
+/* ---------- un jugador ---------- */
+function mastermindMount(root, ctx) {
+  const SFX = mmSfx(ctx);
+  let S = null, B = null, tmT = 0, recorded = false;
+  const save = () => { if (S) ctx.save(S.over ? null : S); };
+  function newGame(lv) { const L = MM_LV[lv]; S = { lv, sec: mmCode(L, Math.random), rows: [], ms: 0, over: false, won: false }; recorded = false; build(); save(); }
+  function build() {
+    const L = MM_LV[S.lv];
+    root.innerHTML = mmShell('Código secreto · ' + L.k, false);
+    const el = root.querySelector('.mm');
+    B = mmBoard(el, { L, tone: (f, d) => SFX.t(f, d), onSend: send });
+    B.paint(S.rows, S.over ? S.sec : null, S.over);
+    el.querySelector('.mm-msg').textContent = S.over ? '' : mmIntro(L);
+    clearInterval(tmT); tmT = setInterval(tick, 1000); tick();
+    if (S.over) finish(true);
+  }
+  function tick() { if (!S || S.over || document.hidden) return; S.ms += 1000; const t = root.querySelector('.mm-tm'); if (t) t.textContent = mmFmt(S.ms); if (S.ms % 10000 === 0) save(); }
+  function send(g) {
+    const L = MM_LV[S.lv]; if (S.over || !mmValid(L, g)) return;
+    const r = mmScore(S.sec, g); S.rows.push({ g, b: r.b, w: r.w }); SFX.hit(r.b, r.w);
+    if (r.b === L.n) { S.over = true; S.won = true; } else if (S.rows.length >= L.max) { S.over = true; S.won = false; }
+    B.paint(S.rows, S.over ? S.sec : null, S.over);
+    root.querySelector('.mm-msg').textContent = S.over ? '' : r.b + ' en su sitio · ' + r.w + ' de color';
+    save(); if (S.over) finish(false);
+  }
+  function finish(again) {
+    const L = MM_LV[S.lv], ov = root.querySelector('.mm-ov');
+    let extra = '';
+    if (S.won && !again) {
+      const bt = store.get('mastermind-best') || {}, o = bt[S.lv];
+      if (!o || S.rows.length < o.t || (S.rows.length === o.t && S.ms < o.ms)) { bt[S.lv] = { t: S.rows.length, ms: S.ms }; store.set('mastermind-best', bt); extra = '¡Nuevo récord!'; }
+      SFX.win();
+    } else if (!again) SFX.bad();
+    if (!recorded && !again) { recorded = true; ctx.record({ won: S.won, info: L.k + ' · ' + (S.won ? S.rows.length + ' intentos · ' + mmFmt(S.ms) : 'sin descifrar') }); }
+    ov.querySelector('.card').innerHTML = '<h2>' + (S.won ? '¡Código descifrado!' : 'Se acabaron los intentos') + '</h2>' +
+      '<p style="margin:0">' + (S.won ? S.rows.length + (S.rows.length === 1 ? ' intento' : ' intentos') + ' · ' + mmFmt(S.ms) : 'El código era el de arriba.') + '</p>' + (extra ? '<p style="margin:0"><b>' + extra + '</b></p>' : '') +
+      '<div class="seg">' + MM_LV.map((l, i) => '<button data-lv="' + i + '" aria-pressed="' + (i === S.lv ? 'true' : 'false') + '">' + l.k + '</button>').join('') + '</div>' +
+      '<button class="btn primary" data-again="1">Otra partida</button><button class="btn flat" data-see="1">Ver el tablero</button>';
+    ov.classList.add('show');
+    ov.onclick = e => {
+      const l = e.target.closest('[data-lv]'); if (l) { ov.querySelectorAll('[data-lv]').forEach(b => b.setAttribute('aria-pressed', b === l ? 'true' : 'false')); return; }
+      if (e.target.closest('[data-again]')) { const p = ov.querySelector('[data-lv][aria-pressed="true"]'); newGame(p ? +p.dataset.lv : S.lv); }
+      else if (e.target.closest('[data-see]')) ov.classList.remove('show');
+    };
+  }
+  const onVis = () => { if (document.hidden) save(); };
+  document.addEventListener('visibilitychange', onVis);
+  const sv = ctx.resume ? ctx.load() : null;
+  if (sv && !sv.over && MM_LV[sv.lv] && Array.isArray(sv.sec) && Array.isArray(sv.rows)) { S = sv; build(); } else newGame(mmLv(ctx.level));
+  return { destroy() { save(); clearInterval(tmT); document.removeEventListener('visibilitychange', onVis); root.innerHTML = ''; } };
+}
+
+/* ---------- en sala ---------- */
+function mastermindRoomMount(root, ctx) {
+  const SFX = mmSfx(ctx);
+  let P = null, B = null, L = null, nRows = 0, tmT = 0, pend = false;
+  function build() {
+    L = MM_LV[P.o];
+    root.innerHTML = mmShell('Código secreto · ' + L.k, true);
+    B = mmBoard(root.querySelector('.mm'), { L, tone: (f, d) => SFX.t(f, d), onSend: g => { if (!pend) { pend = true; ctx.send({ t: 'g', g }); } }, onQuit: quit });
+  }
+  let qT = 0;
+  function quit() {
+    const b = root.querySelector('[data-mm=quit]');
+    if (!qT) { b.textContent = '¿Seguro?'; qT = setTimeout(() => { qT = 0; if (b.isConnected) b.textContent = 'Rendirse'; }, 2500); return; }
+    clearTimeout(qT); qT = 0; ctx.send({ t: 'q' });
+  }
+  function ops() {
+    root.querySelector('.mm-ops').innerHTML = P.prog.map((x, i) => '<span class="mm-op' + (x.ok ? ' ok' : x.d ? ' out' : '') + '"><b>' + (i === ctx.me ? 'Tú' : esc(P.n[i])) + '</b>' + x.t + '/' + L.max + (x.ok ? ' ✓' : x.d ? ' ✗' : '') + '</span>').join('');
+  }
+  function tick() { if (!P) return; const t = root.querySelector('.mm-tm'); if (t) t.textContent = mmFmt(P.over ? 0 : P.limit - Date.now()); }
+  return {
+    update(v) {
+      const first = !P || P.o !== v.pub.o; P = v.pub; pend = false;
+      if (first) { build(); clearInterval(tmT); tmT = setInterval(tick, 1000); }
+      const rows = v.priv.rows || [], me = P.prog[ctx.me] || {}, done = !!me.d || P.over;
+      if (rows.length > nRows && nRows >= 0) { const r = rows[rows.length - 1]; if (r) (r.b === L.n ? SFX.win() : SFX.hit(r.b, r.w)); }
+      nRows = rows.length;
+      B.paint(rows, P.sec, done); ops(); tick();
+      const last = rows[rows.length - 1], msg = root.querySelector('.mm-msg');
+      msg.textContent = me.ok ? '¡Descifrado en ' + me.t + (me.t === 1 ? ' intento' : ' intentos') + '!' + (P.over ? '' : ' Esperando al resto…')
+        : me.d ? (P.over ? 'No lo has descifrado' : 'Sin descifrar. Esperando al resto…')
+        : last ? last.b + ' en su sitio · ' + last.w + ' de color' : mmIntro(L);
+      const q = root.querySelector('[data-mm=quit]'); if (q) q.disabled = done;
+    },
+    rejected(err) { pend = false; ctx.toast(String(err || 'Jugada no válida')); SFX.bad(); },
+    destroy() { clearInterval(tmT); clearTimeout(qT); root.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'mastermind', name: 'Código secreto', blurb: 'Descifra el código de colores · solo o en sala', min: 2, max: 8,
+  options: [
+    { k: 'lv', name: 'Dificultad', vals: MM_LV.map(l => l.k + ' · ' + l.n + ' huecos'), def: 1 },
+    { k: 'tm', name: 'Tiempo', vals: MM_TM.map(m => m + ' min'), def: 1 }
+  ],
+  single: {
+    levels: MM_LV.map(l => l.k), def: 0,
+    info: i => { const L = MM_LV[i], b = (store.get('mastermind-best') || {})[i]; return L.n + ' huecos · ' + L.c + ' colores' + (L.rep ? ' (pueden repetirse)' : ' sin repetir') + ' · ' + L.max + ' intentos' + (b ? ' · Tu mejor: ' + b.t + ' intentos' : ''); }
+  },
+  rules: '<ul>' +
+    '<li>Hay un <b>código secreto</b> de colores (fila de arriba, oculta). Adivínalo en el menor número de intentos.</li>' +
+    '<li>Toca los colores de abajo para rellenar tu fila (toca un hueco para elegir dónde va el siguiente; tocarlo otra vez lo vacía) y pulsa <b>Comprobar</b>.</li>' +
+    '<li>Cada intento recibe pistas: <b style="color:#d93636">●</b> = un color en su sitio · <b>○</b> blanco = un color que está en el código pero en otro sitio. Las pistas no dicen cuál es cuál.</li>' +
+    '<li>Niveles: <b>Fácil</b> 4 huecos y 6 colores sin repetir · <b>Normal</b> 4 y 6 con repetidos · <b>Difícil</b> 5 y 8 · <b>Experto</b> 6 y 8. Cada color lleva un símbolo para distinguirlo sin verlo.</li>' +
+    '<li><b>En sala</b> (2-8 jugadores, sin IA): carrera con el mismo código para todos. Ves cuántos intentos lleva cada uno, pero no sus colores. Gana quien lo descifra en menos intentos (a igualdad, el más rápido). Hay tiempo límite (opción «Tiempo») y puedes rendirte.</li></ul>',
+  createEngine: (players, saved, opts) => new MmGame(players, saved, opts),
+  mount: mastermindRoomMount,
+  mountSingle: mastermindMount
+});
+})();
+Mods.ok("mastermind");
+</script>
+<script type="text/plain" data-mod="loco" data-deps="">
+/* CTX loco: «Loco» (versión propia del ocho loco con cartas de acción), 2–6 jugadores, IA en 3 niveles y salas. Baraja de 108 (LO_DECK: 4 colores 0–9, Salta, Cambio, +2; Comodín y Comodín +4; v 0–9 número, 10 salta, 11 cambio, 12 +2, 13 comodín, 14 +4). Motor LoGame: acciones {t:'p', c:id, col?} jugar (col = color elegido con comodín), {t:'d'} robar, {t:'n'} pasar tras robar. Opciones stk (acumular +2/+4) y dr (robar una / hasta poder jugar). view: pub = cartas por jugador, carta de arriba, color, sentido, castigo acumulado; priv = mano ordenada, jugables y la robada. Gana quien se queda sin cartas; puntos = cartas de los demás (números su valor, acción 20, comodines 50). Prefijo lo-. */
+(function () {
+const css = document.createElement('style');
+css.textContent = `
+#stage > .lo{flex:1;min-height:0}
+.lo{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:560px;margin:0 auto;min-height:0;
+  --lr:#e5484d;--ly:#f2b705;--lg:#22a55b;--lb:#3b82f6;--cw:min(calc((100vw - 40px)/6.2),64px)}
+.lo-ops{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;width:100%}
+.lo-op{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;max-width:100%}
+.lo-op b{max-width:9ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lo-op.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.lo-op em{font-style:normal;font-weight:700;font-family:var(--f-mono)}
+.lo-op .una{font-size:11px;font-weight:800;padding:1px 6px;border-radius:999px;background:var(--bad);color:#fff}
+.lo-mid{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:22px;position:relative;width:100%}
+.lo-dir{position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:20px;color:var(--muted)}
+.lo-pend{position:absolute;bottom:4px;left:50%;transform:translateX(-50%);font:800 15px var(--f-mono);padding:2px 10px;border-radius:999px;background:var(--bad);color:#fff}
+.lo-pile{position:relative}
+.lo-colring{position:absolute;inset:-7px;border-radius:16px;border:4px solid var(--ring,transparent)}
+/* color que manda: etiqueta bajo la carta de arriba; el comodín de la mesa toma el color elegido */
+.lo-colb{position:absolute;left:50%;top:calc(100% + 14px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;white-space:nowrap;padding:3px 12px 3px 4px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px;font-weight:700;box-shadow:var(--shadow)}
+.lo-colb i{width:20px;height:20px;border-radius:50%;background:var(--ring);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.lo-colb.chg{animation:loChg .9s ease-out 2}
+@keyframes loChg{0%{transform:translateX(-50%) scale(1)}35%{transform:translateX(-50%) scale(1.18)}100%{transform:translateX(-50%) scale(1)}}
+.lo-c.w.chosen{background:var(--k)}
+.lo-st{min-height:1.4em;font-size:14px;font-weight:600;text-align:center}
+.lo-hand{position:relative;width:100%;flex:none}
+.lo-act{display:flex;gap:8px;width:100%}
+.lo-act .btn{flex:1}
+/* cartas */
+.lo-c{--w:var(--cw);position:relative;width:var(--w);height:calc(var(--w)*1.45);border-radius:calc(var(--w)*.14);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.28);background:var(--k,#333);color:#fff;padding:0;display:block;flex:none;font-family:var(--f-ui);transition:transform .14s}
+.lo-c::before{content:"";position:absolute;inset:14% 10%;border-radius:50%;background:rgba(255,255,255,.92);transform:rotate(-24deg)}
+.lo-c .v{position:absolute;inset:0;display:grid;place-items:center;font-weight:900;font-size:calc(var(--w)*.46);color:var(--k);text-shadow:0 1px 0 rgba(0,0,0,.12)}
+.lo-c .s{position:absolute;top:4%;left:8%;font-weight:800;font-size:calc(var(--w)*.2);color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+.lo-c.k0{--k:var(--lr)}.lo-c.k1{--k:var(--ly)}.lo-c.k2{--k:var(--lg)}.lo-c.k3{--k:var(--lb)}
+.lo-c.w{background:#1d2333}
+.lo-c.w::before{background:conic-gradient(var(--lr) 0 25%,var(--ly) 0 50%,var(--lg) 0 75%,var(--lb) 0)}
+.lo-c.w .v{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.lo-c.back{background:#1d2333;cursor:pointer}
+.lo-c.back::before{background:var(--lr);transform:rotate(-24deg)}
+.lo-c.back .v{color:#fff;font-size:calc(var(--w)*.22);letter-spacing:.04em}
+.lo-c.big{--w:min(84px,calc((100vw - 40px)/4.2))}
+.lo-c.new{animation:loPop .32s ease-out}
+@keyframes loPop{0%{transform:scale(.6) rotate(-14deg);opacity:.2}100%{transform:none;opacity:1}}
+.lo-hand .lo-c{position:absolute;cursor:pointer}
+.lo-hand .lo-c.dr{outline:3px solid var(--accent);outline-offset:2px}
+body[data-assist] .lo-hand.my .lo-c.ok{transform:translateY(-8px)}
+body[data-assist] .lo-hand.my .lo-c:not(.ok){filter:brightness(.6)}
+.lo-pick{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,10,24,.55);z-index:5;border-radius:16px}
+.lo-pick.show{display:flex}
+.lo-pick .card{text-align:center}
+.lo-pick .cols{display:grid;grid-template-columns:repeat(2,64px);gap:10px;justify-content:center}
+.lo-pick .cols button{width:64px;height:64px;border-radius:16px;border:3px solid #fff;box-shadow:var(--shadow)}
+`;
+document.head.appendChild(css);
+
+const LO_COL = ['rojo', 'amarillo', 'verde', 'azul'], LO_COLF = ['roja', 'amarilla', 'verde', 'azul'];   /* LO_COLF: concuerda con «carta» */
+/* baraja: id → {c: color 0–3 (4 = comodín), v: 0–9, 10 salta, 11 cambio, 12 +2, 13 comodín, 14 +4} */
+const LO_DECK = (() => {
+  const d = [];
+  for (let c = 0; c < 4; c++) { d.push({ c, v: 0 }); for (let v = 1; v <= 12; v++) { d.push({ c, v }); d.push({ c, v }); } }
+  for (let k = 0; k < 4; k++) { d.push({ c: 4, v: 13 }); d.push({ c: 4, v: 14 }); }
+  return d;
+})();
+const LO_SYM = v => (v <= 9 ? String(v) : v === 10 ? '⊘' : v === 11 ? '⇄' : v === 12 ? '+2' : v === 13 ? '★' : '+4');
+const loName = id => { const k = LO_DECK[id]; return k.v === 13 ? 'Comodín' : k.v === 14 ? 'Comodín +4' : (k.v <= 9 ? k.v : k.v === 10 ? 'Salta' : k.v === 11 ? 'Cambio de sentido' : '+2') + ' ' + LO_COL[k.c]; };
+const loPts = id => { const v = LO_DECK[id].v; return v <= 9 ? v : v <= 12 ? 20 : 50; };
+const loShuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const loSort = h => h.slice().sort((a, b) => (LO_DECK[a].c - LO_DECK[b].c) || (LO_DECK[a].v - LO_DECK[b].v) || a - b);
+
+class LoGame {
+  constructor(players, saved, opts) {
+    this.players = players.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+    this.stk = opts && opts.stk === 1 ? 1 : 0; this.dr = opts && opts.dr === 1 ? 1 : 0;
+    this.deck = loShuf(LO_DECK.map((_, i) => i)); this.hands = players.map(() => this.deck.splice(0, 7));
+    /* primera carta: un número (las de acción vuelven al mazo) */
+    let k = this.deck.findIndex(id => LO_DECK[id].v <= 9); this.pile = [this.deck.splice(k, 1)[0]];
+    this.col = LO_DECK[this.pile[0]].c; this.t = 0; this.dir = 1; this.pend = 0; this.drawn = -1;
+    this.over = false; this.win = -1; this.seq = 1; this.last = null;
+    this.lack = players.map(() => []);   /* colores que cada jugador ha demostrado no tener (robó sin poder echar): lo usa la IA difícil */
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.t; }
+  setStart(s) { this.t = s; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, stk: this.stk, dr: this.dr, deck: this.deck, hands: this.hands, pile: this.pile, col: this.col, t: this.t, dir: this.dir, pend: this.pend, drawn: this.drawn, over: this.over, win: this.win, seq: this.seq, last: this.last, lack: this.lack })); }
+  next(step) { const n = this.players.length; return ((this.t + this.dir * (step || 1)) % n + n) % n; }
+  top() { return LO_DECK[this.pile[this.pile.length - 1]]; }
+  /* ¿se puede jugar? (con castigo acumulado pendiente solo se puede pasar con +2 sobre +2, o +4) */
+  ok(id) {
+    const k = LO_DECK[id], tp = this.top();
+    if (this.pend) return this.stk === 1 && (k.v === 14 || (k.v === 12 && tp.v === 12));
+    return k.c === 4 || k.c === this.col || k.v === tp.v;
+  }
+  take() {
+    if (!this.deck.length) { const tp = this.pile.pop(); this.deck = loShuf(this.pile); this.pile = [tp]; }
+    return this.deck.length ? this.deck.pop() : -1;
+  }
+  give(i, n) { let got = 0; for (let k = 0; k < n; k++) { const id = this.take(); if (id < 0) break; this.hands[i].push(id); got++; } return got; }
+  act(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (i !== this.t) return { ok: false, err: 'No es tu turno' };
+    if (!a) return { ok: false, err: 'Acción no válida' };
+    const h = this.hands[i];
+    if (a.t === 'p') {
+      const id = a.c | 0;
+      if (!h.includes(id)) return { ok: false, err: 'No tienes esa carta' };
+      if (this.drawn >= 0 && id !== this.drawn) return { ok: false, err: 'Solo puedes jugar la carta que has robado' };
+      if (!this.ok(id)) return { ok: false, err: this.pend ? 'Tienes que robar ' + this.pend + ' o echar otro castigo' : 'Esa carta no se puede echar' };
+      const k = LO_DECK[id];
+      if (k.c === 4 && !(a.col >= 0 && a.col <= 3)) return { ok: false, err: 'Elige un color' };
+      h.splice(h.indexOf(id), 1); this.pile.push(id); this.col = k.c === 4 ? a.col | 0 : k.c; this.drawn = -1;
+      if (this.lack[i]) this.lack[i] = this.lack[i].filter(c => c !== this.col);
+      this.last = { i, a: 'p', c: id, col: this.col };
+      if (!h.length) { this.over = true; this.win = i; this.seq++; return { ok: true }; }
+      const two = this.players.length === 2;
+      if (k.v === 10 || (k.v === 11 && two)) this.t = this.next(2);
+      else if (k.v === 11) { this.dir = -this.dir; this.t = this.next(); }
+      else if (k.v === 12 || k.v === 14) {
+        const n = k.v === 12 ? 2 : 4;
+        if (this.stk) { this.pend += n; this.t = this.next(); }
+        else { const v = this.next(); this.give(v, n); this.last.hit = { i: v, n }; this.t = this.next(2); }
+      } else this.t = this.next();
+      this.seq++;
+      return { ok: true };
+    }
+    if (a.t === 'd') {
+      if (this.drawn >= 0) return { ok: false, err: 'Ya has robado: juega esa carta o pasa' };
+      if (this.pend) { const n = this.give(i, this.pend); this.last = { i, a: 'd', n, pen: 1 }; this.pend = 0; this.t = this.next(); this.seq++; return { ok: true }; }
+      let n = 0, id = -1;
+      if (this.lack[i] && !this.lack[i].includes(this.col)) this.lack[i].push(this.col);
+      do { id = this.take(); if (id < 0) break; h.push(id); n++; } while (this.dr === 1 && !this.ok(id));
+      this.last = { i, a: 'd', n };
+      if (id >= 0 && this.ok(id)) this.drawn = id; else this.t = this.next();
+      this.seq++;
+      return { ok: true };
+    }
+    if (a.t === 'n') {
+      if (this.drawn < 0) return { ok: false, err: 'Antes tienes que robar' };
+      this.drawn = -1; this.last = { i, a: 'n' }; this.t = this.next(); this.seq++;
+      return { ok: true };
+    }
+    return { ok: false, err: 'Acción no válida' };
+  }
+  view(i) {
+    const h = this.hands[i] || [], mine = i === this.t && !this.over;
+    return {
+      pub: { n: this.players.map(p => p.name), k: this.hands.map(x => x.length), top: this.pile[this.pile.length - 1], col: this.col, t: this.t, dir: this.dir, pend: this.pend, deck: this.deck.length, stk: this.stk, over: this.over, win: this.win, seq: this.seq, last: this.last },
+      priv: { hand: loSort(h), ok: mine ? h.filter(id => (this.drawn < 0 || id === this.drawn) && this.ok(id)) : [], drawn: mine ? this.drawn : -1 }
+    };
+  }
+  botSeat() { return (!this.over && this.players[this.t].bot) ? this.t : -1; }
+  botDelay() { return 850 + Math.random() * 550; }
+  /* color que más tiene en la mano (sin contar comodines) */
+  favCol(i) { const n = [0, 0, 0, 0]; this.hands[i].forEach(id => { const c = LO_DECK[id].c; if (c < 4) n[c]++; }); const mx = Math.max.apply(null, n); return mx ? n.indexOf(mx) : Math.floor(Math.random() * 4); }
+  /* color al echar un comodín: el que más tengo; la IA difícil prefiere, entre los míos, uno que le falte al siguiente */
+  wildCol(i, lv) {
+    const n = [0, 0, 0, 0]; this.hands[i].forEach(id => { const c = LO_DECK[id].c; if (c < 4) n[c]++; });
+    const lk = lv === 2 ? this.lack[this.next()] || [] : [];
+    const sc = c => n[c] * 2 + (lk.includes(c) ? 3 : 0);
+    const best = [0, 1, 2, 3].sort((a, b) => sc(b) - sc(a))[0];
+    return sc(best) ? best : this.favCol(i);
+  }
+  bot(i) {
+    if (this.over || this.t !== i) return;
+    const lv = this.players[i].lv == null ? 1 : this.players[i].lv, h = this.hands[i];
+    const can = h.filter(id => (this.drawn < 0 || id === this.drawn) && this.ok(id));
+    if (!can.length) { this.act(i, { t: this.drawn >= 0 ? 'n' : 'd' }); return; }
+    let pick;
+    if (lv === 0) pick = can[Math.floor(Math.random() * can.length)];
+    else {
+      const nx = this.next(), danger = this.hands[nx].length <= 2;
+      const sc = id => {
+        const k = LO_DECK[id]; let s = 0;
+        if (k.c === 4) s -= 30;                                  /* los comodines, para el final */
+        if (k.v >= 10 && k.v <= 12) s += lv === 2 && danger ? 25 : 4;
+        if (k.v === 14 && lv === 2 && danger) s += 40;
+        if (k.c === this.col) s += 6;
+        if (k.c < 4) s += h.filter(x => LO_DECK[x].c === k.c).length;   /* quedarse con el color del que más hay */
+        if (lv === 2 && k.c < 4 && (this.lack[nx] || []).includes(k.c)) s += 12;   /* dejar un color que el siguiente no tiene */
+        s += k.v <= 9 ? k.v / 3 : 3;                              /* soltar puntos */
+        return s + (lv === 1 ? Math.random() * 6 : Math.random() * .5);
+      };
+      pick = can.slice().sort((a, b) => sc(b) - sc(a))[0];
+    }
+    this.act(i, { t: 'p', c: pick, col: LO_DECK[pick].c === 4 ? (lv === 0 ? Math.floor(Math.random() * 4) : this.wildCol(i, lv)) : undefined });
+  }
+  toHuman(i, name) { const p = this.players[i]; p.bot = false; p.lv = undefined; p.name = name; }
+  toBot(i, lv) { const p = this.players[i]; p.bot = true; p.lv = lv; if (!/\(IA\)$/.test(p.name)) p.name = p.name.slice(0, 9) + ' (IA)'; }
+  result() {
+    const left = this.hands.map(h => h.reduce((a, id) => a + loPts(id), 0)), w = this.win, tot = left.reduce((a, x) => a + x, 0);
+    return {
+      win: w < 0 ? 0 : w, winners: w < 0 ? [] : [w], tie: w < 0,
+      rows: this.players.map((p, i) => ({ name: p.name, note: i === w ? 'sin cartas' : this.hands[i].length + (this.hands[i].length === 1 ? ' carta' : ' cartas'), pts: i === w ? tot : -left[i] }))
+    };
+  }
+}
+
+/* ---------- pantalla ---------- */
+const loCard = (id, cls, attrs) => { const k = LO_DECK[id]; return '<button class="lo-c ' + (k.c === 4 ? 'w' : 'k' + k.c) + (cls ? ' ' + cls : '') + '"' + (attrs || '') + ' aria-label="' + loName(id) + '"><span class="v">' + LO_SYM(k.v) + '</span>' + (k.c < 4 ? '<span class="s">' + LO_SYM(k.v) + '</span>' : '') + '</button>'; };
+function locoMount(el, ctx) {
+  el.innerHTML = '<div class="lo"><div class="lo-ops"></div><div class="lo-mid"><span class="lo-dir"></span><div class="lo-c back big" data-lo="draw" role="button" aria-label="Robar"><span class="v">LOCO</span></div><div class="lo-pile"><span class="lo-colring"></span><div class="lo-top"></div><span class="lo-colb"><i></i><span></span></span></div><span class="lo-pend" hidden></span>' +
+    '<div class="lo-pick"><div class="card"><h2>Elige color</h2><div class="cols">' + [0, 1, 2, 3].map(c => '<button data-col="' + c + '" style="background:var(--' + ['lr', 'ly', 'lg', 'lb'][c] + ')" aria-label="' + LO_COL[c] + '"></button>').join('') + '</div><button class="btn flat" data-lo="cancel">Cancelar</button></div></div></div>' +
+    '<div class="lo-st"></div><div class="lo-hand"></div><div class="lo-act"><button class="btn" data-lo="draw">Robar</button><button class="btn" data-lo="pass">Pasar</button></div></div>';
+  const root = el.firstElementChild, q = s => root.querySelector(s);
+  const T = (f, d = .1, ty = 'sine', v = .2, at = 0) => ctx.tone(f, d, ty, at, v * .3);
+  const SFX = { play: () => T(540, .06, 'triangle', .3), draw: () => T(300, .05, 'sine', .25), hit: () => { T(200, .14, 'square', .15); T(160, .18, 'square', .12, .1); }, turn: () => { T(660, .07); T(880, .09, 'sine', .2, .08); }, una: () => [784, 988].forEach((f, i) => T(f, .1, 'triangle', .3, i * .09)), bad: () => T(150, .15, 'sawtooth', .15) };
+  const V = { pub: null, priv: null, pending: false, wild: -1 };
+  const name = i => (i === ctx.me ? 'Tú' : esc(V.pub.n[i]));
+  const myTurn = () => !!V.pub && !V.pub.over && V.pub.t === ctx.me && !V.pending;
+  function layout() {
+    const hd = q('.lo-hand'), cs = hd.querySelectorAll('.lo-c'), n = cs.length; if (!n) { hd.style.height = '0px'; return; }
+    const W = hd.clientWidth, cw = cs[0].offsetWidth || 56, ch = cw * 1.45, minStep = cw * .38;
+    let per = Math.max(1, Math.floor((W - cw) / minStep) + 1), rows = Math.ceil(n / per); per = Math.ceil(n / rows);
+    const step = per > 1 ? Math.min(cw * 1.06, (W - cw) / (per - 1)) : 0, rowGap = ch * .55;
+    cs.forEach((c, k) => { const r = Math.floor(k / per), j = k % per, inRow = Math.min(per, n - r * per), x0 = (W - (cw + step * (inRow - 1))) / 2; c.style.left = (x0 + j * step) + 'px'; c.style.top = (r * rowGap + 10) + 'px'; c.style.zIndex = k + 1; });
+    hd.style.height = ((rows - 1) * rowGap + ch + 14) + 'px';
+  }
+  function render(fresh) {
+    const P = V.pub, H = V.priv; if (!P) return;
+    q('.lo-ops').innerHTML = P.n.map((nm, i) => '<span class="lo-op' + (!P.over && P.t === i ? ' on' : '') + '"><b>' + name(i) + '</b><em>' + P.k[i] + '</em>' + (P.k[i] === 1 && !P.over ? '<span class="una">¡Una!</span>' : '') + '</span>').join('');
+    q('.lo-dir').textContent = P.dir > 0 ? '↻' : '↺';
+    const wild = LO_DECK[P.top].c === 4, ring = 'var(--' + ['lr', 'ly', 'lg', 'lb'][P.col] + ')';
+    q('.lo-top').innerHTML = loCard(P.top, 'big' + (wild ? ' chosen' : '') + (fresh && P.last && P.last.a === 'p' ? ' new' : ''), ' tabindex="-1"' + (wild ? ' style="--k:' + ring + '"' : ''));
+    q('.lo-pile').style.setProperty('--ring', ring);
+    q('.lo-colring').style.setProperty('--ring', ring);
+    const cb = q('.lo-colb'); cb.lastElementChild.textContent = 'Color: ' + LO_COL[P.col];
+    cb.classList.toggle('chg', !!(fresh && wild && P.last && P.last.a === 'p'));
+    const pd = q('.lo-pend'); pd.hidden = !P.pend; pd.textContent = '+' + P.pend;
+    const hand = H.hand || [], ok = new Set(H.ok || []), hd = q('.lo-hand');
+    hd.classList.toggle('my', myTurn());
+    hd.innerHTML = hand.map(id => loCard(id, (ok.has(id) ? 'ok' : '') + (id === H.drawn ? ' dr' : ''), ' data-id="' + id + '"')).join('');
+    layout();
+    const my = myTurn();
+    q('.lo-act [data-lo=draw]').disabled = !my || H.drawn >= 0;
+    q('.lo-act [data-lo=pass]').disabled = !my || H.drawn < 0;
+    q('.lo-act [data-lo=draw]').textContent = P.pend && my ? 'Robar ' + P.pend : 'Robar';
+    let msg;
+    if (P.over) msg = P.win === ctx.me ? '¡Has ganado!' : 'Gana ' + esc(P.n[P.win]);
+    else if (my) msg = H.drawn >= 0 ? 'Puedes echar la carta robada o pasar' : P.pend ? 'Te toca robar ' + P.pend + (P.stk ? ' (o echa otro castigo)' : '') : ok.size ? (wild ? 'Tu turno: echa una carta ' + LO_COLF[P.col] + ' o un comodín' : 'Tu turno: echa una carta') : 'No tienes carta: roba';
+    else {
+      const L = P.last;
+      msg = L && L.hit ? name(L.hit.i) + ' roba ' + L.hit.n + ' y pierde el turno' : L && L.a === 'd' && L.pen ? name(L.i) + ' roba ' + L.n : 'Juega ' + esc(P.n[P.t]) + '…';
+    }
+    q('.lo-st').innerHTML = msg;
+  }
+  function play(id, col) { V.pending = true; ctx.send({ t: 'p', c: id, col }); }
+  /* animaciones (Flip, respeta «reducir movimiento»): la carta echada vuela desde la mano o el jugador hasta la mesa;
+     las robadas, del mazo a la mano o al jugador (copias boca abajo) */
+  const mid = r => [r.left + r.width / 2, r.top + r.height / 2];
+  function flyIn(e, from, delay) {
+    if (!Flip.on || !e || !from || document.hidden) return;
+    const to = e.getBoundingClientRect(), [fx, fy] = mid(from), [tx, ty] = mid(to), sc = Math.max(.3, Math.min(1.3, from.width / (to.width || 1)));
+    Flip.go(e, [{ transform: 'translate(' + (fx - tx) + 'px,' + (fy - ty) + 'px) scale(' + sc + ')', opacity: .7 }, { transform: 'none', opacity: 1 }], { duration: 340, delay: delay || 0, fill: 'backwards' });
+  }
+  function ghost(from, to, delay) {
+    if (!Flip.on || !from || !to || document.hidden) return;
+    const g = document.createElement('div'); g.className = 'lo-c back'; g.setAttribute('aria-hidden', 'true');
+    g.style.cssText = 'position:fixed;left:' + from.left + 'px;top:' + from.top + 'px;--w:' + from.width + 'px;z-index:30;pointer-events:none';
+    g.innerHTML = '<span class="v">LOCO</span>'; root.appendChild(g);
+    const [fx, fy] = mid(from), [tx, ty] = mid(to);
+    const a = Flip.go(g, [{ transform: 'none', opacity: 1 }, { transform: 'translate(' + (tx - fx) + 'px,' + (ty - fy) + 'px) scale(.35)', opacity: .3 }], { duration: 380, delay: delay || 0, fill: 'both' });
+    if (a) a.onfinish = () => g.remove(); else g.remove();
+  }
+  function animate(P, prevHand, from) {
+    const L = P.last; if (!L) return;
+    if (from) flyIn(q('.lo-top .lo-c'), from);
+    const deck = q('.lo-mid > .lo-c.back').getBoundingClientRect(), chip = i => { const c = q('.lo-ops').children[i]; return c && c.getBoundingClientRect(); };
+    const who = L.hit ? L.hit.i : L.a === 'd' ? L.i : -1, n = L.hit ? L.hit.n : L.a === 'd' ? L.n : 0, d0 = from ? 260 : 0;
+    if (who < 0 || !n) return;
+    if (who === ctx.me) {
+      const was = new Set(prevHand);
+      [...q('.lo-hand').querySelectorAll('[data-id]')].filter(c => !was.has(+c.dataset.id)).forEach((c, k) => flyIn(c, deck, d0 + k * 90));
+    } else for (let k = 0; k < Math.min(n, 4); k++) ghost(deck, chip(who), d0 + k * 90);
+  }
+  root.addEventListener('click', e => {
+    const P = V.pub; if (!P) return;
+    const pk = q('.lo-pick');
+    const cb = e.target.closest('[data-col]'); if (cb) { pk.classList.remove('show'); if (V.wild >= 0 && myTurn()) play(V.wild, +cb.dataset.col); V.wild = -1; return; }
+    const b = e.target.closest('[data-lo]');
+    if (b) {
+      if (b.dataset.lo === 'cancel') { pk.classList.remove('show'); V.wild = -1; return; }
+      if (!myTurn()) return;
+      if (b.dataset.lo === 'draw' && V.priv.drawn < 0) { V.pending = true; ctx.send({ t: 'd' }); }
+      else if (b.dataset.lo === 'pass' && V.priv.drawn >= 0) { V.pending = true; ctx.send({ t: 'n' }); }
+      return;
+    }
+    const c = e.target.closest('.lo-hand [data-id]'); if (!c) return;
+    const id = +c.dataset.id;
+    if (!myTurn() || !(V.priv.ok || []).includes(id)) { SFX.bad(); if (myTurn()) ctx.toast(P.pend ? 'Tienes que robar ' + P.pend + (P.stk ? ' o echar otro castigo' : '') : V.priv.drawn >= 0 ? 'Solo puedes jugar la carta que has robado' : 'Esa carta no se puede echar'); return; }
+    if (LO_DECK[id].c === 4) { V.wild = id; pk.classList.add('show'); return; }
+    play(id);
+  });
+  const onRs = () => layout(); window.addEventListener('resize', onRs);
+  return {
+    update(st) {
+      const prev = V.pub, prevHand = (V.priv && V.priv.hand) || [], L0 = st.pub.last, fresh = !!prev && prev.seq !== st.pub.seq;
+      /* origen de la carta echada, medido antes de repintar */
+      let from = null;
+      if (fresh && L0 && L0.a === 'p') { const src = L0.i === ctx.me ? q('.lo-hand [data-id="' + L0.c + '"]') : q('.lo-ops').children[L0.i]; from = src ? src.getBoundingClientRect() : null; }
+      V.pub = st.pub; V.priv = st.priv || {}; V.pending = false;
+      const P = V.pub;
+      render(fresh && !from);
+      if (fresh) animate(P, prevHand, from);
+      if (fresh && P.last) {
+        const L = P.last;
+        if (L.hit || L.pen) SFX.hit(); else if (L.a === 'p') SFX.play(); else if (L.a === 'd') SFX.draw();
+        if (L.a === 'p' && P.k[L.i] === 1) SFX.una();
+        if (L.a === 'p' && L.i !== ctx.me && LO_DECK[L.c].c === 4) ctx.toast(P.n[L.i] + ' elige ' + LO_COL[L.col]);
+        if (!P.over && P.t === ctx.me && prev.t !== ctx.me) setTimeout(SFX.turn, 250);
+      }
+    },
+    rejected(err) { V.pending = false; ctx.toast(String(err || 'Jugada no válida')); SFX.bad(); render(false); },
+    destroy() { window.removeEventListener('resize', onRs); el.innerHTML = ''; }
+  };
+}
+
+Hub.register({
+  id: 'loco', name: 'Loco', blurb: 'Cartas de colores · 2 a 6 jugadores', min: 2, max: 6,
+  bots: { min: 1, max: 5, levels: ['Fácil', 'Normal', 'Difícil'] },
+  options: [
+    { k: 'stk', name: 'Acumular +2 y +4', vals: ['No', 'Sí'], def: 0, desc: ['Quien recibe un +2 o +4 roba y pierde el turno.', 'Se puede responder con otro +2 (sobre +2) o +4 y el castigo se suma para el siguiente.'] },
+    { k: 'dr', name: 'Al robar', vals: ['Roba una', 'Roba hasta poder jugar'], def: 0, desc: ['Si no puedes echar, robas una carta.', 'Robas hasta que salga una carta que se pueda echar.'] }
+  ],
+  rules: '<ul>' +
+    '<li>Cada jugador empieza con <b>7 cartas</b>. Gana quien se queda <b>sin cartas</b> primero.</li>' +
+    '<li>En tu turno echa una carta del <b>mismo color</b> o del <b>mismo número o símbolo</b> que la de arriba. Los <b>comodines</b> (★) se pueden echar siempre y eliges el color con el que se sigue.</li>' +
+    '<li>Si no puedes (o no quieres) echar, <b>roba</b>. Si la carta robada se puede echar, puedes jugarla o <b>pasar</b>.</li>' +
+    '<li>Cartas especiales: <b>⊘ Salta</b> (el siguiente pierde el turno) · <b>⇄ Cambio de sentido</b> (con dos jugadores, salta) · <b>+2</b> (el siguiente roba 2 y pierde el turno) · <b>Comodín +4</b> (eliges color y el siguiente roba 4 y pierde el turno).</li>' +
+    '<li>Opción «Acumular +2 y +4»: quien recibe el castigo puede responder con otro +2 (sobre un +2) o con un +4, y el siguiente roba la suma.</li>' +
+    '<li>Cuando a alguien le queda una carta aparece <b>¡Una!</b> junto a su nombre. Si se acaba el mazo, se baraja el montón.</li>' +
+    '<li>Puntos: el ganador suma las cartas de los demás (números su valor, acciones 20, comodines 50). El color que manda se marca alrededor de la carta de arriba y la flecha indica el sentido.</li></ul>',
+  createEngine: (players, saved, opts) => new LoGame(players, saved, opts),
+  mount: locoMount
+});
+})();
+Mods.ok("loco");
+</script>
 <script type="text/plain" data-mod="en-ahorcado" data-deps="">
 /* CTX en-ahorcado: diccionario inglés (módulo ahorcado); ver core/i18n. */
 I18n.mod = "ahorcado";
@@ -14693,9 +15418,10 @@ I18n.add({
   [/^(.+?) · tus puntos (\S+) · (.*)$/, '%1 · your points $2 · $3'],
   [/^Ganan (.+) y (.+)$/, '$1 and $2 win']
 ]);
-/* listas de nombres de juegos («Ajedrez · Damas · …») en las tarjetas de categoría y favoritos */
+/* listas de nombres de juegos (“Ajedrez · Damas · …”) en las tarjetas de categoría y favoritos */
 (function () {
-  const names = ['Rummi', 'Brisca', 'Chinchón', 'Sudoku', 'Ajedrez', 'Damas', 'Tute', 'Solitario', 'Texas Hold\'em', 'Backgammon', 'Hundir la flota', 'Nonogramas', 'Hive', 'Scrabble', 'Wordle', 'Ahorcado', 'Parchís', 'Dominó', 'Tangram', '4 en raya', 'Reversi', 'Puntos y cajas', 'Mahjong', 'Torres de Hanoi', 'Flechas', 'Parejas', 'Atasco', 'Hilos', 'Reto matemático', 'Buscaminas', 'Boggle', 'Crucigrama', 'Criptograma', 'Nudos'];
+  /* nombres del catálogo (así cubre cualquier juego nuevo); los más largos primero para que la alternativa no corte uno por un prefijo */
+  const names = Hub.catalog.map(g => g.name).sort((a, b) => b.length - a.length);
   const esc = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
   const alt = '(' + esc + ')', nc = '(?:' + esc + ')';
   const pats = [];
@@ -14718,6 +15444,27 @@ I18n.add({
   'Versión en español borrada': 'Spanish version deleted',
   'Versión en inglés borrada': 'English version deleted'
 });
+/* editor de reacciones (Preferencias) */
+I18n.add({
+  'Elegir reacciones': 'Choose reactions',
+  'Reacciones': 'Reactions',
+  'Al ganar': 'When you win',
+  'Al perder': 'When you lose',
+  'Empate': 'Draw',
+  'Disponibles': 'Available',
+  'Volver a Preferencias': 'Back to Preferences',
+  'Toca una para quitarla. Abajo, toca para añadir (máximo 6). 🦀 cruza la pantalla corriendo.': 'Tap one to remove it. Below, tap to add (up to 6). 🦀 runs across the screen.',
+  'Restablecer las de siempre': 'Restore the defaults',
+  'Deja al menos una reacción': 'Keep at least one reaction'
+}, [
+  [/^Elegidas \((\d+)\/(\d+)\)$/, 'Chosen ($1/$2)'],
+  [/^Quitar (\S+)$/, 'Remove $1']
+]);
+I18n.add({ 'Código secreto': 'Code Breaker', 'Descifra el código de colores · solo o en sala': 'Crack the colour code · solo or in a room' });
+I18n.add({ 'Cartas de colores · 2 a 6 jugadores': 'Colour cards · 2 to 6 players' });
+I18n.add({ 'Loco': 'Loco' });
+/* buscador del inicio */
+I18n.add({ 'Buscar juego…': 'Search games…', 'Buscar juegos': 'Search games', 'Borrar búsqueda': 'Clear search' }, [[/^No hay juegos que coincidan con «(.+)»$/, 'No games match “$1”']]);
 I18n.mod = '';
 Mods.ok("lang-en");
 </script>
@@ -15178,6 +15925,71 @@ I18n.rules['hive'] = '<ul>' +
 I18n.mod = '';
 Mods.ok("en-hive");
 </script>
+<script type="text/plain" data-mod="en-loco" data-deps="">
+/* CTX en-loco: diccionario inglés (módulo loco); ver core/i18n. */
+I18n.mod = "loco";
+I18n.add({
+  'Loco': 'Loco',
+  'Robar': 'Draw',
+  'Pasar': 'Pass',
+  'Elige color': 'Choose a colour',
+  'Cancelar': 'Cancel',
+  '¡Una!': 'Last card!',
+  'Puedes echar la carta robada o pasar': 'You can play the card you drew or pass',
+  'Tu turno: echa una carta': 'Your turn: play a card',
+  'No tienes carta: roba': 'No card to play: draw',
+  'Solo puedes jugar la carta que has robado': 'You can only play the card you drew',
+  'Esa carta no se puede echar': "That card can't be played",
+  'Elige un color': 'Choose a colour',
+  'Ya has robado: juega esa carta o pasa': 'You already drew: play that card or pass',
+  'Antes tienes que robar': 'You have to draw first',
+  'No tienes esa carta': "You don't have that card",
+  'sin cartas': 'no cards left',
+  'Comodín': 'Wild',
+  'Comodín +4': 'Wild +4',
+  'rojo': 'Red', 'amarillo': 'Yellow', 'verde': 'Green', 'azul': 'Blue',
+  'Salta': 'Skip', 'Cambio de sentido': 'Reverse',
+  'Acumular +2 y +4': 'Stack +2 and +4',
+  'Al robar': 'When drawing',
+  'Roba una': 'Draw one',
+  'Roba hasta poder jugar': 'Draw until you can play',
+  'Quien recibe un +2 o +4 roba y pierde el turno.': 'Whoever gets a +2 or +4 draws and loses the turn.',
+  'Se puede responder con otro +2 (sobre +2) o +4 y el castigo se suma para el siguiente.': 'You can answer with another +2 (on a +2) or a +4 and the penalty adds up for the next player.',
+  'Si no puedes echar, robas una carta.': "If you can't play, you draw one card.",
+  'Robas hasta que salga una carta que se pueda echar.': 'You draw until you get a card you can play.'
+}, [
+  [/^(\d|Salta|Cambio de sentido|\+2) (rojo|amarillo|verde|azul)$/, '%2 %1'],
+  [/^Robar (\d+)$/, 'Draw $1'],
+  [/^Te toca robar (\d+) \(o echa otro castigo\)$/, 'You have to draw $1 (or play another penalty)'],
+  [/^Te toca robar (\d+)$/, 'You have to draw $1'],
+  [/^Tienes que robar (\d+) o echar otro castigo$/, 'You have to draw $1 or play another penalty'],
+  [/^Tienes que robar (\d+)$/, 'You have to draw $1'],
+  [/^Tú roba (\d+) y pierde el turno$/, 'You draw $1 and lose your turn'],
+  [/^Tú roba (\d+)$/, 'You draw $1'],
+  [/^(.+) roba (\d+) y pierde el turno$/, '$1 draws $2 and loses the turn'],
+  [/^(.+) roba (\d+)$/, '$1 draws $2'],
+  [/^Juega (.+)…$/, '$1 is playing…'],
+  [/^Gana (.+)$/, '$1 wins'],
+  [/^1 carta$/, '1 card'],
+  [/^(\d+) cartas$/, '$1 cards']
+]);
+I18n.rules['loco'] = '<ul>' +
+  '<li>Everyone starts with <b>7 cards</b>. The first player to run out of cards wins.</li>' +
+  '<li>On your turn play a card of the <b>same colour</b> or the <b>same number or symbol</b> as the top card. <b>Wild cards</b> (★) can always be played and you choose the colour that follows.</li>' +
+  '<li>If you can\'t (or don\'t want to) play, <b>draw</b>. If the card you drew can be played, you may play it or <b>pass</b>.</li>' +
+  '<li>Special cards: <b>⊘ Skip</b> (the next player loses their turn) · <b>⇄ Reverse</b> (with two players it acts as Skip) · <b>+2</b> (the next player draws 2 and loses their turn) · <b>Wild +4</b> (you choose the colour and the next player draws 4 and loses their turn).</li>' +
+  '<li>Option “Stack +2 and +4”: whoever gets the penalty can answer with another +2 (on a +2) or a +4, and the next player draws the total.</li>' +
+  '<li>When someone has one card left, <b>Last card!</b> appears next to their name. If the deck runs out, the pile is shuffled.</li>' +
+  '<li>Points: the winner scores the cards left in the other hands (numbers their value, actions 20, wilds 50). The colour in play is shown around the top card and the arrow shows the direction.</li></ul>';
+/* color que manda (tras un comodín) */
+I18n.add({}, [
+  [/^Color: (rojo|amarillo|verde|azul)$/, 'Colour: %1'],
+  [/^(.+) elige (rojo|amarillo|verde|azul)$/, '$1 chooses %2']
+]);
+I18n.add({ 'Tu turno: echa una carta roja o un comodín': 'Your turn: play a red card or a wild', 'Tu turno: echa una carta amarilla o un comodín': 'Your turn: play a yellow card or a wild', 'Tu turno: echa una carta verde o un comodín': 'Your turn: play a green card or a wild', 'Tu turno: echa una carta azul o un comodín': 'Your turn: play a blue card or a wild' });
+I18n.mod = '';
+Mods.ok("en-loco");
+</script>
 <script type="text/plain" data-mod="en-mahjong" data-deps="">
 /* CTX en-mahjong: diccionario inglés (módulo mahjong); ver core/i18n. */
 I18n.mod = "mahjong";
@@ -15219,6 +16031,64 @@ I18n.rules['mahjong'] = '<ul>' +
   '<li>Each board is dealt so that it always has a solution; if you run out of moves, undo or shuffle.</li></ul>';
 I18n.mod = '';
 Mods.ok("en-mahjong");
+</script>
+<script type="text/plain" data-mod="en-mastermind" data-deps="">
+/* CTX en-mastermind: diccionario inglés (módulo mastermind); ver core/i18n. */
+I18n.mod = "mastermind";
+I18n.add({
+  'Experto': 'Expert',
+  'pueden repetirse': 'repeats allowed',
+  'sin repetir': 'no repeats',
+  '⌫ Borrar': '⌫ Delete',
+  'Comprobar': 'Check',
+  'Rendirse': 'Give up',
+  '¿Seguro?': 'Sure?',
+  '¡Código descifrado!': 'Code cracked!',
+  'Se acabaron los intentos': 'Out of tries',
+  'El código era el de arriba.': 'The code is shown at the top.',
+  '¡Nuevo récord!': 'New record!',
+  'Otra partida': 'Play again',
+  'Ver el tablero': 'See the board',
+  'No lo has descifrado': "You didn't crack it",
+  'Sin descifrar. Esperando al resto…': 'Not cracked. Waiting for the others…',
+  'Sin descifrar': 'Not cracked',
+  'Nadie lo ha descifrado': 'Nobody cracked it',
+  'Completa el código': 'Fill in the code',
+  'Completa el código sin repetir colores': 'Fill in the code without repeating colours',
+  'Ya has terminado': "You've already finished",
+  'Se acabó el tiempo': "Time's up",
+  'Dificultad': 'Difficulty',
+  'Tiempo': 'Time'
+}, [
+  [/^Código secreto · (.+)$/, 'Code Breaker · %1'],
+  [/^(\d+) huecos · (\d+) colores · (pueden repetirse|sin repetir) · (\d+) intentos$/, '$1 pegs · $2 colours · %3 · $4 tries'],
+  [/^(\d+) huecos · (\d+) colores \(pueden repetirse\) · (\d+) intentos · Tu mejor: (\d+) intentos$/, '$1 pegs · $2 colours (repeats allowed) · $3 tries · Your best: $4 tries'],
+  [/^(\d+) huecos · (\d+) colores sin repetir · (\d+) intentos · Tu mejor: (\d+) intentos$/, '$1 pegs · $2 colours, no repeats · $3 tries · Your best: $4 tries'],
+  [/^(\d+) huecos · (\d+) colores \(pueden repetirse\) · (\d+) intentos$/, '$1 pegs · $2 colours (repeats allowed) · $3 tries'],
+  [/^(\d+) huecos · (\d+) colores sin repetir · (\d+) intentos$/, '$1 pegs · $2 colours, no repeats · $3 tries'],
+  [/^(\d+) en su sitio · (\d+) de color$/, '$1 in place · $2 right colour'],
+  [/^1 intento · (\d+:\d+)$/, '1 try · $1'],
+  [/^(\d+) intentos · (\d+:\d+)$/, '$1 tries · $2'],
+  [/^1 intento$/, '1 try'],
+  [/^(\d+) intentos$/, '$1 tries'],
+  [/^¡Descifrado en 1 intento! Esperando al resto…$/, 'Cracked in 1 try! Waiting for the others…'],
+  [/^¡Descifrado en 1 intento!$/, 'Cracked in 1 try!'],
+  [/^¡Descifrado en (\d+) intentos?! Esperando al resto…$/, 'Cracked in $1 tries! Waiting for the others…'],
+  [/^¡Descifrado en (\d+) intentos?!$/, 'Cracked in $1 tries!'],
+  [/^(Fácil|Normal|Difícil|Experto) · (\d+) huecos$/, '%1 · $2 pegs'],
+  [/^(Fácil|Normal|Difícil|Experto) · (\d+) intentos? · (\d+:\d+)$/, '%1 · $2 tries · $3'],
+  [/^(Fácil|Normal|Difícil|Experto) · sin descifrar$/, '%1 · not cracked'],
+  [/^Color (\d+)$/, 'Colour $1'],
+  [/^(\d+) min$/, '$1 min']
+]);
+I18n.rules['mastermind'] = '<ul>' +
+  '<li>There is a <b>secret code</b> of colours (top row, hidden). Guess it in as few tries as possible.</li>' +
+  '<li>Tap the colours below to fill your row (tap a peg to choose where the next one goes; tap it again to clear it) and press <b>Check</b>.</li>' +
+  '<li>Each try gets clues: <b style="color:#d93636">●</b> = a colour in the right place · white <b>○</b> = a colour that is in the code but somewhere else. The clues do not say which peg is which.</li>' +
+  '<li>Levels: <b>Easy</b> 4 pegs and 6 colours, no repeats · <b>Normal</b> 4 and 6 with repeats · <b>Hard</b> 5 and 8 · <b>Expert</b> 6 and 8. Each colour has a symbol so you can tell them apart without seeing the colour.</li>' +
+  '<li><b>In a room</b> (2-8 players, no AI): a race with the same code for everyone. You see how many tries each player has used, but not their colours. Whoever cracks it in fewest tries wins (if tied, the fastest). There is a time limit (“Time” option) and you can give up.</li></ul>';
+I18n.mod = '';
+Mods.ok("en-mastermind");
 </script>
 <script type="text/plain" data-mod="en-nonograma" data-deps="">
 /* CTX en-nonograma: diccionario inglés (módulo nonograma); ver core/i18n. */
