@@ -41,3 +41,16 @@ Si quieres limitar quién puede conectar, edita `ALLOWED_ORIGINS` en `wrangler.j
 - Si cambias el juego, ejecuta `node build.js` en el proyecto del juego, copia `dist/juegos.html` a `public/mesa-de-juegos.html` y lanza `npm run deploy`.
 - Observabilidad (logs y trazas) activada en `wrangler.jsonc`; se consulta en el panel de Cloudflare → Workers → boardgames → Observability, o con `npx wrangler tail`.
 - Renombrar el worker cambia la URL (`boardgames.*.workers.dev`) y crea un worker nuevo: los Durable Objects del anterior no se migran (aquí no guardan datos).
+
+## Avisos push (opcional)
+Notificaciones para quien bloquea el móvil en una sala online («Empieza la partida», «Te toca», «X quiere entrar en tu sala»). Sin la clave el resto funciona igual y la opción no aparece activa.
+
+1. Generar la clave VAPID (una vez; guárdala, si cambia hay que volver a activar los avisos en cada dispositivo):
+   ```sh
+   node -e "const k=require('crypto').generateKeyPairSync('ec',{namedCurve:'prime256v1'});console.log(JSON.stringify(k.privateKey.export({format:'jwk'})))"
+   ```
+2. Producción: `npx wrangler secret put VAPID_JWK` y pegar el JSON.
+3. Local (`wrangler dev`): fichero `.dev.vars` (no se versiona) con `VAPID_JWK='{"kty":"EC",…}'`.
+4. Opcional: `VAPID_SUBJECT` en `wrangler.jsonc` (`mailto:…` o `https://…`); vacío = el origen de la página.
+
+Las suscripciones se guardan en el Durable Object de cada sala y se borran 12 h después de que quede vacía. En iPhone los avisos solo funcionan con la app instalada (iOS 16.4+).

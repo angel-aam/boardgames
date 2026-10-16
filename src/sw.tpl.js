@@ -6,6 +6,8 @@
    - Módulos («/m/*», con hash en el nombre = inmutables) e iconos: caché primero.
    - «offline.html»: red primero y copia en caché como respaldo (para «Descarga offline» sin red).
    - Mensaje {t:'all'}: fuerza la descarga de todos los módulos (responde por el puerto).
+   - Avisos (Web Push, salas online): «push» muestra la notificación {title, body, url, tag} salvo que la app esté a la vista;
+     al tocarla se enfoca la pestaña abierta o se abre url (la app vuelve sola a la sala con la sesión guardada).
    No intercepta WebSockets (/ws/*) ni /api/*: las salas online siguen requiriendo conexión; las salas por QR (WebRTC en la red local) no la necesitan. */
 const V = '__VERSION__', CORE = 'mj-core-' + V, MOD = 'mj-mods';
 const MODS = __MODS__;
@@ -84,4 +86,25 @@ self.addEventListener('message', e => {
   if (!e.data || e.data.t !== 'all') return;
   const port = e.ports && e.ports[0];
   e.waitUntil(fill().then(() => { if (port) port.postMessage({ ok: true, n: MODS.length }); }).catch(() => { if (port) port.postMessage({ ok: false }); }));
+});
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (err) { d = {}; }
+  e.waitUntil((async () => {
+    const cl = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (cl.some(c => c.visibilityState === 'visible')) return;   /* la app ya está a la vista: no hace falta avisar */
+    await self.registration.showNotification(String(d.title || 'Mesa de Juegos'), {
+      body: String(d.body || ''), tag: String(d.tag || 'mj'), renotify: true, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
+      data: { url: typeof d.url === 'string' && d.url.charAt(0) === '/' ? d.url : '/' }
+    });
+  })());
+});
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil((async () => {
+    const cl = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const c = cl.find(x => new URL(x.url).origin === location.origin);
+    if (c) { try { await c.focus(); return; } catch (err) { /* no se pudo enfocar: se abre otra */ } }
+    await self.clients.openWindow(url);
+  })());
 });

@@ -25,6 +25,9 @@
   "vars": {
     // Orígenes que pueden abrir salas (separados por comas). Vacío = cualquiera.
     // Para GitHub Pages: "https://TU_USUARIO.github.io,null"  («null» = el archivo abierto sin conexión desde el móvil)
-    "ALLOWED_ORIGINS": ""
+    "ALLOWED_ORIGINS": "",
+    // Avisos push: «sub» de la firma VAPID (mailto:… o https://…). Vacío = el origen de la página.
+    // La clave privada va como SECRETO (no aquí): npx wrangler secret put VAPID_JWK  (en local: fichero .dev.vars, ver README)
+    "VAPID_SUBJECT": ""
   }
 }

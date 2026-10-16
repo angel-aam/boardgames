@@ -2,6 +2,7 @@
    No conoce ningún juego: solo reenvía mensajes entre quienes están en la misma sala. El anfitrión sigue siendo quien aplica las reglas.
    Rutas:
      GET /api/ping            -> "mesa-ok" (el cliente comprueba que el servidor existe)
+     GET /api/push-key        -> clave pública VAPID (texto) para suscribirse a avisos; 404 si no hay secreto VAPID_JWK
      GET /ws/room/<codigo>    -> WebSocket de una sala (un Durable Object por código)
      GET /ws/lobby            -> WebSocket del listado de salas abiertas (un único Durable Object)
      GET /game/<id>           -> el mismo index.html (enlace directo a un juego para marcadores); el cliente abre <id>
@@ -9,14 +10,34 @@
      resto                    -> páginas estáticas de ./public
    Protocolo de sala (JSON):
      servidor -> cliente  {t:'hello', me, peers:[ids]} | {t:'join', peer} | {t:'leave', peer} | {t:'m', from, to, m}
-     cliente  -> servidor {to:'*'|id, m:{...}}   (el texto «ping» recibe «pong» sin despertar al objeto) */
+     cliente  -> servidor {to:'*'|id, m:{...}}   (el texto «ping» recibe «pong» sin despertar al objeto)
+   Avisos (Web Push, para quien tiene el móvil bloqueado o la app en segundo plano), mensajes al propio servidor de la sala:
+     cliente  -> servidor {t:'psub', d, h, sub}   guarda (o borra con sub null) la suscripción del dispositivo d (h=1 anfitrión)
+                          {t:'push', to:d|'host', k:'start'|'turn'|'join', gn, gm, n}   avisa con un texto fijo según k
+     servidor -> cliente  {t:'pushed', k, ok}
+     Las suscripciones se guardan en el almacenamiento del objeto de la sala y se borran 12 h después de quedar vacía.
+   Listado de salas: si el anfitrión pierde la conexión (móvil bloqueado) su sala sigue listada GRACE ms marcada off:1. */
 import { DurableObject } from 'cloudflare:workers';
+import { vapid, sendPush, validSub } from './push.js';
 
 const MAX_PEERS = 8;          /* jugadores por sala */
 const MAX_MSG = 128 * 1024;   /* bytes por mensaje */
 const RATE = 40;              /* mensajes por segundo y conexión (ráfaga 80) */
 const BURST = 80;
 const MAX_ROOMS_LISTED = 40;
+const GRACE = 5 * 60 * 1000;          /* sala listada tras caerse la conexión del anfitrión */
+const SUB_TTL = 12 * 3600 * 1000;     /* vida de las suscripciones de una sala vacía */
+const MAX_SUBS = 16;                  /* suscripciones por sala */
+const PUSH_GAP = 20 * 1000;           /* mínimo entre avisos al mismo dispositivo */
+const PUSH_HOUR = 120;                /* avisos por sala y hora */
+const DEV = /^[a-z0-9]{4,24}$/;
+const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f-\u009f]/g, '').trim().slice(0, n);
+/* textos fijos de los avisos: el cliente solo elige el tipo y aporta el nombre del juego y del jugador */
+const PUSH_TXT = {
+  start: (gn, n) => ({ title: '¡Empieza la partida!', body: gn + ': ' + (n ? n + ' ha empezado' : 'ha empezado') + ' la partida. Toca para volver.' }),
+  turn: gn => ({ title: 'Te toca', body: gn + ': es tu turno.' }),
+  join: (gn, n) => ({ title: 'Alguien quiere jugar', body: (n || 'Un jugador') + ' quiere entrar en tu sala de ' + gn + '.' })
+};
 
 const okOrigin = (req, env) => {
   const list = String(env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -44,6 +65,10 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (url.pathname === '/api/ping') return new Response('mesa-ok', { headers: cors });
+    if (url.pathname === '/api/push-key') {
+      const v = await vapid(env);
+      return v ? new Response(v.pub, { headers: cors }) : new Response('', { status: 404, headers: cors });
+    }
     if ((req.method === 'GET' || req.method === 'HEAD') && env.ASSETS) {
       if (url.pathname === '/' || GAME_PATH.test(url.pathname)) return page(req, env);
       if (/^\/game\/?$/.test(url.pathname)) return Response.redirect(new URL('/', req.url).toString(), 302);
@@ -84,17 +109,19 @@ export class Room extends DurableObject {
     if (others.length >= MAX_PEERS) return new Response('Sala llena', { status: 403 });
     const { client, server } = accept(this);
     const id = newId();
-    server.serializeAttachment({ id, tok: BURST, ts: Date.now() });
+    server.serializeAttachment({ id, tok: BURST, ts: Date.now(), o: new URL(req.url).origin });
     const peers = others.map(s => (s.deserializeAttachment() || {}).id).filter(Boolean);
     send(server, { t: 'hello', me: id, peers });
     others.forEach(s => send(s, { t: 'join', peer: id }));
     return new Response(null, { status: 101, webSocket: client });
   }
-  webSocketMessage(ws, data) {
+  async webSocketMessage(ws, data) {
     if (typeof data !== 'string' || data.length > MAX_MSG) return;
     const a = ws.deserializeAttachment() || {};
     if (!allow(ws, a)) return;
     let d; try { d = JSON.parse(data); } catch (e) { return; }
+    if (d && d.t === 'psub') { await this.psub(ws, a, d); return; }
+    if (d && d.t === 'push') { const ok = await this.push(a, d); send(ws, { t: 'pushed', k: d.k, ok }); return; }
     if (!d || typeof d !== 'object' || !d.m || typeof d.m !== 'object' || Array.isArray(d.m)) return;
     const to = d.to;
     if (to !== '*' && (typeof to !== 'string' || to.length > 16)) return;
@@ -103,6 +130,53 @@ export class Room extends DurableObject {
       if (s === ws) continue;
       if (to === '*' || (s.deserializeAttachment() || {}).id === to) send(s, out);
     }
+  }
+  /* guarda o borra la suscripción de este dispositivo */
+  async psub(ws, a, d) {
+    if (typeof d.d !== 'string' || !DEV.test(d.d)) return;
+    a.d = d.d; ws.serializeAttachment(a);
+    const st = this.ctx.storage, key = 'ps:' + d.d;
+    if (d.sub == null) { await st.delete(key); return; }
+    const sub = validSub(d.sub);
+    if (!sub) return;
+    await st.put(key, { sub, h: d.h === 1 ? 1 : 0, ts: Date.now() });
+    const all = await st.list({ prefix: 'ps:' });
+    if (all.size > MAX_SUBS) { const old = [...all].sort((x, y) => x[1].ts - y[1].ts).slice(0, all.size - MAX_SUBS); await st.delete(old.map(x => x[0])); }
+    await st.setAlarm(Date.now() + SUB_TTL);
+  }
+  /* envía un aviso a otro dispositivo de la sala (nunca al propio); textos fijos, límites por destino y por hora */
+  async push(a, d) {
+    const v = await vapid(this.env);
+    const mk = PUSH_TXT[d.k];
+    if (!v || !mk || !a.d) return false;
+    const st = this.ctx.storage;
+    let key = '';
+    if (d.to === 'host') {
+      let best = null;
+      for (const [k, x] of await st.list({ prefix: 'ps:' })) if (x.h && k !== 'ps:' + a.d && (!best || x.ts > best[1].ts)) best = [k, x];
+      if (best) key = best[0];
+    } else if (typeof d.to === 'string' && DEV.test(d.to) && d.to !== a.d) key = 'ps:' + d.to;
+    const rec = key && await st.get(key);
+    if (!rec) return false;
+    const now = Date.now();
+    if (now - (rec.last || 0) < PUSH_GAP) return false;
+    const hr = Math.floor(now / 3600000), pc = (await st.get('pc')) || { h: hr, n: 0 };
+    if (pc.h !== hr) { pc.h = hr; pc.n = 0; }
+    if (pc.n >= PUSH_HOUR) return false;
+    pc.n++; rec.last = now;
+    await st.put({ pc, [key]: rec });
+    const gm = typeof d.gm === 'string' && /^[a-z0-9-]{1,24}$/.test(d.gm) ? d.gm : '';
+    const txt = mk(clean(d.gn, 24) || 'Mesa de Juegos', clean(d.n, 14));
+    try {
+      const code = await sendPush(v, rec.sub, Object.assign(txt, { url: gm ? '/game/' + gm : '/', tag: 'mj-' + d.k }), this.env.VAPID_SUBJECT || a.o || 'https://example.com');
+      if (code === 404 || code === 410) await st.delete(key);
+      if (code >= 300) console.warn('push', d.k, code);
+      return code < 300;
+    } catch (e) { console.error('push', e && e.message); return false; }
+  }
+  async alarm() {
+    if (this.ctx.getWebSockets().length) await this.ctx.storage.setAlarm(Date.now() + SUB_TTL);
+    else await this.ctx.storage.deleteAll();
   }
   webSocketClose(ws) { this.left(ws); }
   webSocketError(ws) { this.left(ws); }
@@ -113,7 +187,8 @@ export class Room extends DurableObject {
   }
 }
 
-/* Listado de salas abiertas: cada anfitrión anuncia {rk, hn, c, st, gm}; al cerrarse su conexión desaparece */
+/* Listado de salas abiertas: cada anfitrión anuncia {rk, hn, c, st, gm}. Si su conexión se cae sin retirar el anuncio
+   (móvil bloqueado), la sala sigue listada GRACE ms con off:1 («g:<rk>» en el almacenamiento) o hasta que vuelva a anunciarse */
 export class Lobby extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -124,19 +199,42 @@ export class Lobby extends DurableObject {
     const id = newId();
     server.serializeAttachment({ id, tok: BURST, ts: Date.now(), info: null });
     send(server, { t: 'hello', me: id });
-    send(server, this.list());
+    send(server, await this.list());
     return new Response(null, { status: 101, webSocket: client });
   }
-  list() {
-    const rooms = [];
+  async list(skip) {
+    const rooms = [], live = new Set(), now = Date.now();
     for (const s of this.ctx.getWebSockets()) {
+      if (s === skip) continue;   /* la conexión que se está cerrando */
       const a = s.deserializeAttachment() || {};
+      if (a.info && a.info.rk) live.add(a.info.rk);
       if (a.info && a.info.rk && a.info.st === 0) rooms.push({ peer: a.id, presence: a.info });
+    }
+    for (const [, g] of await this.ctx.storage.list({ prefix: 'g:' })) {
+      if (g.exp > now && !live.has(g.info.rk)) rooms.push({ peer: g.peer, presence: Object.assign({}, g.info, { off: 1 }) });
     }
     return { t: 'rooms', rooms: rooms.slice(0, MAX_ROOMS_LISTED) };
   }
-  cast() { const o = JSON.stringify(this.list()); this.ctx.getWebSockets().forEach(s => send(s, o)); }
-  webSocketMessage(ws, data) {
+  async cast(skip) { const o = JSON.stringify(await this.list(skip)); this.ctx.getWebSockets().forEach(s => send(s, o)); }
+  async alarm() {
+    const now = Date.now(), st = this.ctx.storage;
+    let next = 0;
+    for (const [k, g] of await st.list({ prefix: 'g:' })) {
+      if (g.exp <= now) await st.delete(k); else next = next ? Math.min(next, g.exp) : g.exp;
+    }
+    if (next) await st.setAlarm(next);
+    await this.cast();
+  }
+  /* la conexión de un anfitrión con la sala abierta se ha caído: se mantiene listada un rato */
+  async ghost(ws) {
+    const a = ws.deserializeAttachment() || {};
+    if (!a.info || !a.info.rk || a.info.st !== 0) return;
+    const exp = Date.now() + GRACE, st = this.ctx.storage;
+    await st.put('g:' + a.info.rk, { info: a.info, peer: a.id, exp });
+    const cur = await st.getAlarm();
+    if (!cur || cur > exp) await st.setAlarm(exp);
+  }
+  async webSocketMessage(ws, data) {
     if (typeof data !== 'string' || data.length > 2048) return;
     const a = ws.deserializeAttachment() || {};
     if (!allow(ws, a)) return;
@@ -154,8 +252,9 @@ export class Lobby extends DurableObject {
       };
     }
     a.info = info; ws.serializeAttachment(a);
-    this.cast();
+    if (info) await this.ctx.storage.delete('g:' + info.rk);   /* el anfitrión ha vuelto */
+    await this.cast();
   }
-  webSocketClose(ws) { try { ws.close(1000, 'bye'); } catch (e) { /* ya cerrado */ } this.cast(); }
-  webSocketError(ws) { this.cast(); }
+  async webSocketClose(ws) { try { ws.close(1000, 'bye'); } catch (e) { /* ya cerrado */ } await this.ghost(ws); await this.cast(ws); }
+  async webSocketError(ws) { await this.ghost(ws); await this.cast(ws); }
 }

@@ -18,9 +18,11 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario: `node tools/mkdict.js` lee tools/dict-src/*.gz; con @gfx/zopfli instalado comprime ~4 % más).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline.html no lleva manifiesto ni SW. APP_VER 1.13.1.
+- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline.html no lleva manifiesto ni SW. APP_VER 1.15.0.
 - Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, tema claro/oscuro/automático, sonido, ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
 - Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
+- Conexión con el móvil bloqueado: el navegador corta el WebSocket (no se puede evitar). Mitigaciones: el invitado espera al anfitrión hasta HOST_WAIT (10 min de tiempo a la vista, banner #netb con «Salir»); onLost reintenta hasta HOST_WAIT; en el lobby el invitado caído queda en H.off («Desconectado», Quitar = ACTS.rmoff) y al empezar ocupa su asiento como ausente (matchPl.was → seatBack). El Lobby del servidor mantiene listada 5 min la sala de un anfitrión caído (presence.off → «ausente»).
+- Avisos push (objeto Push, net.js; hub.push; Preferencias → «Avisos de salas online» y tarjeta «Activar avisos» del lobby): la suscripción va a la sala ({t:'psub',d:DID,h}); el anfitrión pide {t:'push',to:DID,k:'start'|'turn'} para asientos ausentes o con la app oculta (el invitado manda {t:'vis',h}); H.seatDev[i] = DID por asiento; pushStart() en beginMatch y pushTurn() en afterAct (H.lastTurn). El invitado que no recibe respuesta pide k:'join' a 'host' y, si el servidor confirma ({t:'pushed',ok}), espera (onSrv). Solo con servidor (VAPID_JWK), SW y permiso; iPhone solo instalada. El SW muestra la notificación salvo que la app esté a la vista y al tocarla enfoca/abre la app.
 - Pantalla encendida: wakeSync() (tras show(), hub.js) pide navigator.wakeLock en #stage y #lobby y lo suelta al salir; se repide en visibilitychange.
 - Enlace directo por juego: `/game/<id>` (id del catálogo: sudoku, texas, ajedrez…). El worker sirve el mismo index con `window.MJ_PATHS=1`; el hub (`urlGame/syncURL` en hub.js) abre el juego al arrancar y mantiene URL y título con replaceState. Sin esa bandera (archivo, visor, otra web) usa el hash `#/game/<id>`.
 - Servidor online (opcional, carpeta `server/`, fuera del HTML): Cloudflare Worker + Durable Objects (`Room` por código = relé WebSocket, `Lobby` = lista de salas) en `server/src/worker.js`; config `server/wrangler.jsonc`; despliegue en `server/README.md`. El cliente lo usa vía `SrvNet` (en net.js), que actúa como backend de `ClaudeNet` cuando no existe la capacidad 'room' (`ClaudeNet.srv=true`). Detección: `?srv=URL` (se guarda en localStorage `hub.srv`) → `MJ_SERVER` en build (`MJ_SERVER=https://… node build.js`) → mismo origen. El anfitrión sigue siendo autoritativo; el servidor solo reenvía. Visibilidad de sala: Pública (listada, por defecto) o Privada (solo con código); preferencia `hub.vis`, `H.priv` suprime `advertise()`, el anfitrión la cambia en el lobby (`ACTS.togvis`). Reconexión automática: sesión en `hub.sess` (12 h), `onLost`/`adoptTr`/`netWake`/`autoRejoin`, mensaje `bye` al cerrar el anfitrión; id de dispositivo `hub.did` (campo `d` de `join`) para no duplicar plazas; ver CLAUDE.md. En server/, el fuente sin minificar es public/mesa-de-juegos.html (copia de dist/juegos.html); `npm run deploy` ejecuta server/minify.js (terser + html-minifier-terser, respeta los módulos text/plain; elimina todos los comentarios, incluido este contexto) → public/index.html y `wrangler deploy`..
@@ -31,7 +33,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - `Sfx.tone(freq, dur, tipo, retardo, vol)` y `Sfx.win/lose/join`; cada juego define sus efectos con `ctx.tone`.
 - `Mods.load(nombre)` (promesa) / `Mods.ok(nombre)`.
 - `Hist` (recientes y estadísticas), `Saves` (partida en curso en disco, solo la última por juego; `put/get/forGame/latest/putSingle/getSingle`), `ClaudeNet` y `LocalNet` (transportes: `send(peer,msg) broadcast close onmsg onleave hostId`), `Hub`, `H` (estado global del hub), `ACTS` (acciones del DOM por `data-act`).
-- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.react, hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
+- Claves de almacenamiento: hub.nick, hub.opt, hub.optg (por juego {opp,lvl,first}), hub.gopt (opciones por juego), hub.slv (nivel por juego en solitario), hub.save, hub.recent, hub.stats, hub.pref, hub.assist, hub.react, hub.push, hub.sound, hub.theme, tute.sort2, sudoku-*, nono-*, wordle-stats, ahorcado-*, fl.layout.
 
 ## 4. Contrato de un juego (`Hub.register`)
 Multijugador por turnos:
@@ -116,7 +118,7 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | damas | juego tablero «Damas» | games/damas/damas.js (+damas.css) | – | Damas 2 jugadores (captura obligatoria, damas coronadas); IA por niveles. |
 | tute | juego cartas «Tute» | games/tute/tute.js (+tute.css) | baraja | Tute 3 jugadores individual / 4 por parejas, modalidad arrastrado o normal (depende de baraja). Cambio del 7 y el 2 por la muestra, cantes; orden de mano por valor/palo (tute.sort2). |
 | backgammon | juego tablero «Backgammon» | games/backgammon/backgammon.js (+backgammon.css) | dados | Backgammon 2 jugadores con dos dados d6 (módulo dados). Puntos 0..23, barra 24, fuera 100; gammon/backgammon. Motor con bgLegal/bgPlan; IA por niveles. |
-| flota | juego tablero «Hundir la flota» | games/flota/flota.js (+flota.css) | – | Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. |
+| flota | juego tablero «Hundir la flota» | games/flota/flota.js (+flota.css) | – | Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. Barcos = siluetas SVG vistas desde arriba (FL_ART/flShipSVG, una por tipo; se superponen a la rejilla con .fl-sp y los verticales giran el dibujo; colores por variables --sp-*). |
 | nonograma | juego puzzles «Nonogramas» | games/nonograma/nonograma.js (+nonograma.css) | – | Incluye modo Color (niveles 4–7). Nonogramas de un jugador (varios tamaños) con solución única garantizada (nnMake con resolutor por líneas), pintado arrastrando, pistas y deshacer. |
 | flechas | juego puzzles «Flechas» | games/flechas/flechas.js (+flechas.css) | – | Flechas de un jugador (6 niveles, 12×17 a 26×40): toca una serpiente para que salga por su punta si su camino está libre; generador fxGen (orden inverso de colocación = solución), SVG con animación por stroke-dashoffset, fallos/estrellas, pista, deshacer y récords (flechas-best). |
 | parejas | juego cartas «Parejas» | games/parejas/parejas.js (+parejas.css) | – | Memoria de parejas 2–4 jugadores (sala o IA). Motor PaGame: deck secreto, acciones {t:'f',i} y {t:'h'}; tras un fallo las cartas quedan visibles y los clientes mandan {t:'h'} (idempotente) tras ~1,3 s; opción de tablero 4×4–6×8; IA con memoria por nivel. |
@@ -663,10 +665,13 @@ const SrvNet = {
     const put = o => { try { if (ws.readyState === 1) ws.send(JSON.stringify(o)); } catch (e) { /* conexión caída */ } };
     t.send = (to, m) => put({ to, m });
     t.broadcast = m => put({ to: '*', m });
+    /* mensajes para el servidor de la sala (avisos push): {t:'psub'|'push', …}; responde {t:'pushed', k, ok} por onsrv */
+    t.srv = o => put(o);
     ws.onmessage = ev => {
       t.lastRx = Date.now();
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       if (!d || typeof d !== 'object') return;
+      if (d.t === 'pushed') { if (t.onsrv) t.onsrv(d); return; }
       if (d.t === 'm' && d.m && typeof d.m === 'object') { peers.add(d.from); if (t.onmsg) t.onmsg(d.from, d.m); }
       else if (d.t === 'join') peers.add(d.peer);
       else if (d.t === 'leave') { peers.delete(d.peer); if (t.onleave) t.onleave(d.peer); }
@@ -721,6 +726,54 @@ const ClaudeNet = {
     t.close = () => { t.offs.forEach(f => { try { f(); } catch (e) { /* ya cerrado */ } }); try { rm.leave(); } catch (e) { /* ya cerrado */ } };
     return t;
   }
+};
+
+/* ---------- Avisos de sala (Web Push con el servidor propio) ----------
+   Para quien bloquea el móvil o deja la app en segundo plano mientras espera en una sala online: «Empieza la partida»,
+   «Te toca» y (al anfitrión) «X quiere entrar en tu sala». Requiere el servidor con VAPID_JWK (GET /api/push-key),
+   el service worker (offlineOK) y permiso de notificaciones; en iPhone solo con la app instalada.
+   Preferencia hub.push. La suscripción se manda al objeto de la sala ({t:'psub', d:DID, h}); los avisos se piden con
+   {t:'push', to:DID|'host', k}. El texto lo pone el servidor. */
+const Push = {
+  key: '',
+  ok() { return offlineOK() && ClaudeNet.srv && 'PushManager' in window && 'Notification' in window && (!isIOS() || isStandalone()); },
+  on() { return store.get('hub.push', false) === true && Push.ok() && Notification.permission === 'granted'; },
+  async getKey() {
+    if (Push.key) return Push.key;
+    const r = await fetch(SrvNet.http + '/api/push-key', { cache: 'no-store' });
+    if (!r.ok) throw new Error('sin clave');
+    Push.key = (await r.text()).trim();
+    return Push.key;
+  },
+  async sub(create) {
+    const reg = await navigator.serviceWorker.ready;
+    let s = await reg.pushManager.getSubscription();
+    if (!s && create) s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64d(await Push.getKey()) });
+    return s;
+  },
+  /* se llama desde un clic (el permiso solo se puede pedir así) */
+  async enable() {
+    if (!Push.ok()) { toast(isIOS() && !isStandalone() ? 'En iPhone, instala la app para recibir avisos' : 'Este navegador no admite avisos'); return false; }
+    try { await Push.getKey(); } catch (e) { toast('El servidor no tiene los avisos activados'); return false; }
+    let perm = Notification.permission;
+    if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; } }
+    if (perm !== 'granted') { toast('Sin permiso para notificaciones: actívalo en los ajustes del navegador'); return false; }
+    try { await Push.sub(true); } catch (e) { toast('No se pudieron activar los avisos'); return false; }
+    store.set('hub.push', true); Push.reg();
+    toast('Avisos activados');
+    return true;
+  },
+  async disable() {
+    store.set('hub.push', false);
+    if (H.tr && H.tr.srv) H.tr.srv({ t: 'psub', d: DID, sub: null });
+    try { const s = await Push.sub(false); if (s) await s.unsubscribe(); } catch (e) { /* ya no había */ }
+  },
+  /* registra este dispositivo en la sala actual (al crear, unirse o reconectar) */
+  async reg() {
+    if (!H.tr || !H.tr.srv || !Push.on()) return;
+    try { const s = await Push.sub(true); if (s && H.tr && H.tr.srv) H.tr.srv({ t: 'psub', d: DID, h: H.role === 'host' ? 1 : 0, sub: s.toJSON() }); } catch (e) { /* sin avisos */ }
+  },
+  send(to, k) { if (to && H.tr && H.tr.srv && H.game) H.tr.srv({ t: 'push', to, k, gn: H.game.name, gm: H.game.id, n: H.nick }); }
 };
 
 /* ---------- Sin conexión: WebRTC directo en la red local, emparejado por QR o código ---------- */
@@ -927,7 +980,7 @@ function resetRoom() {
   if (H.kind === 'claude' && H.role === 'host') ClaudeNet.unadvertise();
   if (H.tr) { H.tr.onmsg = null; H.tr.onleave = null; try { H.tr.close(); } catch (e) { /* ya cerrado */ } }
   if (H.view) { try { H.view.destroy(); } catch (e) { /* vista ya cerrada */ } }
-  H.tr = null; H.role = 'none'; H.kind = ''; H.code = ''; H.priv = false; H.guests = new Map(); H.bots = []; H.lobby = null;
+  H.tr = null; H.role = 'none'; H.kind = ''; H.code = ''; H.priv = false; H.guests = new Map(); H.bots = []; H.lobby = null; H.off = []; clearTimeout(H.offT);
   H.eng = null; H.view = null; H.gid = ''; H.seatPeer = []; H.overKey = ''; H.resume = null;
 }
 
@@ -943,9 +996,24 @@ function setupTr(t) {
   H.tr = t; t.onlost = () => onLost(t);
   t.onmsg = (from, m) => { if (H.role === 'host') hostMsg(from, m); else guestMsg(from, m); };
   t.onleave = peer => onLeave(peer);
+  if (t.srv) { t.onsrv = onSrv; Push.reg(); }
+}
+/* respuesta del servidor a un aviso: si el anfitrión no estaba pero se le ha avisado, el invitado espera en vez de rendirse */
+function onSrv(d) {
+  if (d.k === 'join' && d.ok && H.role === 'guest' && !H.lobby && !H.hostWait) { H.hostWait = true; netBanner('El anfitrión no está: le hemos avisado. Esperando…', true); startHello(true, true); }
+}
+/* invitados de la sala (aún sin partida) cuya conexión se ha caído: siguen en la lista como «Desconectado» hasta HOST_WAIT;
+   al empezar ocupan su asiento como ausentes (vuelven con seatBack) y se les avisa por push */
+const HOST_WAIT = 10 * 60 * 1000;
+function pruneOff() {
+  const n = H.off.length, now = Date.now();
+  H.off = H.off.filter(o => now - o.ts < HOST_WAIT);
+  if (H.off.length !== n) onRosterChange();
+  clearTimeout(H.offT);
+  if (H.off.length) H.offT = setTimeout(pruneOff, Math.max(1000, HOST_WAIT - (now - Math.min(...H.off.map(o => o.ts)))));
 }
 
-function rosterCount() { return 1 + H.guests.size + H.bots.length; }
+function rosterCount() { return 1 + H.guests.size + H.off.length + H.bots.length; }
 
 function roster() {
   if (H.resume) {
@@ -966,6 +1034,7 @@ function roster() {
   const uniq = nm => { let n = nm, k = 2; while (used[n]) n = nm + ' ' + (k++); used[n] = 1; return n; };
   const pl = [{ name: uniq(H.nick), bot: false, peer: null, host: true }];
   H.guests.forEach((g, peer) => pl.push({ name: uniq(cleanNick(g.nick)), bot: false, peer }));
+  H.off.forEach(o => pl.push({ name: uniq(cleanNick(o.nick)), bot: false, peer: null, off: true, d: o.d }));
   H.bots.forEach(b => pl.push({ name: uniq(b.name), bot: true, lv: b.lv }));
   return pl.slice(0, H.game.max);
 }
@@ -973,7 +1042,7 @@ function roster() {
 function sendRoster() {
   if (H.role !== 'host' || !H.tr) return;
   const pl = roster();
-  const lite = pl.map(p => ({ n: p.name, b: p.bot ? 1 : 0, h: p.host ? 1 : 0, w: p.wait ? 1 : 0 }));
+  const lite = pl.map(p => ({ n: p.name, b: p.bot ? 1 : 0, h: p.host ? 1 : 0, w: p.wait ? 1 : 0, o: p.off ? 1 : 0 }));
   H.guests.forEach((g, peer) => {
     const you = pl.findIndex(p => p.peer === peer);
     H.tr.send(peer, { t: 'lo', game: H.game.id, max: H.game.max, you, pl: lite, gx: H.game.options ? gOptText(H.game) : '' });
@@ -993,11 +1062,12 @@ const SESS_KEY = 'hub.sess', SESS_TTL = 12 * 3600 * 1000;
 function saveSess() { if (H.kind !== 'claude' || !H.code || !H.game) return; store.set(SESS_KEY, { code: H.code, role: H.role, game: H.game.id, nick: H.nick, sid: H.sid || '', ts: Date.now() }); }
 function clearSess() { store.set(SESS_KEY, null); }
 function getSess() { const s = store.get(SESS_KEY, null); return s && s.code && s.game && Date.now() - (s.ts || 0) < SESS_TTL ? s : null; }
-function netBanner(txt) {
+function netBanner(txt, leave) {
   let b = document.getElementById('netb');
   if (!txt) { if (b) b.hidden = true; return; }
   if (!b) { b = document.createElement('div'); b.id = 'netb'; b.setAttribute('role', 'status'); b.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 6px);transform:translateX(-50%);z-index:60;background:var(--accent);color:var(--accent-ink);padding:6px 14px;border-radius:999px;font:600 .82rem var(--f-ui);box-shadow:0 2px 8px rgba(0,0,0,.3);max-width:92vw;text-align:center'; document.body.appendChild(b); }
-  b.textContent = txt; b.hidden = false;
+  b.innerHTML = esc(txt) + (leave ? ' <button data-act="leave" style="margin-left:6px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font:inherit;padding:1px 10px">Salir</button>' : '');
+  b.hidden = false;
 }
 /* la conexión con el servidor se ha perdido: se reintenta con la misma sala y se vuelve a anunciar */
 function onLost(t) {
@@ -1013,7 +1083,7 @@ function onLost(t) {
       if (!H.lost || H.role === 'none') { try { nt.close(); } catch (e) { /* sobra */ } return; }
       adoptTr(nt);
     } catch (e) {
-      if (Date.now() - t0 > 150000) { leaveAll('No se pudo reconectar con la sala'); return; }
+      if (Date.now() - t0 > HOST_WAIT) { leaveAll('No se pudo reconectar con la sala'); return; }
       H.reconT = setTimeout(step, Math.min(5000, 700 * ++n));
     }
   };
@@ -1031,7 +1101,7 @@ function adoptTr(nt) {
     if (!H.priv && H.screen === 'lobby') advertise({ rk: H.code.toLowerCase(), hn: H.nick, c: rosterCount(), st: 0, gm: H.game.id });
     toast('Reconectado');
   } else {
-    nt.hostId = ''; H.hostWait = true; netBanner('Volviendo a la sala…'); startHello(true, true);
+    nt.hostId = ''; H.hostWait = true; netBanner('Volviendo a la sala…', true); startHello(true, true);
   }
 }
 /* al volver a la página (o recuperar la red) se comprueba que la conexión siga viva */
@@ -1041,6 +1111,7 @@ function netWake() {
   t.probe().then(ok => { if (!ok && t === H.tr && !H.lost) onLost(t); });
 }
 document.addEventListener('visibilitychange', netWake);
+document.addEventListener('visibilitychange', () => { if (H.role === 'guest' && H.tr && H.tr.hostId) H.tr.send(H.tr.hostId, { t: 'vis', h: document.hidden ? 1 : 0 }); });
 window.addEventListener('online', netWake);
 window.addEventListener('pageshow', netWake);
 /* reabrir el navegador: se vuelve solo a la sala (invitado: por código y nombre guardados; anfitrión: reabre la partida guardada con el mismo código) */
@@ -1051,6 +1122,8 @@ async function autoRejoin(sv) {
   H.game = Hub.games.find(x => x.id === ce.id); if (!H.game) return false;
   if (sv.nick) H.nick = cleanNick(sv.nick);
   if (sv.role === 'guest') { await joinOnline(sv.code, true); return true; }
+  /* anfitrión que solo tenía la sala abierta (sin partida): la reabre con el mismo código; los invitados que esperan vuelven solos */
+  if (!sv.sid) { H.rejoinCode = sv.code; netBanner('Reabriendo la sala…'); await createOnline(); netBanner(null); return H.role === 'host'; }
   const sg = Saves.all().find(x => x.id === sv.sid && x.game === sv.game);
   if (!sg || !Saves.humans(sg).length) { clearSess(); return false; }
   H.rejoinCode = sv.code; H.autoStart = true; netBanner('Reabriendo la sala…');
@@ -1062,7 +1135,7 @@ async function createOnline() {
   if (!ClaudeNet.ns) { toast('La sala online no está disponible'); return; }
   const keep = H.rejoinCode, auto = H.autoStart; H.rejoinCode = '';
   resetRoom();
-  H.autoStart = auto;
+  H.autoStart = auto; H.sid = '';   /* sala sin partida (openSave fija el sid después) */
   const code = keep || genCode();
   let t;
   try { t = await ClaudeNet.open(code); } catch (e) { toast('No se pudo abrir la sala. Inténtalo de nuevo'); return; }
@@ -1084,7 +1157,7 @@ async function joinOnline(code, auto) {
   H.role = 'guest'; H.kind = 'claude'; H.code = code;
   setupTr(t); saveSess();
   show('lobby'); renderLobby();
-  if (auto) { H.hostWait = true; netBanner('Volviendo a la sala…'); startHello(true, true); } else startHello(true);
+  if (auto) { H.hostWait = true; netBanner('Volviendo a la sala…', true); startHello(true, true); } else startHello(true);
 }
 
 function startHello(broadcast, persist) {
@@ -1097,9 +1170,10 @@ function startHello(broadcast, persist) {
   hi();
   clearInterval(H.helloT);
   H.helloT = setInterval(() => {
-    tries++;
+    if (!document.hidden) tries++;   /* con el móvil bloqueado no cuenta: la espera es de tiempo a la vista */
     if (persist ? !H.hostWait : (H.lobby || H.screen === 'stage')) { clearInterval(H.helloT); return; }
-    if (tries > (persist ? 40 : 5)) { clearInterval(H.helloT); leaveAll(persist ? 'El anfitrión no ha vuelto a la sala' : H.kind === 'claude' ? 'No hay ninguna sala abierta con ese código' : 'El anfitrión no responde'); return; }
+    if (!persist && tries === 2 && H.kind === 'claude') Push.send('host', 'join');   /* el anfitrión no contesta: se le avisa (onSrv) */
+    if (tries > (persist ? HOST_WAIT / 2000 : 5)) { clearInterval(H.helloT); leaveAll(persist ? 'El anfitrión no ha vuelto a la sala' : H.kind === 'claude' ? 'No hay ninguna sala abierta con ese código' : 'El anfitrión no responde'); return; }
     hi();
   }, 2000);
 }
@@ -1116,6 +1190,8 @@ function hostStart() {
   if (pl.some(p => p.wait)) { toast('Faltan jugadores por conectarse'); return; }
   if (pl.length < H.game.min) { toast('Hace falta al menos otro jugador: añade una IA'); return; }
   H.seatPeer = pl.map(p => p.peer || null);
+  H.seatDev = pl.map(p => p.off ? p.d || '' : '');
+  H.off = []; clearTimeout(H.offT);
   if (H.resume) { const sv = H.resume; H.resume = null; beginMatch(pl, sv); } else beginMatch(pl);
 }
 
@@ -1129,7 +1205,7 @@ function backToLobby() {
   clearTimeout(H.botT);
   if (H.view) { try { H.view.destroy(); } catch (e) { /* vista ya cerrada */ } H.view = null; }
   H.eng = null; H.gid = ''; H.overKey = ''; H.seatPeer = [];
-  Saves.remove(H.sid);
+  Saves.remove(H.sid); H.sid = ''; saveSess();
   hideSheet();
   advertise({ st: 0 });
   show('lobby'); sendRoster(); renderLobby();
@@ -1155,12 +1231,15 @@ function hostMsg(from, m) {
         const i = H.seatPeer.indexOf(od[0]);
         if (i >= 0) { H.seatPeer[i] = from; H.guests.delete(od[0]); H.guests.set(from, { nick: od[1].nick, d: did }); pushStateTo(from); paintReco(); return; }
       }
-      if (seatBack(from, m.nick) || takeSeat(from, m.nick)) { const g = H.guests.get(from); if (g) g.d = did; }
+      if (seatBack(from, m.nick) || takeSeat(from, m.nick)) { const g = H.guests.get(from); if (g) g.d = did; const i = H.seatPeer.indexOf(from); if (i >= 0 && did) H.seatDev[i] = did; }
       else H.tr.send(from, { t: 'no', e: 'La partida ya ha empezado' });
       return;
     }
-    { /* el mismo jugador vuelve con otra conexión: sustituye a la anterior */
-      const nk2 = cleanNick(m.nick).toLowerCase(), old = [...H.guests].find(([pr, g]) => pr !== from && (did ? g.d === did : cleanNick(g.nick).toLowerCase() === nk2));
+    { /* el mismo jugador vuelve con otra conexión: sustituye a la anterior (también si estaba «Desconectado») */
+      const nk2 = cleanNick(m.nick).toLowerCase(), n0 = H.off.length;
+      H.off = H.off.filter(o => !(did ? o.d === did : cleanNick(o.nick).toLowerCase() === nk2));
+      if (H.off.length !== n0) pruneOff();
+      const old = [...H.guests].find(([pr, g]) => pr !== from && (did ? g.d === did : cleanNick(g.nick).toLowerCase() === nk2));
       if (old) H.guests.delete(old[0]);
     }
     if (!H.guests.has(from)) {
@@ -1172,6 +1251,7 @@ function hostMsg(from, m) {
     return;
   }
   if (m.t === 'hi') { if (H.eng) pushStateTo(from); else sendRoster(); return; }
+  if (m.t === 'vis') { const g = H.guests.get(from); if (g) g.hid = m.h === 1; return; }
   if (m.t === 'rx') {
     if (!H.eng || !H.eng.over || m.g !== H.gid || !RX_ALL.has(m.e)) return;
     const i = H.seatPeer.indexOf(from);
@@ -1201,7 +1281,7 @@ function guestMsg(from, m) {
     if (!Array.isArray(m.pl) || m.game !== H.game.id) return;
     H.tr.hostId = from; H.hostWait = false; netBanner(null);
     clearInterval(H.helloT);
-    H.lobby = { gx: String(m.gx || '').slice(0, 80), you: Number.isInteger(m.you) ? m.you : -1, pl: m.pl.slice(0, 8).map(p => ({ n: cleanNick(p.n), b: p.b ? 1 : 0, h: p.h ? 1 : 0, w: p.w ? 1 : 0 })) };
+    H.lobby = { gx: String(m.gx || '').slice(0, 80), you: Number.isInteger(m.you) ? m.you : -1, pl: m.pl.slice(0, 8).map(p => ({ n: cleanNick(p.n), b: p.b ? 1 : 0, h: p.h ? 1 : 0, w: p.w ? 1 : 0, o: p.o ? 1 : 0 })) };
     if (H.screen === 'stage') { hideSheet(); if (H.view) { try { H.view.destroy(); } catch (e) { /* vista ya cerrada */ } H.view = null; } H.gid = ''; H.overKey = ''; }
     if (H.screen !== 'lobby') show('lobby');
     /* el nombre que la sala le ha asignado (p. ej. «Jugador 2») es con el que debe volver */
@@ -1277,7 +1357,11 @@ function takeSeat(peer, nick) {
 function onLeave(peer) {
   if (H.role === 'host') {
     if (!H.eng) {
-      if (H.guests.delete(peer)) onRosterChange();
+      const g = H.guests.get(peer);
+      if (H.guests.delete(peer)) {
+        if (g && H.kind === 'claude' && !H.resume) { H.off.push({ nick: g.nick, d: g.d || '', ts: Date.now() }); pruneOff(); }
+        onRosterChange();
+      }
       return;
     }
     const i = H.seatPeer.indexOf(peer);
@@ -1294,7 +1378,7 @@ function onLeave(peer) {
   } else if (H.role === 'guest' && peer === H.tr.hostId) {
     if (H.kind !== 'claude') { leaveAll('El anfitrión ha cerrado la sala'); return; }
     /* puede ser un corte (móvil bloqueado): se espera a que vuelva */
-    H.tr.hostId = ''; H.hostWait = true; netBanner('Anfitrión desconectado. Esperando…'); startHello(true, true);
+    H.tr.hostId = ''; H.hostWait = true; netBanner('Anfitrión desconectado. Esperando…', true); startHello(true, true);
   }
 }
 /* CTX lobby: Pantalla de sala: jugadores, rivales IA, opciones del juego, invitar/unirse, empezar. También lista las salas online abiertas. */
@@ -1303,7 +1387,7 @@ function renderLobby() {
   const g = H.game, host = H.role === 'host';
   let pl = null;
   if (host) pl = roster();
-  else if (H.lobby) pl = H.lobby.pl.map((p, i) => ({ name: p.n, bot: !!p.b, host: !!p.h, wait: !!p.w, me: i === H.lobby.you }));
+  else if (H.lobby) pl = H.lobby.pl.map((p, i) => ({ name: p.n, bot: !!p.b, host: !!p.h, wait: !!p.w, off: !!p.o, me: i === H.lobby.you }));
   const top = H.kind === 'claude'
     ? '<p class="muted small" style="margin:0;text-align:center">Código de la sala</p><div class="code">' + esc(H.code) + '</div><p class="muted small" style="margin:0;text-align:center">' + (H.priv ? 'Sala privada: no aparece en la lista. Solo entra quien tenga el código.' : 'Sala pública: quien tenga esta página abierta la verá en «Sala online». También puede escribir el código.') + '</p>' + (host ? '<button class="btn flat" data-act="togvis">' + (H.priv ? 'Hacerla pública' : 'Hacerla privada') + '</button>' : '')
     : '<h2>Sala sin conexión</h2><p class="muted small" style="margin:0">' + (host ? 'Añade a cada jugador con un código QR (lector de QR del móvil + pegar el texto). Todos deben estar en la misma red Wi-Fi o en el punto de acceso de uno de los móviles.' : 'Conectado con el anfitrión.') + '</p>';
@@ -1316,12 +1400,15 @@ function renderLobby() {
   else pl.forEach((p, i) => {
     let tag = '';
     if (p.host) tag = '<span class="tag">Anfitrión</span>';
-    else if (p.bot) tag = host ? '<button class="btn flat" data-act="rmbot" data-i="' + (i - 1 - H.guests.size) + '" style="min-height:30px;padding:2px 10px">Quitar</button>' : '<span class="tag">IA</span>';
+    else if (p.bot) tag = host ? '<button class="btn flat" data-act="rmbot" data-i="' + (i - 1 - H.guests.size - H.off.length) + '" style="min-height:30px;padding:2px 10px">Quitar</button>' : '<span class="tag">IA</span>';
+    else if (p.off) tag = '<span class="tag">Desconectado</span>' + (host ? '<button class="btn flat" data-act="rmoff" data-i="' + (i - 1 - H.guests.size) + '" style="min-height:30px;padding:2px 10px">Quitar</button>' : '');
     else if (p.wait) tag = '<span class="tag">Esperando…</span>';
     else if (p.me) tag = '<span class="tag">Tú</span>';
     h += '<li><b>' + esc(p.name) + (host && p.host ? ' (tú)' : '') + '</b>' + tag + '</li>';
   });
   h += '</ul></div>';
+  if (H.kind === 'claude' && Push.ok() && !Push.on() && Notification.permission !== 'denied')
+    h += '<div class="card"><p class="muted small" style="margin:0">Si bloqueas el móvil mientras esperas, la conexión se corta. Con los avisos te llegará una notificación cuando empiece la partida o te toque' + (host ? ', o cuando alguien quiera entrar' : '') + '.</p><button class="btn" data-act="pushon">Activar avisos</button></div>';
   if (host) {
     const full = pl.length >= g.max;
     if (rs) {
@@ -1350,7 +1437,7 @@ function renderRooms() {
   el.innerHTML = list.length
     ? '<p class="muted small" style="margin:0">Salas abiertas</p>' + list.map(p => {
       const c = String(p.presence.rk).toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-      return '<button class="room" data-act="joinroom" data-c="' + c + '"><b>Sala de ' + esc(cleanNick(p.presence.hn)) + '</b><span class="tag">' + (Number(p.presence.c) || 1) + '/' + H.game.max + ' · ' + c + '</span></button>';
+      return '<button class="room" data-act="joinroom" data-c="' + c + '"><b>Sala de ' + esc(cleanNick(p.presence.hn)) + '</b><span class="tag">' + (Number(p.presence.c) || 1) + '/' + H.game.max + ' · ' + c + (p.presence.off ? ' · ausente' : '') + '</span></button>';
     }).join('')
     : '<p class="muted small" style="margin:0">No hay salas abiertas ahora mismo.</p>';
 }
@@ -1421,7 +1508,7 @@ const H = {
   screen: 'home', game: null, role: 'none', kind: '',
   nick: cleanNick(store.get('hub.nick', store.get('rummi.nick', 'Jugador'))),
   opt: store.get('hub.opt', store.get('rummi.opt', { opp: 1, lvl: 1 })),
-  tr: null, code: '', guests: new Map(), bots: [], lobby: null,
+  tr: null, code: '', guests: new Map(), off: [], seatDev: [], bots: [], lobby: null,
   homeCat: '', resume: null, sid: '', eng: null, view: null, gid: '', seat: 0, seatPeer: [], matchPl: [], overKey: '', botT: 0, helloT: 0
 };
 function show(name) {
@@ -1570,7 +1657,7 @@ function startSolo() {
   beginMatch(pl);
 }
 function beginMatch(pl, sv) {
-  H.matchPl = pl.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+  H.matchPl = pl.map(p => (p.off || p.was ? { name: p.name, bot: !!p.bot, lv: p.lv, was: p.was || p.name } : { name: p.name, bot: !!p.bot, lv: p.lv }));
   H.eng = H.game.createEngine(pl.map(p => ({ name: p.name, bot: p.bot, lv: p.lv })), sv ? sv.eng : null, gOptGet(H.game));
   /* quién empieza: contra la IA se elige (al azar o yo); en salas siempre al azar */
   if (!sv && H.eng.setStart) { const s = H.role === 'solo' && H.opt.first === 1 ? 0 : Math.floor(Math.random() * pl.length); try { H.eng.setStart(s); } catch (e) { /* el juego decide */ } }
@@ -1582,7 +1669,25 @@ function beginMatch(pl, sv) {
   hideSheet();
   mountMatch();
   advertise({ st: 1 });
+  if (H.role === 'host') { H.seatDev = H.seatPeer.map((peer, i) => (peer && H.guests.get(peer) && H.guests.get(peer).d) || (H.seatDev && H.seatDev[i]) || ''); pushStart(); }
+  H.lastTurn = H.eng.turn;
+  paintReco();
   afterAct();
+}
+/* avisos push del anfitrión: a quien no está conectado o tiene la app en segundo plano ({t:'vis'}) */
+const seatAway = i => { const peer = H.seatPeer[i], g = peer && H.guests.get(peer); return !peer || !!(g && g.hid); };
+function pushStart() {
+  if (H.kind !== 'claude') return;
+  H.matchPl.forEach((p, i) => { if (i !== H.seat && !p.bot && seatAway(i)) Push.send(H.seatDev[i], 'start'); });
+}
+function pushTurn() {
+  const e = H.eng;
+  if (H.role !== 'host' || H.kind !== 'claude' || !e || e.over) return;
+  const t = e.turn;
+  if (t === H.lastTurn) return;
+  H.lastTurn = t;
+  if (!Number.isInteger(t) || t === H.seat || !H.matchPl[t] || H.matchPl[t].bot) return;
+  if (seatAway(t)) Push.send(H.seatDev[t], 'turn');
 }
 function mountMatch() {
   if (H.view) { try { H.view.destroy(); } catch (e) { /* vista ya cerrada */ } H.view = null; }
@@ -1603,7 +1708,7 @@ function sendAction(a) {
   if (!r.ok) { if (H.view && H.view.rejected) H.view.rejected(r.err); return; }
   afterAct();
 }
-function afterAct() { pushState(); scheduleBot(); scheduleTick(); saveGame(); }
+function afterAct() { pushState(); scheduleBot(); scheduleTick(); saveGame(); pushTurn(); }
 /* juegos con reloj propio (todos a la vez): el motor da nextTick() (marca de tiempo del próximo evento o 0) y tick(); el anfitrión lo ejecuta y reenvía el estado */
 function scheduleTick() {
   clearTimeout(H.tickT);
@@ -1751,7 +1856,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.13.1';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.15.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1804,6 +1909,9 @@ const ACTS = {
     onRosterChange();
   },
   rmbot(b) { H.bots.splice(+b.dataset.i, 1); onRosterChange(); },
+  rmoff(b) { H.off.splice(+b.dataset.i, 1); pruneOff(); onRosterChange(); },
+  async pushon() { if (await Push.enable() && H.screen === 'lobby') renderLobby(); },
+  async ppush(b) { if (+b.dataset.v === 0) await Push.enable(); else await Push.disable(); if (sheetOpen()) ACTS.prefs(); },
   start() { hostStart(); },
   leave() { leaveAll(); },
   recents() { showRecents(); },
@@ -1835,6 +1943,9 @@ const ACTS = {
       '<h3 class="gsec">Partidas</h3>' +
       '<div class="fld">Ayuda visual (marca lo que se puede jugar)' + sw('passist', assistOn()) + '</div>' +
       '<div class="fld">Reacciones al terminar en sala' + sw('preact', reactOn()) + '</div>' +
+      (Push.ok() ? '<div class="fld">Avisos de salas online (notificaciones)<div class="seg">' + segHTML(['Sí', 'No'], Push.on() ? 0 : 1, 'ppush') + '</div></div>' +
+        (Notification.permission === 'denied' ? '<p class="mnu-note">Las notificaciones están bloqueadas en este navegador: actívalas en sus ajustes.</p>' : '<p class="mnu-note">Te avisa si bloqueas el móvil en una sala: cuando empieza la partida, cuando te toca o cuando alguien quiere entrar.</p>')
+        : offlineOK() && isIOS() && !isStandalone() ? '<p class="mnu-note">En iPhone, instala la app para recibir avisos de las salas.</p>' : '') +
       '<div class="fld">Salas online nuevas<div class="seg">' + segHTML(['Públicas', 'Privadas'], store.get('hub.vis', 0) === 1 ? 1 : 0, 'pvis') + '</div></div>' +
       (app ? '<h3 class="gsec">Aplicación</h3>' + app : '') + '</div>');
   },
@@ -6190,8 +6301,8 @@ Mods.ok("backgammon");
 
 </script>
 <script type="text/plain" data-mod="flota" data-deps="">
-/* CTX flota: Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. */
-(function(){const s=document.createElement("style");s.textContent="/* Hundir la flota: tablero adaptable sin scroll; clases con prefijo fl- */\n.fl{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:520px;margin:0 auto;--bc:min(calc((100vw - 28px)/11),calc((100dvh - 350px)/11),34px)}\n.fl-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--bc)*11);min-height:28px}\n.fl-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.fl-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.fl-who b{max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.fl-cap{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}\n.fl-tabs{width:calc(var(--bc)*11)}\n.fl-tabs[hidden]{display:none}\n.fl-board{display:grid;grid-template-columns:repeat(11,var(--bc));grid-template-rows:repeat(11,var(--bc));border-radius:8px;overflow:hidden;border:2px solid var(--ink);background:color-mix(in srgb,var(--accent-soft) 70%,#fff);box-shadow:0 4px 14px rgba(20,34,63,.25)}\n:root[data-theme=\"dark\"] .fl-board{background:#16264a}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .fl-board{background:#16264a}}\n.fl-co{display:grid;place-items:center;font:600 calc(var(--bc)*.36)/1 var(--f-mono);font-style:normal;color:var(--muted)}\n.fl-c{position:relative;padding:0;border:0;border-radius:0;background:transparent;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--ink) 18%,transparent);color:inherit;display:grid;place-items:center}\n.fl-c u{display:block;text-decoration:none;width:34%;height:34%;border-radius:50%;background:transparent}\n.fl-c.can{cursor:pointer}\n.fl-c.can:active{background:color-mix(in srgb,var(--good) 35%,transparent)}\n.fl-c.miss u{background:color-mix(in srgb,var(--ink) 38%,transparent);width:24%;height:24%}\n.fl-c.hit u{width:62%;height:62%;background:radial-gradient(circle,#ffd45c 0 28%,#ff6a3d 30% 62%,#b01e1e 64%);box-shadow:0 0 6px rgba(255,90,40,.7)}\n.fl-c.sh{background:color-mix(in srgb,var(--ink) 62%,var(--accent-soft))}\n:root[data-theme=\"dark\"] .fl-c.sh{background:#9db4e8}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .fl-c.sh{background:#9db4e8}}\n.fl-c.sh.hz.s{border-radius:50% 0 0 50%}.fl-c.sh.hz.e{border-radius:0 50% 50% 0}.fl-c.sh.hz.s.e{border-radius:50%}\n.fl-c.sh.vt.s{border-radius:50% 50% 0 0}.fl-c.sh.vt.e{border-radius:0 0 50% 50%}\n.fl-c.sh.gh{opacity:.45}\n.fl-c.mine{outline:2px solid var(--good);outline-offset:-2px}\n.fl-c.new u{animation:flpop .55s ease-out}\n@keyframes flpop{0%{transform:scale(2.6);opacity:0}60%{transform:scale(.8);opacity:1}100%{transform:scale(1)}}\n@media (prefers-reduced-motion: reduce){.fl-c.new u{animation:none}}\n.fl-fleet{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 6px;width:calc(var(--bc)*11)}\n.fl-chip{display:flex;flex-direction:column;align-items:center;padding:2px 6px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:10.5px;line-height:1.15}\n.fl-chip i{font-style:normal;letter-spacing:-1px;color:var(--muted);font-size:9px}\n.fl-chip.cur{border-color:var(--good);box-shadow:0 0 0 1.5px var(--good)}\n.fl-chip.done{opacity:.45}\n.fl-chip.sunk{opacity:.5;text-decoration:line-through;border-color:#b01e1e}\n.fl-st{min-height:38px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.fl-st .muted{font-weight:500;font-size:12.5px}\n.fl-acts{display:flex;gap:6px;width:calc(var(--bc)*11)}\n.fl-acts .btn{flex:1;min-height:38px;padding-left:6px;padding-right:6px;font-size:13px}\n\n/* colocación por arrastre */\n.fl-c.fl-drag,.fl-dk{touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}\n.fl-c.lift{opacity:.25}\n.fl-c.tg.ok{background:color-mix(in srgb,var(--good) 45%,transparent)}\n.fl-c.tg.bad{background:rgba(220,60,60,.45)}\n.fl-dock{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;width:calc(var(--bc)*11);min-height:calc(var(--bc)*2.6)}\n.fl-dk{display:flex;flex-direction:column;align-items:center;gap:1px}\n.fl-dk .bar{display:flex;border-radius:calc(var(--bc)/2);overflow:hidden;background:color-mix(in srgb,var(--ink) 62%,var(--accent-soft));box-shadow:0 2px 0 rgba(0,0,0,.25)}\n:root[data-theme=\"dark\"] .fl-dk .bar{background:#9db4e8}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .fl-dk .bar{background:#9db4e8}}\n.fl-dk .bar u{display:block;width:var(--bc);height:var(--bc);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.25)}\n.fl-dk em{font-style:normal;font-size:10px;color:var(--muted)}\n.fl-ghost{position:fixed;z-index:60;pointer-events:none;border-radius:999px;background:color-mix(in srgb,var(--ink) 70%,var(--accent-soft));opacity:.85;box-shadow:0 6px 14px rgba(0,0,0,.35);transform:scale(1.04)}\n\n/* listas de barcos en una sola línea */\n.fl-fleet{flex-wrap:nowrap;gap:10px;justify-content:center;min-height:calc(var(--bc)*.7)}\n.fl-chip{flex-direction:row;padding:0;border:0;gap:0;border-radius:99px;overflow:hidden;box-shadow:0 1px 0 rgba(0,0,0,.25);background:color-mix(in srgb,var(--ink) 62%,var(--accent-soft))}\n:root[data-theme=\"dark\"] .fl-chip{background:#9db4e8}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .fl-chip{background:#9db4e8}}\n.fl-chip u{display:block;width:calc(var(--bc)*.5);height:calc(var(--bc)*.5);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.3)}\n.fl-chip.sunk{opacity:.55;background:#b01e1e;text-decoration:none}\n.fl-chip.sunk u{background:repeating-linear-gradient(45deg,transparent 0 3px,rgba(255,255,255,.35) 3px 5px)}\n";document.head.appendChild(s)})();
+/* CTX flota: Hundir la flota 2 jugadores: colocación por arrastre con giro por toque, recuerda la última disposición (fl.layout), opción «Si aciertas» (pasa/repite/salvas), sonidos de disparo. Barcos = siluetas SVG vistas desde arriba (FL_ART/flShipSVG, una por tipo; se superponen a la rejilla con .fl-sp y los verticales giran el dibujo; colores por variables --sp-*). */
+(function(){const s=document.createElement("style");s.textContent="/* Hundir la flota: tablero adaptable sin scroll; clases con prefijo fl- */\n.fl{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;max-width:520px;margin:0 auto;--bc:min(calc((100vw - 28px)/11),calc((100dvh - 350px)/11),34px)}\n.fl-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;width:calc(var(--bc)*11);min-height:28px}\n.fl-who{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:14px}\n.fl-who.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}\n.fl-who b{max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}\n.fl-cap{font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}\n.fl-tabs{width:calc(var(--bc)*11)}\n.fl-tabs[hidden]{display:none}\n.fl-board{display:grid;grid-template-columns:repeat(11,var(--bc));grid-template-rows:repeat(11,var(--bc));border-radius:8px;overflow:hidden;border:2px solid var(--ink);background:color-mix(in srgb,var(--accent-soft) 70%,#fff);box-shadow:0 4px 14px rgba(20,34,63,.25)}\n:root[data-theme=\"dark\"] .fl-board{background:#16264a}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .fl-board{background:#16264a}}\n.fl-co{display:grid;place-items:center;font:600 calc(var(--bc)*.36)/1 var(--f-mono);font-style:normal;color:var(--muted)}\n.fl-c{position:relative;padding:0;border:0;border-radius:0;background:transparent;box-shadow:inset 0 0 0 .5px color-mix(in srgb,var(--ink) 18%,transparent);color:inherit;display:grid;place-items:center}\n.fl-c u{display:block;text-decoration:none;width:34%;height:34%;border-radius:50%;background:transparent}\n.fl-c.can{cursor:pointer}\n.fl-c.can:active{background:color-mix(in srgb,var(--good) 35%,transparent)}\n.fl-c.miss u{background:color-mix(in srgb,var(--ink) 38%,transparent);width:24%;height:24%}\n.fl-c.hit u{width:62%;height:62%;background:radial-gradient(circle,#ffd45c 0 28%,#ff6a3d 30% 62%,#b01e1e 64%);box-shadow:0 0 6px rgba(255,90,40,.7)}\n/* siluetas de barco (SVG por barco sobre la rejilla) */\n.fl,.fl-ghost{--sp-hull:#7d8da6;--sp-line:#2f3b52;--sp-deck:#c9d3e1;--sp-ink:#3d4a63;--sp-mid:#5a6b86;--sp-sub:#3b4a63;--sp-subt:#566884;--sp-wave:#8fb4e3;--sp-run:#e0b43c}\n:root[data-theme=\"dark\"] .fl,:root[data-theme=\"dark\"] .fl-ghost{--sp-hull:#8ea4c9;--sp-line:#0b1226;--sp-deck:#d6e0f2;--sp-ink:#33415f;--sp-mid:#52658a;--sp-sub:#5a6f98;--sp-subt:#7d93bb;--sp-wave:#9db4e8;--sp-run:#f2c94c}\n@media (prefers-color-scheme: dark){:root:not([data-theme=\"light\"]) .fl,:root:not([data-theme=\"light\"]) .fl-ghost{--sp-hull:#8ea4c9;--sp-line:#0b1226;--sp-deck:#d6e0f2;--sp-ink:#33415f;--sp-mid:#52658a;--sp-sub:#5a6f98;--sp-subt:#7d93bb;--sp-wave:#9db4e8;--sp-run:#f2c94c}}\n.fl-board{position:relative}\n.fl-c.sh{box-shadow:none}\n.fl-sp{position:absolute;display:block;pointer-events:none}\n.fl-sp.gh{opacity:.45}\n.fl-sp.lift{opacity:.2}\n.fl-sp.mine{filter:drop-shadow(0 0 1.5px var(--good))}\n.fl-svg{display:block;width:100%;height:100%}\n.sp-h{fill:var(--sp-hull);stroke:var(--sp-line);stroke-width:.8}\n.sp-s{fill:var(--sp-sub);stroke:var(--sp-line);stroke-width:.8}\n.sp-d{fill:var(--sp-deck)}\n.sp-k{fill:var(--sp-ink)}\n.sp-m{fill:var(--sp-mid)}\n.sp-t{fill:var(--sp-subt)}\n.sp-l{fill:none;stroke:var(--sp-ink);stroke-width:1.4}\n.sp-g{fill:none;stroke:var(--sp-ink);stroke-width:2}\n.sp-y{fill:none;stroke:var(--sp-run);stroke-width:1.5;stroke-dasharray:7 5}\n.sp-w{fill:none;stroke:var(--sp-wave);stroke-width:1.4;opacity:.8}\n.sp-hl{fill:#fff;opacity:.2}\n.fl-c.new u{animation:flpop .55s ease-out}\n@keyframes flpop{0%{transform:scale(2.6);opacity:0}60%{transform:scale(.8);opacity:1}100%{transform:scale(1)}}\n@media (prefers-reduced-motion: reduce){.fl-c.new u{animation:none}}\n.fl-fleet{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 6px;width:calc(var(--bc)*11)}\n.fl-chip{display:flex;flex-direction:column;align-items:center;padding:2px 6px;border-radius:8px;background:var(--surface);border:1px solid var(--line);font-size:10.5px;line-height:1.15}\n.fl-chip i{font-style:normal;letter-spacing:-1px;color:var(--muted);font-size:9px}\n.fl-chip.cur{border-color:var(--good);box-shadow:0 0 0 1.5px var(--good)}\n.fl-chip.done{opacity:.45}\n.fl-chip.sunk{opacity:.5;text-decoration:line-through;border-color:#b01e1e}\n.fl-st{min-height:38px;text-align:center;font-weight:600;font-size:14px;line-height:1.3}\n.fl-st .muted{font-weight:500;font-size:12.5px}\n.fl-acts{display:flex;gap:6px;width:calc(var(--bc)*11)}\n.fl-acts .btn{flex:1;min-height:38px;padding-left:6px;padding-right:6px;font-size:13px}\n\n/* colocación por arrastre */\n.fl-c.fl-drag,.fl-dk{touch-action:none;cursor:grab;-webkit-user-select:none;user-select:none}\n.fl-c.lift{opacity:.25}\n.fl-c.tg.ok{background:color-mix(in srgb,var(--good) 45%,transparent)}\n.fl-c.tg.bad{background:rgba(220,60,60,.45)}\n.fl-dock{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;width:calc(var(--bc)*11);min-height:calc(var(--bc)*2.6)}\n.fl-dk{display:flex;flex-direction:column;align-items:center;gap:1px}\n.fl-dk .bar{display:block}\n.fl-dk em{font-style:normal;font-size:10px;color:var(--muted)}\n.fl-ghost{position:fixed;z-index:60;pointer-events:none;opacity:.92;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35));transform:scale(1.04)}\n\n/* listas de barcos en una sola línea */\n.fl-fleet{flex-wrap:nowrap;gap:10px;justify-content:center;min-height:calc(var(--bc)*.7)}\n.fl-chip{display:block;position:relative;flex:none;padding:0;border:0;border-radius:0;background:none}\n.fl-chip.sunk{opacity:.5;text-decoration:none}\n.fl-chip.sunk::after{content:\"\";position:absolute;left:-1px;right:-1px;top:50%;height:2px;background:#e24b4b;transform:rotate(-12deg)}\n";document.head.appendChild(s)})();
 (function(){
 /* ===== Hundir la flota · 2 jugadores (sala o contra la IA) =====
    Tablero 10×10 (casilla = fila*10 + columna). Cada jugador coloca 5 barcos en secreto y se turnan para disparar.
@@ -6199,6 +6310,25 @@ Mods.ok("backgammon");
 const FL_FLEET = [{ n: 'Portaaviones', l: 5 }, { n: 'Acorazado', l: 4 }, { n: 'Crucero', l: 3 }, { n: 'Submarino', l: 3 }, { n: 'Destructor', l: 2 }];
 const flName = c => 'ABCDEFGHIJ'[(c / 10) | 0] + (c % 10 + 1);
 function flCells(r, c, h, l) { const a = []; for (let k = 0; k < l; k++) a.push((h ? r : r + k) * 10 + (h ? c + k : c)); return a; }
+
+/* Siluetas de barco vistas desde arriba. Cada una se dibuja en horizontal (proa a la derecha) en una franja de 34 de alto y L = 34 × longitud de ancho;
+   los verticales giran el dibujo (flShipSVG con v=true). Colores por variables --sp-* (claro/oscuro) y clases sp-*. */
+const flHull = L => '<path class="sp-h" d="M4 5H' + (L - 13) + 'Q' + (L - 4) + ' 9 ' + (L - 1.5) + ' 17Q' + (L - 4) + ' 25 ' + (L - 13) + ' 29H4Q1.5 29 1.5 26.5V7.5Q1.5 5 4 5Z"/>';
+const flWave = L => '<path class="sp-w" d="M' + (L - 34) + ' 3.5Q' + (L - 12) + ' 3.5 ' + (L - 4) + ' 10M' + (L - 34) + ' 30.5Q' + (L - 12) + ' 30.5 ' + (L - 4) + ' 24"/>';
+const flGun = (x, y) => '<circle class="sp-k" cx="' + x + '" cy="' + y + '" r="4.5"/><path class="sp-g" d="M' + x + ' ' + y + 'H' + (x + 9) + '"/>';
+const flBig = (L, guns, bx, bw, fx) => flHull(L) + '<rect class="sp-d" x="6" y="8" width="' + (L - 24) + '" height="18" rx="2"/>' + guns.map(x => flGun(x, 17)).join('') +
+  '<rect class="sp-m" x="' + bx + '" y="12" width="' + bw + '" height="10" rx="2"/><circle class="sp-k" cx="' + fx + '" cy="17" r="3.5"/><circle class="sp-d" cx="' + fx + '" cy="17" r="1.5"/>' + flWave(L);
+const FL_ART = {
+  Portaaviones: L => flHull(L) + '<rect class="sp-d" x="7" y="8" width="' + (L - 24) + '" height="18" rx="2"/><path class="sp-y" d="M14 17H' + (L - 24) + '"/><rect class="sp-k" x="' + (L - 66) + '" y="23" width="26" height="6" rx="1.5"/><path class="sp-l" d="M36 10.5H44M40 8V13M62 22.5H70M66 20V25"/>' + flWave(L),
+  Acorazado: L => flBig(L, [22, L - 44, L - 28], 48, 22, 78),
+  Crucero: L => flBig(L, [18, L - 30], 34, 18, 60),
+  Submarino: L => '<path class="sp-s" d="M6 17Q6 9.5 18 9.5H' + (L - 22) + 'Q' + (L - 3) + ' 12 ' + (L - 3) + ' 17Q' + (L - 3) + ' 22 ' + (L - 22) + ' 24.5H18Q6 24.5 6 17Z"/><rect class="sp-hl" x="14" y="16.4" width="' + (L - 32) + '" height="1.2"/><rect class="sp-t" x="42" y="12" width="20" height="10" rx="5"/><circle class="sp-d" cx="56" cy="17" r="2"/><path class="sp-w" d="M' + (L - 30) + ' 6.5Q' + (L - 10) + ' 6.5 ' + (L - 3) + ' 11M' + (L - 30) + ' 27.5Q' + (L - 10) + ' 27.5 ' + (L - 3) + ' 23"/>',
+  Destructor: L => '<path class="sp-h" d="M4 7H' + (L - 15) + 'Q' + (L - 7) + ' 11 ' + (L - 1.5) + ' 17Q' + (L - 7) + ' 23 ' + (L - 15) + ' 27H4Q1.5 27 1.5 24.5V9.5Q1.5 7 4 7Z"/><rect class="sp-d" x="6" y="10" width="' + (L - 24) + '" height="14" rx="2"/><circle class="sp-k" cx="14" cy="17" r="4"/><circle class="sp-k" cx="' + (L - 26) + '" cy="17" r="4"/><path class="sp-g" d="M14 17H22M' + (L - 26) + ' 17H' + (L - 18) + '"/><rect class="sp-m" x="24" y="12.5" width="12" height="9" rx="2"/><path class="sp-w" d="M' + (L - 32) + ' 4Q' + (L - 14) + ' 4 ' + (L - 6) + ' 11M' + (L - 32) + ' 30Q' + (L - 14) + ' 30 ' + (L - 6) + ' 23"/>'
+};
+function flShipSVG(i, v) { /* i = índice en FL_FLEET; v = vertical */
+  const L = FL_FLEET[i].l * 34, art = FL_ART[FL_FLEET[i].n](L);
+  return '<svg class="fl-svg" viewBox="0 0 ' + (v ? '34 ' + L : L + ' 34') + '" preserveAspectRatio="none" aria-hidden="true" focusable="false">' + (v ? '<g transform="translate(34 0) rotate(90)">' + art + '</g>' : art) + '</svg>';
+}
 function flFleet(list) { /* list: [{r,c,h}] en el orden de FL_FLEET → barcos o null */
   if (!Array.isArray(list) || list.length !== FL_FLEET.length) return null;
   const used = new Set(), ships = [];
@@ -6382,6 +6512,20 @@ function flotaMount(el, ctx) {
     return V.draft.map((s, i) => s ? { n: FL_FLEET[i].n, l: FL_FLEET[i].l, h: s.h, cells: draftCells(i) } : null).filter(Boolean);
   }
   function cellClass(m, c) { if (!m.has(c)) return ''; const x = m.get(c); return ' sh ' + (x.h ? 'hz' : 'vt') + (x.k === 0 ? ' s' : '') + (x.k === x.n - 1 ? ' e' : ''); }
+  function shipsHTML(kind) { /* un dibujo por barco, encima de la rejilla y por debajo de los disparos */
+    const P = V.pub; let list;
+    if (kind === 'm') list = myShips();
+    else {
+      list = P.sunk[opp()].slice();
+      if (P.fleets) { const have = new Set(list.map(s => s.n)); P.fleets[opp()].forEach(s => { if (!have.has(s.n)) list.push(Object.assign({ gh: 1 }, s)); }); }
+    }
+    const mine = kind === 'm' && inPlace() && !placed();
+    return list.map(s => {
+      const i = FL_FLEET.findIndex(f => f.n === s.n); if (i < 0) return '';
+      const c0 = Math.min.apply(null, s.cells), r = (c0 / 10) | 0, c = c0 % 10, w = s.h ? s.l : 1, hh = s.h ? 1 : s.l;
+      return '<span class="fl-sp' + (s.gh ? ' gh' : '') + (mine ? ' mine' : '') + '" data-sp="' + i + '" style="left:calc(' + (c + 1) + '*var(--bc));top:calc(' + (r + 1) + '*var(--bc));width:calc(' + w + '*var(--bc));height:calc(' + hh + '*var(--bc))">' + flShipSVG(i, !s.h) + '</span>';
+    }).join('');
+  }
   function boardHTML(kind) {
     const P = V.pub, m = shipCellMap(kind === 'm' ? myShips() : []);
     let ghost = new Map();
@@ -6393,7 +6537,7 @@ function flotaMount(el, ctx) {
     const shots = kind === 'r' ? P.shots[me()] : P.shots[opp()];
     const lastHere = P.last && P.seq === V.fresh && ((kind === 'r' && P.last.by === me()) || (kind === 'm' && P.last.by === opp())) ? P.last.c : -1;
     const can = kind === 'r' && myTurn();
-    let h = '<i class="fl-co"></i>';
+    let h = shipsHTML(kind) + '<i class="fl-co"></i>';
     for (let c = 0; c < 10; c++) h += '<i class="fl-co">' + (c + 1) + '</i>';
     for (let r = 0; r < 10; r++) {
       h += '<i class="fl-co">' + 'ABCDEFGHIJ'[r] + '</i>';
@@ -6412,11 +6556,11 @@ function flotaMount(el, ctx) {
   function chips() {
     const P = V.pub;
     if (inPlace() && !placed()) {
-      return '<div class="fl-dock">' + FL_FLEET.map((f, i) => V.draft[i] ? '' : '<div class="fl-dk" data-dk="' + i + '"><span class="bar" title="' + f.n + '">' + '<u></u>'.repeat(f.l) + '</span><em>' + f.n + '</em></div>').join('') + '</div>';
+      return '<div class="fl-dock">' + FL_FLEET.map((f, i) => V.draft[i] ? '' : '<div class="fl-dk" data-dk="' + i + '"><span class="bar" title="' + f.n + '" style="width:calc(var(--bc)*' + f.l + ');height:var(--bc)">' + flShipSVG(i, false) + '</span><em>' + f.n + '</em></div>').join('') + '</div>';
     }
     const forOpp = V.tab === 'r', t = forOpp ? opp() : me();
     const sunk = new Set(P.sunk[t].map(s => s.n + s.l));
-    return FL_FLEET.map(f => '<span class="fl-chip' + (sunk.has(f.n + f.l) ? ' sunk' : '') + '" title="' + f.n + '">' + '<u></u>'.repeat(f.l) + '</span>').join('');
+    return FL_FLEET.map((f, i) => '<span class="fl-chip' + (sunk.has(f.n + f.l) ? ' sunk' : '') + '" title="' + f.n + '" style="width:calc(var(--bc)*' + f.l / 2 + ');height:calc(var(--bc)*.5)">' + flShipSVG(i, false) + '</span>').join('');
   }
   function render() {
     const P = V.pub; if (!P) return;
@@ -6493,9 +6637,9 @@ function flotaMount(el, ctx) {
     if (!D.moved) {
       D.moved = true;
       const g = geo(), sz = g ? g.s : 26, gh = document.createElement('div');
-      gh.className = 'fl-ghost'; gh.style.cssText = 'width:' + (D.h ? FL_FLEET[D.i].l * sz : sz) + 'px;height:' + (D.h ? sz : FL_FLEET[D.i].l * sz) + 'px';
+      gh.className = 'fl-ghost'; gh.innerHTML = flShipSVG(D.i, !D.h); gh.style.cssText = 'width:' + (D.h ? FL_FLEET[D.i].l * sz : sz) + 'px;height:' + (D.h ? sz : FL_FLEET[D.i].l * sz) + 'px';
       document.body.appendChild(gh); D.ghost = gh; D.sz = sz;
-      if (D.from) D.from.cells.forEach(cc => { const b = boardEl().querySelector('[data-c="' + cc + '"]'); if (b) b.classList.add('lift'); });
+      if (D.from) D.from.cells.forEach(cc => { const b = boardEl().querySelector('[data-c="' + cc + '"]'); if (b) b.classList.add('lift'); }); if (D.from) boardEl().querySelectorAll('.fl-sp[data-sp="' + D.i + '"]').forEach(b => b.classList.add('lift'));
     }
     D.ghost.style.left = (e.clientX - (D.h ? D.k * D.sz + D.sz / 2 : D.sz / 2)) + 'px';
     D.ghost.style.top = (e.clientY - (D.h ? D.sz / 2 : D.k * D.sz + D.sz / 2)) + 'px';
