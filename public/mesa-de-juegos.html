@@ -18,7 +18,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Fuentes: `src/games/<id>/<id>.js|css` (un juego por carpeta), `src/lazy/*.js` (compartidos y juegos antiguos: rummi, brisca, chinchon, solitario), `src/style.css`, `src/body.html`, `src/ctx.json` (comentarios de contexto por módulo, los inyecta el build), `tools/` (generador del diccionario: `node tools/mkdict.js` lee tools/dict-src/*.gz; con @gfx/zopfli instalado comprime ~4 % más).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo en caché con red primero, módulos cache-first, mensaje `all` = guardar todo) y `public/offline-<idioma>.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline-<idioma>.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.22.1.
+- PWA (servidor): manifest.webmanifest + iconos + sw.js (precarga de módulos y offline-<idioma>.html al activarse); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.23.1.
 - Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, sonido, tema e idioma como botones de icono (.pico: psndt/pthemet/plangt), ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
 - Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Cada uno elige sus reacciones en Preferencias → «Elegir reacciones» (ACTS.rxedit/rxadd/rxdel/rxreset; hub.rx = {w,l,t}, 1–6 de RX_POOL; el anfitrión acepta todo RX_POOL); RX_RUN (🦀) cruza corriendo de derecha a izquierda o en diagonal en vez de subir. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
 - Conexión con el móvil bloqueado: el navegador corta el WebSocket (no se puede evitar). Mitigaciones: el invitado espera al anfitrión hasta HOST_WAIT (10 min de tiempo a la vista, banner #netb con «Salir»); onLost reintenta hasta HOST_WAIT; en el lobby el invitado caído queda en H.off («Desconectado», Quitar = ACTS.rmoff) y al empezar ocupa su asiento como ausente (matchPl.was → seatBack). El Lobby del servidor mantiene listada 5 min la sala de un anfitrión caído (presence.off → «ausente»).
@@ -147,6 +147,7 @@ Para tocar un módulo, ve directo a él: en el HTML busca `data-mod="ID"` (perez
 | mahjong | juego puzzles «Mahjong» | games/mahjong/mahjong.js (+mahjong.css) | – | Mahjong solitario (Shanghái) de un jugador, 3 tableros (pirámide 40 / torre 72 / ciudadela 116). Fichas = glifos Unicode U+1F000+tipo (fallback a etiquetas 萬索筒 si el dispositivo no los tiene). Reparto generado al revés (mjDeal) → siempre con solución; pista, deshacer, barajar (conserva solución). Posiciones {x,y,z} en medias fichas. |
 | mastermind | juego puzzles «Código secreto» | (solo en el HTML) | – | Versión propia del Mastermind: un jugador (4 niveles MM_LV: huecos/colores/repetidos/intentos; guardado y récords mastermind-best) y sala 2–8 en carrera (MmGame: mismo código para todos, cada uno ve sus filas y el progreso ajeno sin colores; tiempo límite con nextTick/tick, opciones lv y tm; acciones {t:'g',g} y {t:'q'}; sin IA). mmScore = {b, w}. Prefijo mm-. |
 | loco | juego cartas «Loco» | (solo en el HTML) | – | Versión propia del ocho loco con cartas de acción (estilo Uno), 2–6 jugadores con IA (Fácil/Normal/Difícil) y salas. Baraja LO_DECK de 108 (v 0–9, 10 salta, 11 cambio, 12 +2, 13 comodín, 14 +4); motor LoGame con acciones {t:'p',c,col?}, {t:'d'}, {t:'n'}; opciones stk (acumular +2/+4) y dr (robar una / hasta poder jugar). Color que manda: anillo, etiqueta .lo-colb «Color: …» bajo la carta y el comodín de la mesa pintado del color elegido; aviso «X elige …». La IA difícil recuerda los colores que le faltan a cada rival (lack). Animaciones con Flip (flyIn/ghost): la carta echada vuela a la mesa desde la mano o el jugador; las robadas, del mazo a la mano o al jugador. Prefijo lo-. |
+| muros | juego tablero «Muros» | (solo en el HTML) | – | Versión propia del Quoridor, 2–4 jugadores con IA (Fácil/Normal/Difícil) y salas; opción size 7×7/9×9. Casillas r*N+c, muros k=r*(N-1)+c con o 0 horizontal/1 vertical; acciones {t:'m',s} y {t:'w',k,o}; qoMoves (saltos), qoFits/qoWallOk (sin solapes ni cerrar caminos), IA qoPick/qoSearch (minimax 3 capas con 2 jugadores). La vista gira el tablero para que tu ficha salga abajo; modos Mover/Muro. Prefijo qo-. |
 -->
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="light dark"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}[hidden]{display:none!important}</style></head><body>
 <title>Mesa de Juegos</title>
@@ -2175,7 +2176,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.22.1';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.23.1';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); renderHome(); }   /* repinta: la búsqueda (H.q) ya se limpió al abrir el juego */
@@ -2435,6 +2436,7 @@ Hub.catalog.push({ id: 'mastermind', cat: 'puzzles', name: 'Código secreto', bl
 Hub.catalog.push({ id: 'loco', cat: 'cartas', name: 'Loco', blurb: 'Cartas de colores · 2 a 6 jugadores', mod: 'loco' });
 Hub.catalog.push({ id: 'crucigrama', cat: 'palabras', name: 'Crucigrama', blurb: 'Coloca las palabras en el tablero · 4 niveles', mod: 'crucigrama' });
 Hub.catalog.push({ id: 'criptograma', cat: 'palabras', name: 'Criptograma', blurb: 'Descifra refranes y citas · 4 niveles', mod: 'criptograma' });
+Hub.catalog.push({ id: 'muros', cat: 'tablero', name: 'Muros', blurb: 'Cruza el tablero entre muros · 2 a 4 jugadores', mod: 'muros' });
 Hub.catalog.push({ id: 'nudos', cat: 'palabras', name: 'Nudos', blurb: 'Un jugador · crucigrama sin pistas · 5 niveles', mod: 'nudos' });
 bootHub();
 </script>
@@ -14108,7 +14110,7 @@ css.textContent = `
 .mm-fb i.n{background:var(--near);opacity:1;box-shadow:0 0 0 1.5px #6b7690}
 .mm-pal{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
 .mm-pal .mm-p{--pg:min(44px,calc((100vw - 60px)/8));cursor:pointer}
-.mm-pal .mm-p:disabled{opacity:.3}
+.mm-pal .mm-p:disabled,.mm-pal .mm-p.used{opacity:.3}
 .mm-act{display:flex;gap:8px;width:100%}
 .mm-act .btn{flex:1}
 .mm-msg{min-height:1.3em;font-size:14px;font-weight:600;text-align:center}
@@ -14218,7 +14220,7 @@ function mmBoard(el, o) {
     }
     bd.innerHTML = h;
     const cr = bd.querySelector('.mm-row.cur'); if (cr && cr.scrollIntoView) cr.scrollIntoView({ block: 'nearest' });
-    el.querySelectorAll('.mm-pal .mm-p').forEach(b => { b.disabled = fin || (!L.rep && cur.includes(+b.dataset.c)); });
+    el.querySelectorAll('.mm-pal .mm-p').forEach(b => { b.disabled = fin; b.classList.toggle('used', !L.rep && cur.includes(+b.dataset.c)); });   /* sin repetir: el usado sale sombreado pero se puede poner (se quita de donde estaba) */
     el.querySelector('[data-mm=send]').disabled = fin || cur.includes(-1);
     el.querySelector('[data-mm=del]').disabled = fin || cur.every(c => c < 0);
   }
@@ -14227,7 +14229,8 @@ function mmBoard(el, o) {
     if (fin) { if (b && b.dataset.mm === 'quit' && o.onQuit) o.onQuit(); return; }
     if (s) { const i = +s.dataset.s; if (sel === i && cur[i] >= 0) cur[i] = -1; sel = i; o.tone(520, .04); draw(); return; }
     if (p && !p.disabled) {
-      cur[sel] = +p.dataset.c; o.tone(440 + 40 * +p.dataset.c, .05);
+      const c = +p.dataset.c; if (!L.rep) { const j = cur.indexOf(c); if (j >= 0 && j !== sel) cur[j] = -1; }
+      cur[sel] = c; o.tone(440 + 40 * c, .05);
       const nx = cur.findIndex((c, i) => c < 0 && i > sel), any = cur.indexOf(-1);
       sel = nx >= 0 ? nx : any >= 0 ? any : sel; draw(); return;
     }
@@ -14699,6 +14702,378 @@ Hub.register({
 });
 })();
 Mods.ok("loco");
+</script>
+<script type="text/plain" data-mod="muros" data-deps="">
+/* CTX muros: «Muros» (versión propia del Quoridor), 2–4 jugadores con IA (Fácil/Normal/Difícil) y salas. Tablero N×N (opción size: 7×7 o 9×9), casillas r*N+c; huecos de muro en las (N-1)² intersecciones, k = r*(N-1)+c, o 0 horizontal / 1 vertical (cada muro cubre 2 casillas). Lados QO_SIDES (0 abajo→arriba, 1 izquierda→derecha, 2 arriba→abajo, 3 derecha→izquierda; turno en sentido horario); muros por jugador QO_WALLS. Acciones {t:'m',s} mover (salto recto sobre una ficha o en diagonal si detrás hay muro o ficha: qoMoves) y {t:'w',k,o} poner muro (sin solaparse ni cruzarse —qoFits— y sin cerrar el camino de nadie —qoWallOk—). Gana el primero que llega al lado opuesto; tablas a QO_PLY·n jugadas. IA (qoPick): Fácil = camino corto con despistes y algún muro; Normal = voraz (muro contra el rival que va primero si le cuesta ≥2 pasos más que a ella); Difícil = con 2 jugadores minimax 3 capas con poda (qoSearch: movimientos + muros en el camino más corto del rival, qoPathWalls), con 3–4 voraz fino. La vista gira el tablero (rotate del <g>) para que tu ficha salga abajo; modo Mover/Muro (en Muro se toca o arrastra entre casillas y se confirma con «Poner muro»). Ayuda visual: casillas del camino más corto en verde y efecto del muro en los caminos. Prefijo qo-. */
+(function(){const s=document.createElement("style");s.textContent=`/* Muros: clases con prefijo qo- */
+:root{--qo0:#2f6ad8;--qo1:#d6372d;--qo2:#2b9a4b;--qo3:#d99a0c;--qoc:color-mix(in srgb,var(--accent) 9%,var(--surface));--qob:color-mix(in srgb,var(--accent) 30%,var(--surface));--qow:#a8692a}
+:root[data-theme="dark"]{--qo0:#7db3ff;--qo1:#ff8a80;--qo2:#6ee08f;--qo3:#ffd24d;--qoc:color-mix(in srgb,var(--ink) 12%,var(--surface));--qob:color-mix(in srgb,var(--ink) 4%,var(--bg));--qow:#e3a65c}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--qo0:#7db3ff;--qo1:#ff8a80;--qo2:#6ee08f;--qo3:#ffd24d;--qoc:color-mix(in srgb,var(--ink) 12%,var(--surface));--qob:color-mix(in srgb,var(--ink) 4%,var(--bg));--qow:#e3a65c}}
+.qo{display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:520px;margin:0 auto;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.qo-bar{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
+.qo-who{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:2px solid var(--line);background:var(--surface);font-size:.82rem;max-width:48%}
+.qo-who.on{border-color:var(--c);box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 35%,transparent)}
+.qo-who i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.qo-who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qo-who em{display:flex;align-items:center;gap:3px;font:700 .95rem var(--f-mono);font-style:normal;color:var(--muted)}
+.qo-who em::before{content:"";width:4px;height:13px;border-radius:2px;background:var(--qow)}
+.qo-svg{width:100%;height:auto;max-height:calc(100dvh - 270px);touch-action:manipulation}
+.qo.wm .qo-svg{touch-action:none;cursor:crosshair}
+.qo-bg{fill:var(--qob)}
+.qo-c{fill:var(--qoc)}
+.qo-c.mv{cursor:pointer}
+.qo-goal{fill:var(--c)}
+.qo-mv{fill:var(--accent);fill-opacity:.4;pointer-events:none}
+body[data-assist] .qo-mv.best{fill:#2e9a52;fill-opacity:.85}
+.qo-w{fill:var(--qow);pointer-events:none}
+.qo-w.nw{animation:qon .4s ease-out;transform-box:fill-box;transform-origin:center}
+@keyframes qon{from{transform:scale(1.35);opacity:.3}to{transform:scale(1);opacity:1}}
+.qo-pv{fill:var(--accent);fill-opacity:.6;pointer-events:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4}
+.qo-pv.bad{fill:#e8504b;stroke:#e8504b;fill-opacity:.45}
+.qo-p{fill:var(--c);stroke:color-mix(in srgb,var(--c) 55%,#000);stroke-width:3;pointer-events:none}
+.qo-p.on{filter:drop-shadow(0 0 5px var(--c))}
+.qo-pm{fill:#fff;fill-opacity:.85;pointer-events:none}
+.qo-st{min-height:22px;text-align:center;font-weight:600;font-size:.9rem}
+.qo-ctl{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:44px}
+.qo-ctl .btn{min-width:96px}
+.qo-ctl .btn[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+@media (prefers-reduced-motion: reduce){.qo-w.nw{animation:none}}
+`;document.head.appendChild(s)})();
+(function(){
+/* ===== Muros · 2-4 jugadores (sala o contra la IA) =====
+   Tablero N×N; cada jugador sale del centro de su lado y debe llegar al lado opuesto. En su turno mueve su ficha
+   una casilla (arriba/abajo/izquierda/derecha) o pone uno de sus muros. Los muros van en las ranuras, cubren 2 casillas
+   y no pueden solaparse, cruzarse ni dejar a nadie sin camino. Bloqueos por casilla en blk: bit d = 1<<d (QO_D). */
+const QO_COL = ['var(--qo0)', 'var(--qo1)', 'var(--qo2)', 'var(--qo3)'];
+const QO_SIDES = { 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] };          /* lado de salida por asiento (0 abajo, 1 izq., 2 arriba, 3 der.) */
+const QO_WALLS = { 7: { 2: 7, 3: 5, 4: 4 }, 9: { 2: 10, 3: 7, 4: 5 } };  /* muros por jugador según tamaño y nº de jugadores */
+const QO_PLY = 100;                                                      /* tablas tras QO_PLY·n jugadas */
+const qoStep = (N, x, d) => x + (d === 0 ? -N : d === 1 ? 1 : d === 2 ? N : -1);   /* d: 0 arriba, 1 derecha, 2 abajo, 3 izquierda */
+function qoStart(N, s) { const m = N >> 1; return s === 0 ? (N - 1) * N + m : s === 1 ? m * N : s === 2 ? m : m * N + N - 1; }
+function qoGoal(N, s, x) { const r = x / N | 0, c = x % N; return s === 0 ? r === 0 : s === 1 ? c === N - 1 : s === 2 ? r === N - 1 : c === 0; }
+/* tablero ligero: blk (bloqueos por casilla, con los bordes) y ws (0 libre, 1 muro horizontal, 2 vertical por hueco) */
+function qoBoard(N, walls) {
+  const blk = new Uint8Array(N * N), ws = new Uint8Array((N - 1) * (N - 1));
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) blk[r * N + c] = (r === 0 ? 1 : 0) | (c === N - 1 ? 2 : 0) | (r === N - 1 ? 4 : 0) | (c === 0 ? 8 : 0);
+  const L = { N, blk, ws }; (walls || []).forEach(w => qoPut(L, w[0], w[1], true)); return L;
+}
+/* pone (on) o quita un muro; dos muros nunca bloquean el mismo paso, así que quitar es seguro */
+function qoPut(L, k, o, on) {
+  const { N, blk, ws } = L, M = N - 1, a = (k / M | 0) * N + k % M;
+  const cs = o ? [[a, 2], [a + N, 2], [a + 1, 8], [a + N + 1, 8]] : [[a, 4], [a + 1, 4], [a + N, 1], [a + N + 1, 1]];
+  for (const [x, b] of cs) blk[x] = on ? blk[x] | b : blk[x] & ~b;
+  ws[k] = on ? o + 1 : 0;
+}
+/* ¿cabe el muro? (hueco libre, sin solaparse con uno paralelo contiguo ni cruzarse con otro en el mismo hueco) */
+function qoFits(L, k, o) {
+  const M = L.N - 1, ws = L.ws, r = k / M | 0, c = k % M;
+  if (!Number.isInteger(k) || k < 0 || k >= M * M || (o !== 0 && o !== 1) || ws[k]) return false;
+  if (o === 0) return !(c > 0 && ws[k - 1] === 1) && !(c < M - 1 && ws[k + 1] === 1);
+  return !(r > 0 && ws[k - M] === 2) && !(r < M - 1 && ws[k + M] === 2);
+}
+/* distancia de cada casilla a la meta del lado s (las fichas no cuentan); -1 = sin camino */
+function qoDist(L, s) {
+  const { N, blk } = L, d = new Int16Array(N * N).fill(-1), q = new Int16Array(N * N); let h = 0, t = 0;
+  for (let x = 0; x < N * N; x++) if (qoGoal(N, s, x)) { d[x] = 0; q[t++] = x; }
+  while (h < t) {
+    const x = q[h++], b = blk[x];
+    for (let i = 0; i < 4; i++) if (!(b & (1 << i))) { const y = qoStep(N, x, i); if (d[y] < 0) { d[y] = d[x] + 1; q[t++] = y; } }
+  }
+  return d;
+}
+function qoReach(L, s, from) {
+  const { N, blk } = L, seen = new Uint8Array(N * N), q = new Int16Array(N * N); let h = 0, t = 0; q[t++] = from; seen[from] = 1;
+  while (h < t) {
+    const x = q[h++]; if (qoGoal(N, s, x)) return true; const b = blk[x];
+    for (let i = 0; i < 4; i++) if (!(b & (1 << i))) { const y = qoStep(N, x, i); if (!seen[y]) { seen[y] = 1; q[t++] = y; } }
+  }
+  return false;
+}
+/* 0 = no cabe, 1 = vale, 2 = dejaría a alguien sin camino */
+function qoWallOk(L, k, o, pos, sd) {
+  if (!qoFits(L, k, o)) return 0;
+  qoPut(L, k, o, true); const ok = pos.every((p, i) => qoReach(L, sd[i], p)); qoPut(L, k, o, false);
+  return ok ? 1 : 2;
+}
+/* casillas a las que puede ir la ficha i: paso simple, salto recto sobre una ficha o, si detrás hay muro/borde/ficha, en diagonal */
+function qoMoves(L, pos, i) {
+  const { N, blk } = L, p = pos[i], occ = x => pos.indexOf(x) >= 0, out = [];
+  for (let d = 0; d < 4; d++) {
+    if (blk[p] & (1 << d)) continue; const q = qoStep(N, p, d);
+    if (!occ(q)) { out.push(q); continue; }
+    if (!(blk[q] & (1 << d)) && !occ(qoStep(N, q, d))) { out.push(qoStep(N, q, d)); continue; }
+    for (const e of [(d + 1) & 3, (d + 3) & 3]) if (!(blk[q] & (1 << e))) { const z = qoStep(N, q, e); if (!occ(z) && out.indexOf(z) < 0) out.push(z); }
+  }
+  return out;
+}
+/* muros (k*2+o) que cortan algún paso de un camino más corto desde from (dist = qoDist de su lado) */
+function qoPathWalls(L, dist, from, set) {
+  const { N, blk } = L, M = N - 1; let x = from;
+  while (dist[x] > 0) {
+    let nx = -1, dd = -1;
+    for (let i = 0; i < 4 && nx < 0; i++) if (!(blk[x] & (1 << i))) { const y = qoStep(N, x, i); if (dist[y] === dist[x] - 1) { nx = y; dd = i; } }
+    if (nx < 0) break;
+    const a = Math.min(x, nx), r = a / N | 0, c = a % N;
+    if (dd === 0 || dd === 2) { if (c > 0) set.add((r * M + c - 1) * 2); if (c < M) set.add((r * M + c) * 2); }
+    else { if (r > 0) set.add(((r - 1) * M + c) * 2 + 1); if (r < M) set.add((r * M + c) * 2 + 1); }
+    x = nx;
+  }
+}
+/* mejor muro de i contra j: el que más alarga a j respecto a lo que alarga a i ({t:'w',k,o,g}); rand = uno útil al azar */
+function qoBestWall(L, pos, sd, i, j, rnd, rand) {
+  const set = new Set(); qoPathWalls(L, qoDist(L, sd[j]), pos[j], set);
+  const di = qoDist(L, sd[i])[pos[i]], dj = qoDist(L, sd[j])[pos[j]], ok = [];
+  let best = null;
+  for (const w of set) {
+    const k = w >> 1, o = w & 1; if (qoWallOk(L, k, o, pos, sd) !== 1) continue;
+    qoPut(L, k, o, true); const g = (qoDist(L, sd[j])[pos[j]] - dj) - (qoDist(L, sd[i])[pos[i]] - di); qoPut(L, k, o, false);
+    if (g > 0) ok.push({ t: 'w', k, o, g });
+    if (!best || g > best.g || (g === best.g && rnd() < .5)) best = { t: 'w', k, o, g };
+  }
+  return rand ? (ok.length ? ok[Math.floor(rnd() * ok.length)] : null) : best;
+}
+/* Difícil con 2 jugadores: minimax de 3 capas con poda alfa-beta; valor = pasos del rival − los míos ± turno + muros guardados */
+function qoSearch(L, pos, sd, wl, me, rnd) {
+  const N = L.N, op = 1 - me; pos = pos.slice(); wl = wl.slice();
+  const ev = (p, depth) => {
+    if (qoGoal(N, sd[me], pos[me])) return 1000 + depth; if (qoGoal(N, sd[op], pos[op])) return -1000 - depth;
+    const dm = qoDist(L, sd[me])[pos[me]], d0 = qoDist(L, sd[op])[pos[op]];
+    return d0 - dm + (p === me ? .5 : -.5) + .45 * (wl[me] - wl[op]);
+  };
+  const gen = p => {
+    const dp = qoDist(L, sd[p]), out = qoMoves(L, pos, p).sort((a, b) => dp[a] - dp[b]).map(s => [0, s]);
+    if (wl[p] > 0) { const set = new Set(); qoPathWalls(L, qoDist(L, sd[1 - p]), pos[1 - p], set); for (const w of set) out.push([1, w]); }
+    return out;
+  };
+  const apply = (p, ty, v) => {
+    if (!ty) { const f = pos[p]; pos[p] = v; return () => { pos[p] = f; }; }
+    const k = v >> 1, o = v & 1; if (qoWallOk(L, k, o, pos, sd) !== 1) return null;
+    qoPut(L, k, o, true); wl[p]--; return () => { qoPut(L, k, o, false); wl[p]++; };
+  };
+  const go = (depth, p, a, b) => {
+    if (!depth || qoGoal(N, sd[me], pos[me]) || qoGoal(N, sd[op], pos[op])) return ev(p, depth);
+    let best = p === me ? -1e9 : 1e9;
+    for (const [ty, v] of gen(p)) {
+      const undo = apply(p, ty, v); if (!undo) continue;
+      const s = go(depth - 1, 1 - p, a, b); undo();
+      if (p === me) { if (s > best) best = s; if (best > a) a = best; } else { if (s < best) best = s; if (best < b) b = best; }
+      if (a >= b) break;
+    }
+    return best;
+  };
+  let bv = -1e9, bs = [];
+  for (const [ty, v] of gen(me)) {
+    const undo = apply(me, ty, v); if (!undo) continue;
+    const s = go(2, op, bv - .01, 1e9); undo();
+    if (s > bv + .01) { bv = s; bs = [[ty, v]]; } else if (s > bv - .01) bs.push([ty, v]);
+  }
+  if (!bs.length) return null;
+  const moves = bs.filter(x => !x[0]), [ty, v] = (moves.length ? moves : bs)[Math.floor(rnd() * (moves.length || bs.length))];   /* a igualdad, guardar los muros */
+  return ty ? { t: 'w', k: v >> 1, o: v & 1 } : { t: 'm', s: v };
+}
+function qoPick(N, walls, pos, sd, wl, i, lv, rnd) {
+  const L = qoBoard(N, walls), n = pos.length, pickR = a => a[Math.floor(rnd() * a.length)];
+  const dists = sd.map(s => qoDist(L, s)), dm = dists[i][pos[i]], mv = qoMoves(L, pos, i);
+  if (!mv.length) return null;
+  const md = mv.map(x => dists[i][x]), bd = Math.min(...md.filter(x => x >= 0)), step = { t: 'm', s: pickR(mv.filter((x, j) => md[j] === bd)) };
+  if (bd === 0) return step;
+  if (lv >= 2 && n === 2) { const r = qoSearch(L, pos, sd, wl, i, rnd); if (r) return r; }
+  let ld = -1, lb = 1e9;                       /* rival que va primero (a igualdad, el que mueve antes) */
+  for (let k = 1; k < n; k++) { const j = (i + k) % n, d = dists[j][pos[j]]; if (d < lb) { lb = d; ld = j; } }
+  if (lv <= 0) {
+    if (wl[i] > 0 && lb < dm && rnd() < .3) { const w = qoBestWall(L, pos, sd, i, ld, rnd, true); if (w) return w; }
+    return rnd() < .2 ? { t: 'm', s: pickR(mv) } : step;
+  }
+  if (wl[i] > 0 && (lb < dm || lb <= 2) && (lv >= 2 || rnd() < .85)) {
+    const w = qoBestWall(L, pos, sd, i, ld, rnd, false);
+    if (w && w.g >= (lv >= 2 || lb <= 2 ? 1 : 2)) return w;
+  }
+  return step;
+}
+
+class QoGame {
+  constructor(players, saved, opts) {
+    this.players = players.map(p => ({ name: p.name, bot: !!p.bot, lv: p.lv }));
+    const n = players.length;
+    this.N = opts && +opts.size === 0 ? 7 : 9; this.sd = QO_SIDES[n] || QO_SIDES[2];
+    this.pos = this.sd.map(s => qoStart(this.N, s)); this.wl = this.sd.map(() => QO_WALLS[this.N][n] || 10);
+    this.walls = []; this.t = 0; this.ply = 0; this.win = -1; this.over = false; this.last = null; this.seq = 1;
+    if (saved) Object.assign(this, JSON.parse(JSON.stringify(saved)));
+  }
+  get turn() { return this.t; }
+  setStart(s) { this.t = s; }
+  save() { return JSON.parse(JSON.stringify({ players: this.players, N: this.N, sd: this.sd, pos: this.pos, wl: this.wl, walls: this.walls, t: this.t, ply: this.ply, win: this.win, over: this.over, last: this.last, seq: this.seq })); }
+  act(i, a) {
+    if (this.over) return { ok: false, err: 'La partida ha terminado' };
+    if (i !== this.t) return { ok: false, err: 'No es tu turno' };
+    const L = qoBoard(this.N, this.walls);
+    if (a && a.t === 'm') {
+      if (!qoMoves(L, this.pos, i).includes(a.s)) return { ok: false, err: 'No puedes mover ahí' };
+      this.last = { t: 'm', p: i, f: this.pos[i], s: a.s }; this.pos[i] = a.s;
+      if (qoGoal(this.N, this.sd[i], a.s)) { this.win = i; this.over = true; }
+    } else if (a && a.t === 'w') {
+      if (this.wl[i] <= 0) return { ok: false, err: 'No te quedan muros' };
+      const r = qoWallOk(L, a.k, a.o, this.pos, this.sd);
+      if (r !== 1) return { ok: false, err: r ? 'Ese muro dejaría a alguien sin camino' : 'Ese muro no cabe ahí' };
+      this.walls.push([a.k, a.o, i]); this.wl[i]--; this.last = { t: 'w', p: i, k: a.k, o: a.o };
+    } else return { ok: false, err: 'Jugada no válida' };
+    this.ply++; this.seq++;
+    if (!this.over && this.ply >= QO_PLY * this.players.length) this.over = true;
+    if (!this.over) this.t = (this.t + 1) % this.players.length;
+    return { ok: true };
+  }
+  view() { return { pub: { N: this.N, sd: this.sd, pos: this.pos, wl: this.wl, walls: this.walls, t: this.t, n: this.players.map(p => p.name), last: this.last, over: this.over, win: this.win, seq: this.seq }, priv: {} }; }
+  botSeat() { return (!this.over && this.players[this.t].bot) ? this.t : -1; }
+  bot(i) {
+    if (this.over || this.t !== i) return;
+    let a = null; try { a = qoPick(this.N, this.walls, this.pos, this.sd, this.wl, i, this.players[i].lv == null ? 1 : this.players[i].lv, Math.random); } catch (x) { a = null; }
+    if (a && this.act(i, a).ok) return;
+    const L = qoBoard(this.N, this.walls), d = qoDist(L, this.sd[i]), mv = qoMoves(L, this.pos, i).sort((x, y) => d[x] - d[y]);
+    if (mv.length) this.act(i, { t: 'm', s: mv[0] });
+  }
+  toHuman(i, name) { const p = this.players[i]; p.bot = false; p.lv = undefined; p.name = name; }
+  toBot(i, lv) { const p = this.players[i]; p.bot = true; p.lv = lv; if (!/\(IA\)$/.test(p.name)) p.name = p.name.slice(0, 9) + ' (IA)'; }
+  result() {
+    const tie = this.win < 0, L = qoBoard(this.N, this.walls);
+    return {
+      win: tie ? 0 : this.win, winners: tie ? [] : [this.win], tie,
+      rows: this.players.map((p, i) => {
+        const d = qoDist(L, this.sd[i])[this.pos[i]];
+        return { name: p.name, note: i === this.win ? 'llega a la meta' : 'a ' + d + (d === 1 ? ' casilla' : ' casillas'), pts: i === this.win ? 1 : 0, txt: tie ? '½' : i === this.win ? '1' : '0' };
+      })
+    };
+  }
+}
+
+/* ----- Pantalla ----- */
+function murosMount(el, ctx) {
+  const V = { pub: null, pending: false, mode: 'm', pv: null, drag: false };
+  el.innerHTML = '<div class="qo"><div class="qo-bar"></div><svg class="qo-svg"></svg><div class="qo-st"></div><div class="qo-ctl"></div></div>';
+  const q = s => el.querySelector(s), root = q('.qo'), svg = q('.qo-svg'), bar = q('.qo-bar'), st = q('.qo-st'), ctl = q('.qo-ctl');
+  const snd = k => {
+    const T = ctx.tone;
+    if (k === 'mv') T(520, .06, 'triangle', 0, .07);
+    else if (k === 'wall') { T(170, .09, 'square', 0, .05); T(110, .14, 'sine', .03, .08); }
+    else if (k === 'win') { T(660, .1, 'sine', 0, .08); T(880, .14, 'sine', .09, .08); }
+    else if (k === 'bad') T(150, .2, 'sawtooth', 0, .05);
+  };
+  const C = 40, G = 10, S = C + G, MG = 12, col = i => QO_COL[i % 4];
+  const seat = () => V.pub && Number.isInteger(ctx.me) && ctx.me >= 0 && ctx.me < V.pub.pos.length ? ctx.me : -1;
+  const myTurn = () => !!V.pub && !V.pub.over && V.pub.t === ctx.me && !V.pending;
+  const cxy = x => [MG + (x % V.pub.N) * S + C / 2, MG + (x / V.pub.N | 0) * S + C / 2];
+  const wallR = (k, o) => { const M = V.pub.N - 1, x = MG + (k % M) * S, y = MG + (k / M | 0) * S; return o ? [x + C, y, G, 2 * C + G] : [x, y + C, 2 * C + G, G]; };
+  const rect = (cls, [x, y, w, h], ex) => '<rect class="' + cls + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="3"' + (ex || '') + '/>';
+  const assist = () => document.body.hasAttribute('data-assist');
+  function render(anim) {
+    const P = V.pub; if (!P) return;
+    const N = P.N, L = qoBoard(N, P.walls), me = seat(), my = myTurn(), W = 2 * MG + N * C + (N - 1) * G;
+    if (P.over || P.t !== ctx.me) { V.mode = 'm'; V.pv = null; }
+    root.classList.toggle('wm', my && V.mode === 'w');
+    const rot = me >= 0 ? [0, -90, 180, 90][P.sd[me]] : 0;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + W);
+    let h = '<g class="qo-g" transform="rotate(' + rot + ' ' + W / 2 + ' ' + W / 2 + ')"><rect class="qo-bg" x="0" y="0" width="' + W + '" height="' + W + '" rx="10"/>';
+    /* bandas de meta: cada jugador ve de su color el lado al que debe llegar */
+    P.sd.forEach((s, j) => {
+      const g = (s + 2) & 3, B = 5, Lg = W - 2 * MG;   /* lado de meta (mismo código que QO_SIDES: 0 abajo, 1 izq., 2 arriba, 3 der.) */
+      const r = g === 2 ? [MG, (MG - B) / 2, Lg, B] : g === 3 ? [W - (MG + B) / 2, MG, B, Lg] : g === 0 ? [MG, W - (MG + B) / 2, Lg, B] : [(MG - B) / 2, MG, B, Lg];
+      h += '<g style="--c:' + col(j) + '">' + rect('qo-goal', r) + '</g>';
+    });
+    const mv = my && V.mode === 'm' && me >= 0 ? qoMoves(L, P.pos, me) : [];
+    let best = new Set();
+    if (mv.length) { const d = qoDist(L, P.sd[me]), bd = Math.min(...mv.map(x => d[x]).filter(x => x >= 0)); mv.forEach(x => { if (d[x] === bd) best.add(x); }); }
+    for (let x = 0; x < N * N; x++) { const [a, b] = cxy(x); h += rect('qo-c' + (mv.includes(x) ? ' mv' : ''), [a - C / 2, b - C / 2, C, C], ' data-s="' + x + '"'); }
+    mv.forEach(x => { const [a, b] = cxy(x); h += '<circle class="qo-mv' + (best.has(x) ? ' best' : '') + '" cx="' + a + '" cy="' + b + '" r="8"/>'; });
+    P.walls.forEach(w => { h += rect('qo-w' + (anim && P.last && P.last.t === 'w' && P.last.k === w[0] && P.last.o === w[1] ? ' nw' : ''), wallR(w[0], w[1])); });
+    let pvOk = 0;
+    if (V.pv && my && V.mode === 'w') { pvOk = qoWallOk(L, V.pv.k, V.pv.o, P.pos, P.sd); h += rect('qo-pv' + (pvOk === 1 ? '' : ' bad'), wallR(V.pv.k, V.pv.o)); }
+    P.pos.forEach((x, j) => {
+      const [a, b] = cxy(x);
+      h += '<g class="qo-pg" data-p="' + j + '" style="--c:' + col(j) + '"><circle class="qo-p' + (!P.over && P.t === j ? ' on' : '') + '" cx="' + a + '" cy="' + b + '" r="14"/>' + (j === me ? '<circle class="qo-pm" cx="' + a + '" cy="' + b + '" r="4.5"/>' : '') + '</g>';
+    });
+    svg.innerHTML = h + '</g>';
+    if (anim && P.last && P.last.t === 'm') {
+      const g = svg.querySelector('.qo-pg[data-p="' + P.last.p + '"]'), [a0, b0] = cxy(P.last.f), [a1, b1] = cxy(P.last.s);
+      if (g && g.animate) try { g.animate([{ transform: 'translate(' + (a0 - a1) + 'px,' + (b0 - b1) + 'px)' }, { transform: 'none' }], { duration: 220, easing: 'ease-out' }); } catch (e) { /* sin animación */ }
+    }
+    /* jugadores: color, nombre y muros que le quedan */
+    bar.innerHTML = P.n.map((nm, i) => '<div class="qo-who' + (!P.over && P.t === i ? ' on' : '') + '" style="--c:' + col(i) + '"><i></i><b>' + (i === me ? 'Tú' : esc(nm)) + '</b><em>' + P.wl[i] + '</em></div>').join('');
+    let msg;
+    if (P.over) msg = P.win < 0 ? 'Tablas: demasiadas jugadas' : P.win === me ? '¡Llegas a la meta! Ganas' : 'Gana ' + esc(P.n[P.win]);
+    else if (!my) msg = P.t === ctx.me ? 'Tu turno…' : 'Juega ' + esc(P.n[P.t]) + '…';
+    else if (V.mode === 'm') msg = 'Tu turno: mueve tu ficha o pon un muro';
+    else if (!V.pv) msg = 'Toca o arrastra entre las casillas para colocar el muro';
+    else if (pvOk === 0) msg = 'Ese muro no cabe ahí';
+    else if (pvOk === 2) msg = 'Ese muro dejaría a alguien sin camino';
+    else {
+      msg = 'Pulsa «Poner muro» para colocarlo';
+      if (assist()) {   /* efecto en los caminos: el tuyo y el del rival más adelantado */
+        const d0 = P.sd.map((s, j) => qoDist(L, s)[P.pos[j]]); qoPut(L, V.pv.k, V.pv.o, true); const d1 = P.sd.map((s, j) => qoDist(L, s)[P.pos[j]]); qoPut(L, V.pv.k, V.pv.o, false);
+        let j = -1; P.pos.forEach((x, k) => { if (k !== me && (j < 0 || d1[k] - d0[k] > d1[j] - d0[j])) j = k; });
+        msg = 'Tu camino ' + d0[me] + ' → ' + d1[me] + ' · ' + esc(P.n[j]) + ' ' + d0[j] + ' → ' + d1[j];
+      }
+    }
+    st.innerHTML = msg;
+    ctl.innerHTML = my && me >= 0 ? '<button class="btn" data-q="m" aria-pressed="' + (V.mode === 'm') + '">Mover</button><button class="btn" data-q="w" aria-pressed="' + (V.mode === 'w') + '"' + (P.wl[me] > 0 ? '' : ' disabled') + '>Muro · ' + P.wl[me] + '</button>' +
+      (V.mode === 'w' ? '<button class="btn primary" data-q="ok"' + (pvOk === 1 ? '' : ' disabled') + '>Poner muro</button>' : '') : '';
+  }
+  /* punto de la pantalla → coordenadas del tablero sin girar → hueco más cercano y orientación según el sentido de la ranura */
+  function slotAt(e) {
+    const g = svg.querySelector('.qo-g'); if (!g || !g.getScreenCTM()) return null;
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const p = pt.matrixTransform(g.getScreenCTM().inverse());
+    const M = V.pub.N - 1, cl = v => Math.max(0, Math.min(M - 1, Math.round(v))), c = cl((p.x - MG - C - G / 2) / S), r = cl((p.y - MG - C - G / 2) / S);
+    const dx = p.x - (MG + c * S + C + G / 2), dy = p.y - (MG + r * S + C + G / 2);
+    return { k: r * M + c, o: Math.abs(dx) >= Math.abs(dy) ? 0 : 1 };
+  }
+  function setPv(e) { const s = slotAt(e); if (s && (!V.pv || V.pv.k !== s.k || V.pv.o !== s.o)) { V.pv = s; render(); } }
+  function onDown(e) { if (V.mode !== 'w' || !myTurn()) return; V.drag = true; try { svg.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ } setPv(e); e.preventDefault(); }
+  function onMove(e) { if (V.drag) setPv(e); }
+  function onUp() { V.drag = false; }
+  function onClick(e) {
+    if (V.mode !== 'm' || !myTurn()) return;
+    const c = e.target.closest('.qo-c.mv'); if (!c) return;
+    V.pending = true; ctx.send({ t: 'm', s: +c.dataset.s }); if (V.pending) render();
+  }
+  function onCtl(e) {
+    const b = e.target.closest('[data-q]'); if (!b || !myTurn()) return; const k = b.dataset.q;
+    if (k === 'm' || k === 'w') { V.mode = k; V.pv = null; render(); }
+    else if (k === 'ok' && V.pv) { const a = { t: 'w', k: V.pv.k, o: V.pv.o }; V.pending = true; ctx.send(a); if (V.pending) render(); }
+  }
+  svg.addEventListener('pointerdown', onDown); svg.addEventListener('pointermove', onMove); svg.addEventListener('pointerup', onUp); svg.addEventListener('pointercancel', onUp);
+  svg.addEventListener('click', onClick); ctl.addEventListener('click', onCtl);
+  return {
+    update(s) {
+      const prev = V.pub; V.pub = s.pub; V.pending = false;
+      const fresh = !!prev && s.pub.seq !== prev.seq && !!s.pub.last;
+      if (fresh) { V.mode = 'm'; V.pv = null; }
+      render(fresh);
+      if (fresh) snd(s.pub.over && s.pub.win >= 0 ? 'win' : s.pub.last.t === 'w' ? 'wall' : 'mv');
+    },
+    rejected(err) { V.pending = false; ctx.toast(String(err || 'Jugada no válida')); snd('bad'); render(); },
+    destroy() {
+      svg.removeEventListener('pointerdown', onDown); svg.removeEventListener('pointermove', onMove); svg.removeEventListener('pointerup', onUp); svg.removeEventListener('pointercancel', onUp);
+      svg.removeEventListener('click', onClick); ctl.removeEventListener('click', onCtl); el.innerHTML = '';
+    }
+  };
+}
+
+Hub.register({
+  id: 'muros', name: 'Muros', blurb: 'Cruza el tablero entre muros · 2 a 4 jugadores', min: 2, max: 4,
+  bots: { min: 1, max: 3, levels: ['Fácil', 'Normal', 'Difícil'] },
+  options: [{ k: 'size', name: 'Tablero', vals: ['7×7 (rápido)', '9×9 (clásico)'], def: 1 }],
+  rules: '<ul>' +
+    '<li>Cada jugador empieza en el centro de su lado del tablero. Gana quien <b>llegue antes a cualquier casilla del lado opuesto</b> (marcado con una raya de su color).</li>' +
+    '<li>En tu turno haces <b>una</b> de dos cosas: <b>mover</b> tu ficha una casilla (arriba, abajo, izquierda o derecha) o <b>poner un muro</b>.</li>' +
+    '<li>Para mover, toca una de las casillas marcadas. Si hay una ficha al lado, puedes <b>saltarla</b>; si detrás de ella hay un muro o el borde, saltas <b>en diagonal</b>.</li>' +
+    '<li>Para poner un muro, pulsa <b>Muro</b>, toca o arrastra entre las casillas (la ranura indica si va en horizontal o en vertical) y pulsa <b>Poner muro</b>. Cada muro tapa 2 casillas, no puede solaparse ni cruzarse con otro y <b>nunca puede dejar a nadie sin camino</b> hasta su meta.</li>' +
+    '<li>Muros por jugador: con 2 jugadores, 10 (7 en el tablero de 7×7); con 3, 7 (5); con 4, 5 (4). Cuando se acaban, solo puedes mover.</li>' +
+    '<li>El tablero gira para que tu ficha salga siempre abajo. Con 3 o 4 jugadores se juega en el sentido de las agujas del reloj.</li>' +
+    '<li><b>Ayuda visual:</b> con ella activada, las casillas que te acercan a la meta salen en verde y, al preparar un muro, ves cómo cambian tu camino y el del rival.</li></ul>',
+  createEngine: (players, saved, opts) => new QoGame(players, saved, opts),
+  mount: murosMount
+});
+
+})();
+Mods.ok("muros");
 </script>
 <script type="text/plain" data-mod="en-ahorcado" data-deps="">
 /* CTX en-ahorcado: diccionario inglés (módulo ahorcado); ver core/i18n. */
@@ -15463,6 +15838,7 @@ I18n.add({
 I18n.add({ 'Código secreto': 'Code Breaker', 'Descifra el código de colores · solo o en sala': 'Crack the colour code · solo or in a room' });
 I18n.add({ 'Cartas de colores · 2 a 6 jugadores': 'Colour cards · 2 to 6 players' });
 I18n.add({ 'Loco': 'Loco' });
+I18n.add({ 'Muros': 'Walls', 'Cruza el tablero entre muros · 2 a 4 jugadores': 'Cross the board between walls · 2 to 4 players' });
 /* buscador del inicio */
 I18n.add({ 'Buscar juego…': 'Search games…', 'Buscar juegos': 'Search games', 'Borrar búsqueda': 'Clear search' }, [[/^No hay juegos que coincidan con «(.+)»$/, 'No games match “$1”']]);
 I18n.mod = '';
@@ -16089,6 +16465,50 @@ I18n.rules['mastermind'] = '<ul>' +
   '<li><b>In a room</b> (2-8 players, no AI): a race with the same code for everyone. You see how many tries each player has used, but not their colours. Whoever cracks it in fewest tries wins (if tied, the fastest). There is a time limit (“Time” option) and you can give up.</li></ul>';
 I18n.mod = '';
 Mods.ok("en-mastermind");
+</script>
+<script type="text/plain" data-mod="en-muros" data-deps="">
+/* CTX en-muros: diccionario inglés (módulo muros); ver core/i18n. */
+I18n.mod = "muros";
+I18n.add({
+  'La partida ha terminado': 'The game is over',
+  'No es tu turno': 'Not your turn',
+  'No puedes mover ahí': 'You can\'t move there',
+  'No te quedan muros': 'You have no walls left',
+  'Ese muro dejaría a alguien sin camino': 'That wall would leave someone with no way to the goal',
+  'Ese muro no cabe ahí': 'That wall doesn\'t fit there',
+  'Jugada no válida': 'Invalid move',
+  'Muros': 'Walls',
+  'Cruza el tablero entre muros · 2 a 4 jugadores': 'Cross the board between walls · 2 to 4 players',
+  'Tablero': 'Board',
+  '7×7 (rápido)': '7×7 (quick)',
+  '9×9 (clásico)': '9×9 (classic)',
+  'llega a la meta': 'reaches the goal',
+  'Tablas: demasiadas jugadas': 'Draw: too many moves',
+  '¡Llegas a la meta! Ganas': 'You reach the goal! You win',
+  'Tu turno…': 'Your turn…',
+  'Tu turno: mueve tu ficha o pon un muro': 'Your turn: move your pawn or place a wall',
+  'Toca o arrastra entre las casillas para colocar el muro': 'Tap or drag between the squares to place the wall',
+  'Pulsa «Poner muro» para colocarlo': 'Press “Place wall” to place it',
+  'Mover': 'Move',
+  'Poner muro': 'Place wall'
+}, [
+  [/^a 1 casilla$/, '1 square away'],
+  [/^a (\d+) casillas$/, '$1 squares away'],
+  [/^Muro · (\d+)$/, 'Wall · $1'],
+  [/^Tu camino (\d+) → (\d+) · (.+) (\d+) → (\d+)$/, 'Your path $1 → $2 · $3 $4 → $5'],
+  [/^Gana (.+)$/, '$1 wins'],
+  [/^Juega (.+)…$/, '$1 is playing…']
+]);
+I18n.rules['muros'] = '<ul>' +
+  '<li>Each player starts in the middle of their side of the board. Whoever <b>first reaches any square on the opposite side</b> (marked with a line in their colour) wins.</li>' +
+  '<li>On your turn you do <b>one</b> of two things: <b>move</b> your pawn one square (up, down, left or right) or <b>place a wall</b>.</li>' +
+  '<li>To move, tap one of the marked squares. If there is a pawn next to you, you can <b>jump over it</b>; if there is a wall or the edge behind it, you jump <b>diagonally</b>.</li>' +
+  '<li>To place a wall, press <b>Wall</b>, tap or drag between the squares (the groove sets whether it is horizontal or vertical) and press <b>Place wall</b>. Each wall covers 2 squares, cannot overlap or cross another one and <b>may never leave anyone without a path</b> to their goal.</li>' +
+  '<li>Walls per player: with 2 players, 10 (7 on the 7×7 board); with 3, 7 (5); with 4, 5 (4). When you run out, you can only move.</li>' +
+  '<li>The board turns so that your pawn always starts at the bottom. With 3 or 4 players, turns go clockwise.</li>' +
+  '<li><b>Visual aid:</b> when on, the squares that bring you closer to the goal are green and, while preparing a wall, you see how your path and your opponent\'s change.</li></ul>';
+I18n.mod = '';
+Mods.ok("en-muros");
 </script>
 <script type="text/plain" data-mod="en-nonograma" data-deps="">
 /* CTX en-nonograma: diccionario inglés (módulo nonograma); ver core/i18n. */
