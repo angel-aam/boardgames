@@ -1412,8 +1412,9 @@ function renderLobby() {
     : '<h2>Sala sin conexión</h2><p class="muted small" style="margin:0">' + (host ? 'Añade a cada jugador con un código QR (lector de QR del móvil + pegar el texto). Todos deben estar en la misma red Wi-Fi o en el punto de acceso de uno de los móviles.' : 'Conectado con el anfitrión.') + '</p>';
   const rs = host && H.resume;
   let h = '<div class="card">' + (rs ? '<h2>Partida guardada</h2><p class="muted small" style="margin:0">Los jugadores deben conectarse con el mismo nombre que tenían (' + esc(Saves.humans(H.resume).join(', ')) + ').</p>' : '') + top + '</div>';
-  if (host && g.options) h += gOptCard(!!H.resume);
-  else if (!host && H.lobby && H.lobby.gx) h += '<div class="card"><p style="margin:0"><b>' + esc(H.lobby.gx) + '</b></p></div>';
+  /* las opciones del juego se eligen en el menú del juego (antes de crear la sala); el lobby solo las muestra */
+  const gx = host ? (g.options ? gOptText(g) : '') : H.lobby && H.lobby.gx;
+  if (gx) h += '<div class="card"><p style="margin:0"><b>' + esc(gx) + '</b></p></div>';
   h += '<div class="card"><h2>Jugadores <span class="muted">' + (pl ? '· ' + pl.length + '/' + g.max : '') + '</span></h2><ul class="plist" id="lobList">';
   if (!pl) h += '<li><span class="muted">Buscando la sala…</span></li>';
   else pl.forEach((p, i) => {
@@ -1436,7 +1437,7 @@ function renderLobby() {
       if (H.kind === 'local') h += '<button class="btn primary" data-act="invite"' + (miss ? '' : ' disabled') + '>Añadir jugador con QR</button>';
       if (g.bots) h += '<div class="seg">' + segHTML(g.bots.levels, H.opt.lvl, 'lvl') + '</div><button class="btn" data-act="svfill"' + (miss ? '' : ' disabled') + '>Sustituir a los ausentes por IA</button>';
       h += '</div>';
-    } else {
+    } else if (H.kind === 'local') {   /* sala online: sin tarjeta «Añadir jugadores» (se entra por código o enlace) */
       h += '<div class="card"><h2>Añadir jugadores</h2>';
       if (H.kind === 'local') h += '<button class="btn primary" data-act="invite"' + (full ? ' disabled' : '') + '>Añadir jugador con QR</button>';
       if (g.bots) h += '<div class="seg">' + segHTML(g.bots.levels, H.opt.lvl, 'lvl') + '</div><button class="btn" data-act="addbot"' + (full ? ' disabled' : '') + '>Añadir IA</button>';
@@ -1592,7 +1593,7 @@ function renderSingleMenu(withRooms) {
   $('#gmenu').innerHTML = '<div class="card"><h2>Nivel</h2><div class="seg">' + segHTML(s.levels, lv, 'slv') + '</div>' +
     '<p class="muted small" style="margin:0">' + esc(s.info(lv)) + '</p>' +
     (sv ? '<button class="btn primary" data-act="scont">Continuar la partida guardada</button><button class="btn" data-act="sstart">Nueva partida</button>' : '<button class="btn primary" data-act="sstart">Jugar</button>') + '</div>' +
-    (withRooms ? '<h3 class="gsec">Con más jugadores</h3>' + roomCardsHTML() : '') +
+    (withRooms ? '<h3 class="gsec">Con más jugadores</h3>' + gOptCard() + roomCardsHTML() : '') +
     '<div class="row"><button class="btn flat grow" data-act="rules">Cómo se juega</button><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
   if (withRooms) renderRooms();
 }
@@ -1611,12 +1612,12 @@ function gOptGet(g) {
   return o;
 }
 function gOptText(g) { const o = gOptGet(g); return (g.options || []).map(op => op.name + ': ' + op.vals[o[op.k]]).join(' · '); }
-function gOptCard(locked) {
+/* selectores de opciones: solo en el menú del juego (el lobby las muestra con gOptText, no se cambian dentro de la sala) */
+function gOptCard() {
   const g = H.game; if (!g.options) return '';
   const o = gOptGet(g);
-  return g.options.map(op => '<div class="card"><h2>' + esc(op.name) + '</h2>' + (locked
-    ? '<p style="margin:0"><b>' + esc(op.vals[o[op.k]]) + '</b></p>'
-    : '<div class="seg">' + op.vals.map((l, i) => '<button data-act="gopt" data-k="' + op.k + '" data-v="' + i + '" aria-pressed="' + (i === o[op.k] ? 'true' : 'false') + '">' + esc(l) + '</button>').join('') + '</div>') +
+  return g.options.map(op => '<div class="card"><h2>' + esc(op.name) + '</h2>' +
+    '<div class="seg">' + op.vals.map((l, i) => '<button data-act="gopt" data-k="' + op.k + '" data-v="' + i + '" aria-pressed="' + (i === o[op.k] ? 'true' : 'false') + '">' + esc(l) + '</button>').join('') + '</div>' +
     (op.desc ? '<p class="muted small" style="margin:0">' + esc(op.desc[o[op.k]]) + '</p>' : '') + '</div>').join('');
 }
 /* tarjetas de sala (online y sin conexión): las usan los juegos de turnos y los mixtos (un jugador + sala) */
@@ -1656,7 +1657,7 @@ function renderGMenu() {
       (hu.length ? '<button class="btn primary" data-act="svres" data-id="' + esc(s.id) + '">Reabrir sala</button><button class="btn" data-act="svsolo" data-id="' + esc(s.id) + '">Con IA</button>' : '<button class="btn primary" data-act="svsolo" data-id="' + esc(s.id) + '">Continuar</button>') +
       '<button class="btn flat" data-act="svdel" data-id="' + esc(s.id) + '" aria-label="Borrar partida guardada">🗑</button></div>';
   }).join('') + '</div>' : '';
-  h += gOptCard(false);
+  h += gOptCard();
   h += '<div class="card"><h2>Contra la IA</h2>' +
     '<div class="seg">' + segHTML(Array.from({ length: b.max - b.min + 1 }, (_, i) => (i + b.min) + (i + b.min === 1 ? ' rival' : ' rivales')), H.opt.opp, 'opp', b.min) + '</div>' +
     '<div class="seg">' + segHTML(b.levels, H.opt.lvl, 'lvl') + '</div>' +
@@ -1893,7 +1894,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.16.1';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.16.3';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); }
@@ -1921,7 +1922,7 @@ const ACTS = {
   first(b) { H.opt.first = +b.dataset.v === 1 ? 1 : 0; saveOpt(); renderGMenu(); },
   lvl(b) { H.opt.lvl = +b.dataset.v; saveOpt(); if (H.screen === 'lobby') renderLobby(); else renderGMenu(); },
   solo() { startSolo(); },
-  gopt(b) { const m = store.get('hub.gopt', {}), id = H.game.id; m[id] = Object.assign(m[id] || {}, { [b.dataset.k]: +b.dataset.v }); store.set('hub.gopt', m); if (H.screen === 'lobby') { sendRoster(); renderLobby(); } else renderGMenu(); },
+  gopt(b) { const m = store.get('hub.gopt', {}), id = H.game.id; m[id] = Object.assign(m[id] || {}, { [b.dataset.k]: +b.dataset.v }); store.set('hub.gopt', m); if (H.screen === 'gmenu') renderGMenu(); },
   slv(b) { const m = store.get('hub.slv', {}); m[H.game.id] = +b.dataset.v; store.set('hub.slv', m); renderGMenu(); },
   sstart() { Saves.putSingle(H.game.id, null); startSingle(false); },
   scont() { startSingle(true); },

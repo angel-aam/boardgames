@@ -53,6 +53,8 @@ Rutas: `GET /` y `GET /game/<id>` (`[a-z0-9-]{1,24}`) → `index.html` con `wind
 ## Enlace de sala online (compartir)
 - `/game/<id>/<CÓDIGO>` (4 letras; sin `MJ_PATHS`, `#/game/<id>/<CÓDIGO>`). `GAME_PATH` del worker lo acepta. Dentro de una sala online (lobby o partida) `syncURL` añade el código (`urlRoom()`); al salir se quita.
 - Lobby: botón «Compartir enlace» (`ACTS.share`): `navigator.share` y, si no hay, copia `roomURL()` al portapapeles.
+- Opciones del juego (`options`, `gOptCard`): solo se eligen en el menú del juego, antes de crear la sala (en los mixtos como Boggle, bajo «Con más jugadores»). El lobby es solo para conectar jugadores: muestra las opciones elegidas en una línea (`gOptText`, la misma que recibe el invitado en `lo.gx`) y no deja cambiarlas.
+- El lobby de la sala online no tiene tarjeta «Añadir jugadores» (ni «Añadir IA»): solo la sala sin conexión (QR + IA). «Sustituir a los ausentes por IA» al reanudar sigue en ambas.
 - Abrir el enlace: `bootHub` → `ACTS.pick` → `joinLink(code)`. Se une como invitado; si la sala no existe la crea como anfitrión con ese código (`H.linkCode` → `linkHost` → `createOnline`). Servidor: «no existe» = `hello.peers` vacío y no listada en el Lobby (espera hasta 2 s a la primera lista, `SrvNet.got`; así no se suplanta a un anfitrión ausente en `GRACE`). Capacidad de claude.ai: cuando el anfitrión no contesta en `startHello` (~12 s).
 - Si `hub.sess` es de esa misma sala, se usa `autoRejoin` (recargar no cambia nada); si es de otra, gana el enlace.
 
