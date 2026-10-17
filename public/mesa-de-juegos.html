@@ -18,7 +18,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Las rutas `games/<id>/…`, `lazy/…` y `core/…` de la tabla de módulos (§9) son históricas: hoy cada módulo vive solo como su bloque `data-mod` en este archivo y el núcleo como sus secciones `/* CTX …`. El generador del diccionario (`tools/mkdict.js`) no está en este repo: `scdict`/`scdict-en` se editan a mano en su bloque (datos en base64 sin tocar).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo al instante desde la caché y actualizado en segundo plano, módulos cache-first, precarga completa solo en la app instalada o con el mensaje `all` = guardar todo, conserva los módulos de la versión anterior y avisa `{t:'updated'}`) y `public/offline-<idioma>.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest (con screenshots) + iconos + sw.js (precarga de módulos en la app instalada; offline-<idioma>.html solo bajo demanda); versión nueva → H.upd y «Actualizar ahora» en el menú (ACTS.upd); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.25.0.
+- PWA (servidor): manifest.webmanifest (con screenshots) + iconos + sw.js (precarga de módulos en la app instalada; offline-<idioma>.html solo bajo demanda); versión nueva → H.upd y «Actualizar ahora» en el menú (ACTS.upd); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.26.0.
 - Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, sonido, tema e idioma como botones de icono (.pico: psndt/pthemet/plangt), ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
 - Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Cada uno elige sus reacciones en Preferencias → «Elegir reacciones» (ACTS.rxedit/rxadd/rxdel/rxreset; hub.rx = {w,l,t}, 1–6 de RX_POOL; el anfitrión acepta todo RX_POOL); RX_RUN (🦀) cruza corriendo de derecha a izquierda o en diagonal en vez de subir. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
 - Conexión con el móvil bloqueado: el navegador corta el WebSocket (no se puede evitar). Mitigaciones: el invitado espera al anfitrión hasta HOST_WAIT (10 min de tiempo a la vista, banner #netb con «Salir»); onLost reintenta hasta HOST_WAIT; en el lobby el invitado caído queda en H.off («Desconectado», Quitar = ACTS.rmoff) y al empezar ocupa su asiento como ausente (matchPl.was → seatBack). El Lobby del servidor mantiene listada 5 min la sala de un anfitrión caído (presence.off → «ausente»).
@@ -52,7 +52,7 @@ Hub.register({ id, name, blurb, min, max,
 - engine: `turn`, `over`, `view(i)->{pub,priv}` (pub = lo visible para todos; priv = solo para el asiento i: su mano, jugadas legales), `act(i,a)->{ok,err}`, `botSeat()->i|-1`, `bot(i)` (hace UNA acción), `toBot(i,lv)`, `toHuman(i,name)`, `result()->{win,winners,tie,rows:[{name,note,pts,txt}],title?}`, `save()` (JSON puro; el constructor lo restaura con `Object.assign`), opcional `setStart(asiento)` (quién empieza) y `botDelay()`.
 - ctx de mount: `me` (asiento propio), `solo`, `nick`, `send(accion)` (al motor del anfitrión), `toast`, `tone`. La vista solo debe pintar `pub/priv`; toda regla vive en el motor (anfitrión autoritativo; nunca confiar en el cliente).
 - Para animar cambios, comparar `seq` (contador que el motor incrementa en cada cambio) con el estado anterior.
-Un jugador (puzles): `single:{levels:[..], def, info(i)}` + `mountSingle(el, ctx)` con ctx `{level, resume, nick, tone, toast, load(), save(d), record(r)}`; sin salas ni IA. Guarda con `ctx.save` (el motor compartido de guardado) y estadísticas con `store`.
+Un jugador (puzles): `single:{levels:[..], def, info(i), opt?}` (`opt` = clave de la opción de sala que es el mismo nivel en un juego mixto: el menú muestra una sola «Dificultad» arriba, con su descripción, que vale para jugar solo y para la sala; `gOptGet` la toma de `hub.slv`) + `mountSingle(el, ctx)` con ctx `{level, resume, nick, tone, toast, load(), save(d), record(r)}`; sin salas ni IA. Guarda con `ctx.save` (el motor compartido de guardado) y estadísticas con `store`.
 Registrar en la sección `/* CTX games/catalog` del núcleo (justo antes de `bootHub()`): `Hub.catalog.push({id, cat:'tablero'|'cartas'|'puzzles'|'palabras', name, blurb, mod})`; categorías en `HOME_CATS` (hub.js). El lobby ordena nombres alfabéticamente (`localeCompare 'es'`).
 
 ## 5. Catálogo (id · categoría · módulo/deps · notas)
@@ -1900,13 +1900,18 @@ function renderHome() {
     '<div class="row"><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
 }
 function slvGet() { const m = store.get('hub.slv', {}); const v = m[H.game.id]; return Number.isInteger(v) && v >= 0 && v < H.game.single.levels.length ? v : H.game.single.def; }
+/* un jugador: tarjeta de nivel con Jugar. Mixto (withRooms): primero la dificultad (con su descripción), que vale para jugar
+   solo y para la sala si el juego la enlaza (single.opt = clave de la opción de sala con el mismo índice); luego «Un jugador»
+   y «Con más jugadores» (las demás opciones de sala y las tarjetas de sala) */
 function renderSingleMenu(withRooms) {
   const s = H.game.single, lv = slvGet(), sv = !!Saves.getSingle(H.game.id);
-  $('#gmenu').innerHTML = '<div class="card"><h2>Nivel</h2><div class="seg">' + segHTML(s.levels, lv, 'slv') + '</div>' +
-    '<p class="muted small" style="margin:0">' + esc(s.info(lv)) + '</p>' +
-    (sv ? '<button class="btn primary" data-act="scont">Continuar la partida guardada</button><button class="btn" data-act="sstart">Nueva partida</button>' : '<button class="btn primary" data-act="sstart">Jugar</button>') + '</div>' +
-    (withRooms ? '<h3 class="gsec">Con más jugadores</h3>' + gOptCard() + roomCardsHTML() : '') +
-    '<div class="row"><button class="btn flat grow" data-act="rules">Cómo se juega</button><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
+  const lvl = '<div class="seg">' + segHTML(s.levels, lv, 'slv') + '</div><p class="muted small" style="margin:0">' + esc(s.info(lv)) + '</p>';
+  const play = sv ? '<button class="btn primary" data-act="scont">Continuar la partida guardada</button><button class="btn" data-act="sstart">Nueva partida</button>' : '<button class="btn primary" data-act="sstart">Jugar</button>';
+  const foot = '<div class="row"><button class="btn flat grow" data-act="rules">Cómo se juega</button><button class="btn flat grow" data-act="recents">Partidas recientes</button></div>';
+  $('#gmenu').innerHTML = withRooms
+    ? '<div class="card"><h2>' + (s.opt ? 'Dificultad' : 'Nivel') + '</h2>' + lvl + '</div><div class="card"><h2>Un jugador</h2>' + play + '</div>' +
+      '<h3 class="gsec">Con más jugadores</h3>' + gOptCard() + roomCardsHTML() + foot
+    : '<div class="card"><h2>Nivel</h2>' + lvl + play + '</div>' + foot;
   if (withRooms) renderRooms();
 }
 function startSingle(resume) {
@@ -1921,6 +1926,9 @@ function startSingle(resume) {
 function gOptGet(g) {
   const m = store.get('hub.gopt', {})[g.id] || {}, o = {};
   (g.options || []).forEach(op => { const v = m[op.k]; o[op.k] = Number.isInteger(v) && v >= 0 && v < op.vals.length ? v : (op.def || 0); });
+  /* juego mixto con la dificultad enlazada: la opción de sala single.opt es el nivel elegido arriba (hub.slv), un solo sitio */
+  const so = g.single && g.single.opt;
+  if (so && so in o) { const v = (store.get('hub.slv', {}) || {})[g.id]; o[so] = Number.isInteger(v) && v >= 0 && v < g.single.levels.length ? v : g.single.def; }
   return o;
 }
 /* la línea de opciones (texto en español, también la que llega del anfitrión) se pinta con cada nombre y valor en su propio
@@ -1930,8 +1938,8 @@ function gOptText(g) { const o = gOptGet(g); return (g.options || []).map(op => 
 /* selectores de opciones: solo en el menú del juego (el lobby las muestra con gOptText, no se cambian dentro de la sala) */
 function gOptCard() {
   const g = H.game; if (!g.options) return '';
-  const o = gOptGet(g);
-  return g.options.map(op => '<div class="card"><h2>' + esc(op.name) + '</h2>' +
+  const o = gOptGet(g), so = g.single && g.single.opt;
+  return g.options.filter(op => op.k !== so).map(op => '<div class="card"><h2>' + esc(op.name) + '</h2>' +
     '<div class="seg">' + op.vals.map((l, i) => '<button data-act="gopt" data-k="' + op.k + '" data-v="' + i + '" aria-pressed="' + (i === o[op.k] ? 'true' : 'false') + '">' + esc(l) + '</button>').join('') + '</div>' +
     (op.desc ? '<p class="muted small" style="margin:0">' + esc(op.desc[o[op.k]]) + '</p>' : '') + '</div>').join('');
 }
@@ -2227,7 +2235,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.25.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.26.0';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); renderHome(); }   /* repinta: la búsqueda (H.q) ya se limpió al abrir el juego */
@@ -12520,7 +12528,7 @@ Hub.register({
     { k: 'dup', name: 'Palabras repetidas', vals: ['Suman a todos', 'Solo cuentan las únicas'], def: 0, desc: ['Cada jugador suma todas sus palabras', 'Las palabras que encuentre más de un jugador no puntúan'] }
   ],
   single: {
-    levels: BG_LV.map(l => l.k), def: 0,
+    levels: BG_LV.map(l => l.k), def: 0, opt: 'size',   /* el nivel es también la «Rejilla y tiempo» de la sala */
     info: i => { const L = BG_LV[i], b = (store.get('boggle-best') || {})[i]; return L.n + '×' + L.n + ' · ' + bgFmt(L.t) + ' · mínimo ' + L.min + ' letras' + (b != null ? ' · Tu mejor: ' + b + ' pts' : ''); }
   },
   rules: '<ul>' +
@@ -14245,7 +14253,7 @@ function mmBoard(el, o) {
   const L = o.L;
   el.style.setProperty('--n', L.n); el.style.setProperty('--rows', L.max + 1);
   el.querySelector('.mm-pal').innerHTML = Array.from({ length: L.c }, (_, c) => '<button class="mm-p f" data-c="' + c + '" style="background:var(--c' + c + ')" aria-label="Color ' + (c + 1) + '">' + MM_SYM[c] + '</button>').join('');
-  let cur = Array(L.n).fill(-1), sel = 0, rows = [], fin = false, sec = null;
+  let cur = Array(L.n).fill(-1), sel = 0, rows = [], nRows = 0, fin = false, sec = null;
   const peg = (c, extra, attrs) => '<span class="mm-p' + (c >= 0 ? ' f' : '') + (extra || '') + '"' + (c >= 0 ? ' style="background:var(--c' + c + ')"' : '') + (attrs || '') + '>' + (c >= 0 ? MM_SYM[c] : '') + '</span>';
   const fb = r => { let h = ''; for (let i = 0; i < L.n; i++) h += '<i class="' + (i < r.b ? 'h' : i < r.b + r.w ? 'n' : '') + '"></i>'; return '<span class="mm-fb" style="--fc:' + Math.ceil(L.n / 2) + '">' + h + '</span>'; };
   function draw() {
@@ -14272,8 +14280,9 @@ function mmBoard(el, o) {
     if (p && !p.disabled) {
       const c = +p.dataset.c; if (!L.rep) { const j = cur.indexOf(c); if (j >= 0 && j !== sel) cur[j] = -1; }
       cur[sel] = c; o.tone(440 + 40 * c, .05);
+      /* el foco pasa al siguiente hueco vacío; si no queda ninguno, al hueco de la derecha (o se queda en el último) */
       const nx = cur.findIndex((c, i) => c < 0 && i > sel), any = cur.indexOf(-1);
-      sel = nx >= 0 ? nx : any >= 0 ? any : sel; draw(); return;
+      sel = nx >= 0 ? nx : any >= 0 ? any : Math.min(sel + 1, L.n - 1); draw(); return;
     }
     if (!b) return;
     if (b.dataset.mm === 'del') { const i = cur[sel] >= 0 ? sel : (() => { for (let k = L.n - 1; k >= 0; k--) if (cur[k] >= 0) return k; return sel; })(); cur[i] = -1; sel = i; draw(); }
@@ -14281,7 +14290,8 @@ function mmBoard(el, o) {
     else if (b.dataset.mm === 'quit' && o.onQuit) o.onQuit();
   };
   return {
-    paint(r, s, done) { const grew = r.length !== rows.length; rows = r; sec = s; fin = done; if (grew) { cur = Array(L.n).fill(-1); sel = 0; } draw(); },
+    /* nº de filas guardado aparte: en solitario r es el mismo array S.rows (crece en el sitio), así que comparar con rows.length no detectaba el intento nuevo y la fila nueva heredaba los colores del anterior */
+    paint(r, s, done) { const grew = r.length !== nRows; nRows = r.length; rows = r; sec = s; fin = done; if (grew) { cur = Array(L.n).fill(-1); sel = 0; } draw(); },
     reset() { cur = Array(L.n).fill(-1); sel = 0; draw(); }
   };
 }
@@ -14391,7 +14401,7 @@ Hub.register({
     { k: 'tm', name: 'Tiempo', vals: MM_TM.map(m => m + ' min'), def: 1 }
   ],
   single: {
-    levels: MM_LV.map(l => l.k), def: 0,
+    levels: MM_LV.map(l => l.k), def: 0, opt: 'lv',   /* el nivel es también la «Dificultad» de la sala */
     info: i => { const L = MM_LV[i], b = (store.get('mastermind-best') || {})[i]; return L.n + ' huecos · ' + L.c + ' colores' + (L.rep ? ' (pueden repetirse)' : ' sin repetir') + ' · ' + L.max + ' intentos' + (b ? ' · Tu mejor: ' + b.t + ' intentos' : ''); }
   },
   rules: '<ul>' +
@@ -15616,7 +15626,7 @@ function islaSoloMount(el, ctx) {
 Hub.register({
   id: 'isla', name: 'La isla sumergida', blurb: 'Cooperativo · rescatad los 4 tesoros · solo o en sala', min: 2, max: 4,
   options: [{ k: 'lv', name: 'Dificultad', vals: IS_LV.map(l => l.k), def: 1, desc: IS_LV.map(l => 'El agua empieza en el nivel ' + l.w + '.') }],
-  single: { levels: IS_LV.map(l => l.k), def: 1, info: i => 'El agua empieza en el nivel ' + IS_LV[i].w + ' · llevas a 2, 3 o 4 aventureros' },
+  single: { levels: IS_LV.map(l => l.k), def: 1, opt: 'lv', info: i => 'El agua empieza en el nivel ' + IS_LV[i].w + ' · llevas a 2, 3 o 4 aventureros' },
   rules: '<ul>' +
     '<li><b>Juego cooperativo:</b> todos ganáis o todos perdéis. La isla se hunde poco a poco: hay que recoger los <b>4 tesoros</b> (⛰️ Tierra, 🌪️ Viento, 🔥 Fuego y 💧 Agua) y escapar juntos en helicóptero desde el <b>Helipuerto</b> 🚁.</li>' +
     '<li>En tu turno tienes <b>3 acciones</b> (puedes hacer menos y pulsar <b>Terminar turno</b>). Cada una puede ser: <b>Mover</b> a una casilla vecina (arriba, abajo, izquierda o derecha); <b>Achicar</b> una casilla inundada (azul) vecina o la tuya, que vuelve a quedar seca; <b>Dar</b> una carta de tesoro a quien esté en tu casilla (toca la carta); <b>Capturar</b> un tesoro: con 4 cartas suyas, en uno de sus dos templos (los que llevan su símbolo).</li>' +

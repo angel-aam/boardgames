@@ -106,7 +106,7 @@ La sala se crea Pública (listada en «Sala online», por defecto) o Privada (so
 
 
 ## Juegos híbridos (solo + sala) y reloj del anfitrión
-- Un juego con `single` **y** `createEngine` (p. ej. Boggle) muestra el menú de solitario y debajo «Con más jugadores» (`renderSingleMenu(true)` + `roomCardsHTML()`, las tarjetas de sala online/offline extraídas de `renderGMenu`).
+- Un juego con `single` **y** `createEngine` (Boggle, Código secreto, La isla sumergida) muestra (`renderSingleMenu(true)`): «Dificultad» (selector + descripción `single.info`) → «Un jugador» (Jugar/Continuar) → «Con más jugadores» (resto de opciones con `gOptCard` + `roomCardsHTML()`, las tarjetas de sala online/offline extraídas de `renderGMenu`). Con `single.opt = '<clave>'` la opción de sala de esa clave ES el nivel (mismo índice): se elige una sola vez arriba (`hub.slv`), `gOptGet` la rellena desde ahí y `gOptCard` no la repite (Boggle `size`, Código secreto `lv`, Isla `lv`). En los juegos de turnos las opciones ya van arriba y valen para IA y sala; el nivel de la IA (fuerza de los rivales) sigue en «Contra la IA».
 - Juegos sin `bots` (Boggle en sala): el lobby no ofrece «Añadir IA» ni «Sustituir por IA».
 - Motor con reloj propio: métodos opcionales `nextTick()` (timestamp absoluto o 0) y `tick()`; el anfitrión los programa en `scheduleTick()` (desde `afterAct`, limpiado en `resetRoom`). Marcas absolutas (`start`/`end`) para que sobrevivan a guardar/reanudar.
 - Boggle en sala: `BgRoomGame` (opts `size`, `dup`), acción `{t:'w',w}`; `view(i)` oculta la rejilla hasta `start` (cuenta atrás `BG_PRE` 4 s) y los puntos ajenos hasta `over`; `res` trae todas las palabras al terminar. Cada palabra aceptada provoca pushState a todos los asientos (cada uno recibe solo su vista).
