@@ -18,7 +18,7 @@ LEE ESTO PRIMERO. Está pensado para agentes IA: usa este contexto en lugar de r
 - Las rutas `games/<id>/…`, `lazy/…` y `core/…` de la tabla de módulos (§9) son históricas: hoy cada módulo vive solo como su bloque `data-mod` en este archivo y el núcleo como sus secciones `/* CTX …`. El generador del diccionario (`tools/mkdict.js`) no está en este repo: `scdict`/`scdict-en` se editan a mano en su bloque (datos en base64 sin tocar).
 
 - Build dividido (servidor): `node build.js` genera `public/index.html` (núcleo + manifiesto `window.MJ_MODS`), `public/m/<id>.<hash>.js` (un fichero por módulo, caché inmutable), `public/sw.js` (service worker: núcleo al instante desde la caché y actualizado en segundo plano, módulos cache-first, precarga completa solo en la app instalada o con el mensaje `all` = guardar todo, conserva los módulos de la versión anterior y avisa `{t:'updated'}`) y `public/offline-<idioma>.html` (todo en uno, lo que baja «Descarga offline»). Este fuente, abierto tal cual, sigue siendo el archivo único.
-- PWA (servidor): manifest.webmanifest (con screenshots) + iconos + sw.js (precarga de módulos en la app instalada; offline-<idioma>.html solo bajo demanda); versión nueva → H.upd y «Actualizar ahora» en el menú (ACTS.upd); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.26.0.
+- PWA (servidor): manifest.webmanifest (con screenshots) + iconos + sw.js (precarga de módulos en la app instalada; offline-<idioma>.html solo bajo demanda); versión nueva → H.upd y «Actualizar ahora» en el menú (ACTS.upd); menú «Instalar aplicación» (ACTS.install, H.installEv). offline-<idioma>.html no lleva manifiesto ni SW. APP_VER 1.26.2.
 - Menú ☰ = Cómo se juega, Partidas recientes, Preferencias (ACTS.prefs: nombre —deshabilitado dentro de una sala—, sonido, tema e idioma como botones de icono (.pico: psndt/pthemet/plangt), ayuda visual, reacciones, visibilidad de salas nuevas, y Aplicación: instalar, guardar juegos, descarga offline), Salir. Selectores con .seg y acciones ptheme/psnd/passist/preact/pvis. Las hojas se cierran con la X (.sheet-x, arriba a la derecha), tocando el fondo, Escape o «atrás» (popstate cierra la hoja abierta antes que nada). El inicio saluda «¡Hola, <nombre>!» (.hello → Preferencias); ya no tiene campo de nombre.
 - Reacciones al terminar (salas con personas): showResult añade rxBar (emojis alegres si ganas, tristes/enfado/acuerdo si pierdes, RX.w/l/t); ACTS.rxsend → {t:'rx',g,e} al anfitrión, que lo muestra (rxShow, emojis que suben ~2,4 s) y lo reenvía con n (rxRelay). Validación: emoji en RX_ALL, partida terminada, 0,4 s por conexión. Cada uno elige sus reacciones en Preferencias → «Elegir reacciones» (ACTS.rxedit/rxadd/rxdel/rxreset; hub.rx = {w,l,t}, 1–6 de RX_POOL; el anfitrión acepta todo RX_POOL); RX_RUN (🦀) cruza corriendo de derecha a izquierda o en diagonal en vez de subir. Opción «Reacciones al terminar» en Preferencias (ACTS.preact, hub.react, activada por defecto; apagada ni muestra botones ni las recibidas).
 - Conexión con el móvil bloqueado: el navegador corta el WebSocket (no se puede evitar). Mitigaciones: el invitado espera al anfitrión hasta HOST_WAIT (10 min de tiempo a la vista, banner #netb con «Salir»); onLost reintenta hasta HOST_WAIT; en el lobby el invitado caído queda en H.off («Desconectado», Quitar = ACTS.rmoff) y al empezar ocupa su asiento como ausente (matchPl.was → seatBack). El Lobby del servidor mantiene listada 5 min la sala de un anfitrión caído (presence.off → «ausente»).
@@ -2235,7 +2235,7 @@ function bootHub() {
 
 /* ---------- Acciones ---------- */
 /* nombre y versión de la app (se muestran al final del menú); subir APP_VER en cada entrega */
-const APP_NAME = 'Mesa de Juegos', APP_VER = '1.26.0';
+const APP_NAME = 'Mesa de Juegos', APP_VER = '1.26.2';
 const ACTS = {
   back() {
     if (H.screen === 'gmenu') { show('home'); renderHome(); }   /* repinta: la búsqueda (H.q) ya se limpió al abrir el juego */
@@ -15123,7 +15123,33 @@ Mods.ok("muros");
 </script>
 <script type="text/plain" data-mod="isla" data-deps="">
 /* CTX isla: «La isla sumergida» (versión propia de La isla prohibida), cooperativo, híbrido solo + sala como Boggle: en solitario controlas a 2–4 aventureros (cada turno juegas con el que toca; elección en la pantalla de inicio, store isla-n); en sala 2–4 personas, una por aventurero (sin IA). Opción/nivel lv = IS_LV (agua inicial 1–4). Isla de 24 casillas (IS_GRID: rombo en una rejilla 6×6; IS_T nombre, k tesoro 0–3, r rol que empieza ahí, la 0 es el helipuerto) colocadas al azar (tl[hueco] = casilla, ts 0 seca / 1 inundada / 2 hundida). Mazo de tesoro (0–3 tesoros ×5, 4 helicóptero ×3, 5 saco de arena ×2, 6 sube el agua ×3) y de inundación (huecos). Turno: 3 acciones ({t:'mv',s} moverse, {t:'sh',s} achicar, {t:'gv',p,c} dar carta, {t:'cap'} capturar, {t:'nav',p,s} la Navegante mueve a otro, {t:'end'}), luego 2 cartas de tesoro y tantas de inundación como marca el agua (isDraw). Fases ph: act, disc (más de 5 cartas: {t:'dc',c}), swim (su casilla se ha hundido: {t:'sw',s}); advance() encadena robos/inundación/turnos. Cartas especiales en act y disc por su dueño: {t:'sb',c,s} y {t:'heli',c,ps,s} / {t:'heli',c,win:1} (todos en el helipuerto con los 4 tesoros = victoria). Roles IS_R (Piloto vuela una vez por turno, Ingeniera achica 2 por acción —eg—, Exploradora en diagonal, Buceador cruza inundadas/hundidas, Mensajera da cartas a distancia, Navegante mueve a otros hasta 2). Se pierde (lost) con el agua en 10, el helipuerto hundido, los dos templos de un tesoro sin capturar hundidos o alguien sin poder nadar. Vista islaView compartida (solo: controla a todos; sala: solo su asiento). Prefijo is-. */
-(function(){const s=document.createElement("style");s.textContent=`/* La isla sumergida: clases con prefijo is- */
+(function(){
+/* fondos de carta: SVG mínimos en data: URI (formas blancas/negras translúcidas sobre el color de la carta, valen en claro y oscuro) */
+const svgU = (vb, par, b) => 'url("data:image/svg+xml,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='" + vb + "' preserveAspectRatio='" + par + "'>" + b + '</svg>') + '")';
+const isSvg = (bg, b) => 'background:' + bg + ' ' + svgU('0 0 30 38', 'none', b) + ' center/100% 100%';
+const W5 = "fill='none' stroke='rgba(255,255,255,.5)' stroke-width='1.6' stroke-linecap='round'";
+const CARDS = [
+  isSvg('#a9794a', "<path d='M0 26q7-9 14-2t16-4v18H0z' fill='rgba(255,255,255,.28)'/><path d='M0 32q9-6 18 0t12-1v7H0z' fill='rgba(0,0,0,.18)'/>"),          /* Tierra: colinas */
+  isSvg('#5f9fbe', "<path d='M3 11q9-6 16 0t9-2M2 20q10-5 18 1t8-3M5 29q8-4 14 0' " + W5 + "/>"),                                                            /* Viento: ráfagas */
+  isSvg('#d65a35', "<path d='M15 36c-7 0-10-5-8-11 1 3 3 4 4 4-1-6 2-11 6-15 0 5 4 7 4 12 1-1 2-3 2-5 3 4 3 15-8 15z' fill='rgba(255,226,140,.42)'/>"),     /* Fuego: llama */
+  isSvg('#2f7fd0', "<path d='M0 13q4-3 7.5 0t7.5 0 7.5 0 7.5 0M0 21q4-3 7.5 0t7.5 0 7.5 0 7.5 0M0 29q4-3 7.5 0t7.5 0 7.5 0 7.5 0' " + W5 + "/>"),           /* Agua: olas */
+  isSvg('#3d5fc4', "<circle cx='15' cy='19' r='12' " + W5 + " stroke-dasharray='2 3'/><circle cx='15' cy='19' r='6' fill='rgba(255,255,255,.2)'/>"),        /* Helicóptero: rotor */
+  isSvg('#c49a62', "<path d='M0 9.5h30M0 19h30M0 28.5h30M10 0v9.5M20 9.5v9.5M10 19v9.5M20 28.5v9.5' stroke='rgba(0,0,0,.2)'/>")                               /* Saco de arena: ladrillos */
+].map((c, k) => '.is-cd.k' + k + '{' + c + '}').join('\n');
+/* casillas: un dibujo por tipo en --m (dunas, templo de cada tesoro, puerta, helipuerto); inundada = olas encima del dibujo */
+const T80 = (b, par) => svgU('0 0 60 80', par || 'none', b), K = (c, w) => "fill='none' stroke='" + c + "' stroke-width='" + (w || 2) + "' stroke-linecap='round'";   /* sin atributos repetidos: un SVG con uno duplicado no se dibuja */
+const TILES = {
+  n: T80("<path d='M0 62q15-8 30 0t30-2v20H0z' fill='rgba(0,0,0,.07)'/><path d='M0 71q20-7 40 0t20-1v10H0z' fill='rgba(0,0,0,.06)'/>"),
+  k0: T80("<path d='M0 80V60l10-10 8 6 10-14 12 12 8-6 12 12v20z' fill='rgba(90,55,20,.17)'/>"),
+  k1: T80("<path d='M6 42q14-8 26 0t22-4M4 54q16-7 30 1t20-5M10 66q12-6 22 0' " + K('rgba(40,100,140,.22)') + "/>"),
+  k2: T80("<path d='M0 80V66q10-6 18 0t16-2 26 4v12z' fill='rgba(200,60,20,.17)'/><path d='M14 60l6-8 4 6 6-10M38 62l5-6 4 5' " + K('rgba(200,60,20,.25)') + "/>"),
+  k3: T80("<path d='M18 80V62m0 9l-6-6m6 1l6-7M40 80V60m0 10l-7-7m7 0l6-6m-6 13l5 4' " + K('rgba(210,80,110,.28)', 3) + "/>"),   /* coral */
+  g: T80("<path d='M14 80V50q16-20 32 0v30h-7V52q-9-11-18 0v28z' fill='rgba(0,0,0,.1)'/>", 'xMidYMax meet'),
+  h: svgU('0 0 60 60', 'xMidYMid meet', "<circle cx='30' cy='32' r='17' fill='none' stroke='rgba(0,0,0,.12)' stroke-width='3'/><path d='M23 24v16M37 24v16M23 32h14' " + K('rgba(0,0,0,.12)', 3) + "/>")
+};
+const WAVES = T80("<path d='M0 18q7.5-5 15 0t15 0 15 0 15 0M0 38q7.5-5 15 0t15 0 15 0 15 0M0 58q7.5-5 15 0t15 0 15 0 15 0' " + K('rgba(255,255,255,.38)') + "/>");
+const TCSS = Object.keys(TILES).map(k => '.is-t.m' + k + '{--m:' + TILES[k] + '}').join('\n');
+const s=document.createElement("style");s.textContent=`/* La isla sumergida: clases con prefijo is- */
 :root{--is-hl:#f08c00;--is-sand:#ecdcab;--is-sand2:#d9c487;--is-fl:#86b6ea;--is-fl2:#5d95d6;--is-sea:color-mix(in srgb,#2f7fd0 16%,var(--surface));--is-tx:#3a2f14}
 :root[data-theme="dark"]{--is-hl:#ffc44d;--is-sand:#7a6a3e;--is-sand2:#5f5230;--is-fl:#2f5f96;--is-fl2:#244c7c;--is-sea:color-mix(in srgb,#2f7fd0 14%,var(--bg));--is-tx:#f6ecd0}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--is-hl:#ffc44d;--is-sand:#7a6a3e;--is-sand2:#5f5230;--is-fl:#2f5f96;--is-fl2:#244c7c;--is-sea:color-mix(in srgb,#2f7fd0 14%,var(--bg));--is-tx:#f6ecd0}}
@@ -15148,8 +15174,9 @@ Mods.ok("muros");
 .is-lg.k{background:#e8504b;color:#fff}
 .is-lg.w{background:#3d8be0;color:#fff;font-weight:700}
 .is-bd{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr);gap:3px;width:calc(100% + 24px);margin-inline:-12px;height:min(calc(100cqw * 1.45),calc(100dvh - 340px));min-height:calc(100cqw * 1.02);padding:3px;border-radius:14px;background:var(--is-sea)}
-.is-t{position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:2px 3px;border-radius:8px;border:0;background:var(--is-sand);color:var(--is-tx);box-shadow:inset 0 -3px 0 var(--is-sand2);overflow:hidden;min-width:0;font:600 clamp(8px,2.45vw,12px)/1.12 var(--f-ui,inherit);text-align:left}
-.is-t.s1{background:repeating-linear-gradient(160deg,var(--is-fl) 0 6px,var(--is-fl2) 6px 8px);box-shadow:inset 0 -3px 0 var(--is-fl2)}
+.is-t{position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;padding:2px 3px;border-radius:8px;border:0;background:var(--m,none) center/100% 100% no-repeat,var(--is-sand);color:var(--is-tx);box-shadow:inset 0 -3px 0 var(--is-sand2);overflow:hidden;min-width:0;font:600 clamp(8px,2.45vw,12px)/1.12 var(--f-ui,inherit);text-align:left}
+.is-t.s1{background:${WAVES} center/100% 100%,var(--m,none) center/100% 100% no-repeat,var(--is-fl);box-shadow:inset 0 -3px 0 var(--is-fl2)}
+${TCSS}
 .is-t.s2{background:transparent;box-shadow:none;border:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
 .is-tn{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:normal;word-break:normal;hyphens:manual}
 .is-tk{position:absolute;right:3px;bottom:4px;font-size:clamp(15px,5vw,24px);line-height:1}
@@ -15181,8 +15208,8 @@ Mods.ok("muros");
 .is-pn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .is-pn small{color:var(--muted)}
 .is-hd{display:flex;gap:3px;flex-wrap:wrap;justify-content:flex-end}
-.is-cd{width:30px;height:38px;border-radius:7px;border:1px solid var(--line);background:var(--bg);font-size:17px;line-height:1;display:grid;place-items:center;padding:0}
-.is-cd.k4,.is-cd.k5{background:color-mix(in srgb,var(--accent) 16%,var(--bg))}
+.is-cd{width:30px;height:38px;border-radius:7px;border:1px solid rgba(0,0,0,.25);font-size:17px;line-height:1;display:grid;place-items:center;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.25);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+${CARDS}
 .is-cd:disabled{opacity:1;cursor:default}
 .is-cd.on{outline:3px solid var(--accent);outline-offset:1px;transform:translateY(-3px)}
 .is-cd.x{border-color:#e8504b;border-width:2px}
@@ -15467,20 +15494,24 @@ function islaView(el, o) {
         if (st === 2) { h += '<div class="is-t s2' + (nw.has(s) ? ' nw' : '') + '"' + ga + '><span class="is-pw">' + pw + '</span></div>'; continue; }
         const ic = t.k >= 0 ? '<span class="is-tk' + (S.got[t.k] ? ' got' : '') + '">' + IS_K[t.k].e + '</span>' : S.tl[s] === 0 ? '<span class="is-tk">🚁</span>' : '';
         const cl = (tg.has(s) ? ' hl' : fly.has(s) ? ' fly' : '') + (V.hf === s ? ' src' : '') + (nw.has(s) ? ' nw' : '');
-        h += '<button class="is-t s' + st + cl + '" data-s="' + s + '"' + ga + '><span class="is-tn">' + t.n + '</span>' + ic + '<span class="is-pw">' + pw + '</span></button>';
+        const mt = S.tl[s] === 0 ? 'h' : t.k >= 0 ? 'k' + t.k : t.r >= 0 ? 'g' : 'n';   /* dibujo de fondo: helipuerto, templo, puerta o normal */
+        h += '<button class="is-t s' + st + ' m' + mt + cl + '" data-s="' + s + '"' + ga + '><span class="is-tn">' + t.n + '</span>' + ic + '<span class="is-pw">' + pw + '</span></button>';
       }
       bd.innerHTML = h;
     });
     /* aventureros y sus cartas (todas a la vista: es cooperativo) */
     const on = S.over ? -1 : S.ph === 'act' ? S.t : S.pd;
-    const big = j => j === on || (!o.solo && j === o.me) || V.open.has(j);
     const nm = (P, j) => o.solo ? '<b>' + IS_R[P.role].n + '</b>' : '<b translate="no">' + esc(j === o.me ? 'Tú' : P.name) + '</b>';
+    /* all = todos desplegados; si no caben en la pantalla, el que juega (y tú en sala) en grande y el resto en fichas (tocar = desplegar) */
+    const plHTML = all => {
+    const big = j => all || j === on || (!o.solo && j === o.me) || V.open.has(j);
     const chips = S.pl.map((P, j) => big(j) ? '' : '<button class="is-pc" data-o="' + j + '" style="--c:' + IS_R[P.role].c + '"><i></i>' + nm(P, j) + (o.solo ? '' : '<em>' + IS_R[P.role].n + '</em>') + '<span>' + (P.hand.map(c => IS_CE[c]).join('') || '–') + '</span></button>').join('');
-    pls.innerHTML = S.pl.map((P, j) => {
+    return S.pl.map((P, j) => {
       if (!big(j)) return '';
       const hd = P.hand.map((c, k) => { const ok = cardOps(j, k).length > 0, sel = V.sel && V.sel.p === j && V.sel.c === k; return '<button class="is-cd k' + c + (sel ? ' on' : '') + (S.ph === 'disc' && S.pd === j ? ' x' : '') + '" data-p="' + j + '" data-c="' + k + '" title="' + IS_CARD[c] + '"' + (ok ? '' : ' disabled') + '>' + IS_CE[c] + '</button>'; }).join('');
-      return '<div class="is-pl' + (j === on ? ' on' : '') + '" style="--c:' + IS_R[P.role].c + '"><i></i><button class="is-pn" data-r="' + P.role + '">' + (o.solo ? '<b>' + IS_R[P.role].n + '</b>' : '<b translate="no">' + esc(j === o.me ? 'Tú' : P.name) + '</b><small>' + IS_R[P.role].n + '</small>') + '</button><span class="is-hd">' + hd + '</span>' + (V.open.has(j) && j !== on ? '<button class="is-pmin" data-oc="' + j + '" aria-label="Plegar">▴</button>' : '') + '</div>';
+      return '<div class="is-pl' + (j === on ? ' on' : '') + '" style="--c:' + IS_R[P.role].c + '"><i></i><button class="is-pn" data-r="' + P.role + '">' + (o.solo ? '<b>' + IS_R[P.role].n + '</b>' : '<b translate="no">' + esc(j === o.me ? 'Tú' : P.name) + '</b><small>' + IS_R[P.role].n + '</small>') + '</button><span class="is-hd">' + hd + '</span>' + (!all && V.open.has(j) && j !== on ? '<button class="is-pmin" data-oc="' + j + '" aria-label="Plegar">▴</button>' : '') + '</div>';
     }).join('') + (chips ? '<div class="is-pcs">' + chips + '</div>' : '');
+    };
     /* mensaje y botones */
     let m = '', b = '';
     if (S.over) {
@@ -15513,6 +15544,10 @@ function islaView(el, o) {
       if (V.mode === 'nav') S.pl.forEach((Q, j) => { if (j !== S.t) b += '<button class="btn" data-i="np" data-p="' + j + '" aria-pressed="' + (V.nav === j) + '">' + IS_R[Q.role].n + '</button>'; });
     }
     msg.innerHTML = m; bar.innerHTML = b;
+    /* se mide en el mismo fotograma (sin parpadeo): todos desplegados y, si la página no cabe en la pantalla, compactos */
+    pls.innerHTML = plHTML(true);
+    const vh = window.visualViewport ? visualViewport.height : window.innerHeight;
+    if (root.getBoundingClientRect().bottom > vh - 2) pls.innerHTML = plHTML(false);
   }
   function onClick(e) {
     const S = V.S; if (!S) return;
@@ -15563,6 +15598,9 @@ function islaView(el, o) {
     else if (V.mode === 'nav' && V.nav >= 0) send({ t: 'nav', p: V.nav, s }, S.t);
   }
   root.addEventListener('click', onClick);
+  /* al girar o cambiar el tamaño vuelve a decidir si caben todos desplegados */
+  let rsT = 0; const onRs = () => { cancelAnimationFrame(rsT); rsT = requestAnimationFrame(() => { if (V.S) render(); }); };
+  window.addEventListener('resize', onRs);
   return {
     update(pub) {
       const prev = V.S; V.S = pub; V.pend = false;
@@ -15578,7 +15616,7 @@ function islaView(el, o) {
       }
     },
     rejected(err) { V.pend = false; o.toast(String(err || 'Jugada no válida')); snd('bad'); render(); },
-    destroy() { root.removeEventListener('click', onClick); el.innerHTML = ''; }
+    destroy() { root.removeEventListener('click', onClick); window.removeEventListener('resize', onRs); cancelAnimationFrame(rsT); el.innerHTML = ''; }
   };
 }
 
