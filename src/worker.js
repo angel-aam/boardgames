@@ -55,18 +55,8 @@ const okOrigin = (req, env) => {
 };
 const cors = { 'access-control-allow-origin': '*', 'cache-control': 'no-store' };
 
-/* Enlaces directos: «/» y «/game/<id>» devuelven el index con window.MJ_PATHS=1, la señal que usa el cliente para
-   mantener la URL como /game/<id> (sin ella usaría el hash #/game/<id>). El id lo valida el cliente. */
-const GAME_PATH = /^\/game\/[a-z0-9-]{1,24}(\/[A-Za-z]{4})?\/?$/;   /* /game/<id>/<CÓDIGO>: enlace a una sala online */
-const withPaths = res => new HTMLRewriter().on('head', { element(e) { e.prepend('<script>window.MJ_PATHS=1</script>', { html: true }); } }).transform(res);
-async function page(req, env) {
-  const url = new URL('/', req.url);
-  const res = await env.ASSETS.fetch(new Request(url, { method: 'GET', headers: req.headers }));
-  if (!res.ok) return res;
-  const h = new Headers(res.headers);
-  h.set('cache-control', 'no-cache');           /* el index cambia con cada despliegue */
-  return withPaths(new Response(res.body, { status: 200, headers: h }));
-}
+/* Enlaces directos (/game/<id>, /game/<id>/<CÓDIGO>): los sirven los assets (not_found_handling SPA en wrangler.jsonc) con el
+   mismo index.html, que ya lleva window.MJ_PATHS=1 desde build.js; el worker solo atiende /api/* y /ws/*. */
 
 export default {
   async fetch(req, env) {
@@ -75,10 +65,6 @@ export default {
     if (url.pathname === '/api/push-key') {
       const v = await vapid(env);
       return v ? new Response(v.pub, { headers: cors }) : new Response('', { status: 404, headers: cors });
-    }
-    if ((req.method === 'GET' || req.method === 'HEAD') && env.ASSETS) {
-      if (url.pathname === '/' || GAME_PATH.test(url.pathname)) return page(req, env);
-      if (/^\/game\/?$/.test(url.pathname)) return Response.redirect(new URL('/', req.url).toString(), 302);
     }
     const m = url.pathname.match(/^\/ws\/(?:room\/([A-Za-z]{1,8})|(lobby))$/);
     if (!m) return env.ASSETS ? env.ASSETS.fetch(req) : new Response('No encontrado', { status: 404 });

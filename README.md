@@ -13,7 +13,7 @@ npm run deploy         # wrangler deploy (el hook `build` minifica antes)
 Al terminar muestra `https://boardgames.<tu-subdominio>.workers.dev`. Ábrelo: ya es la web completa con salas online (comprueba `/api/ping` → `mesa-ok`).
 
 ## Enlaces directos a cada juego
-`https://<tu-dominio>/game/<id>` abre ese juego directamente (por ejemplo `/game/sudoku`, `/game/texas`, `/game/ajedrez`), ideal para marcadores. El worker sirve el mismo `index.html` para `/` y `/game/*` (`run_worker_first` en `wrangler.jsonc`) e inyecta `window.MJ_PATHS=1`; el cliente abre el juego y mantiene la URL y el título de la pestaña. Un id desconocido lleva al inicio. Sin servidor (archivo abierto, visor de Claude) el mismo enlace se escribe como `#/game/<id>`.
+`https://<tu-dominio>/game/<id>` abre ese juego directamente (por ejemplo `/game/sudoku`, `/game/texas`, `/game/ajedrez`), ideal para marcadores. Los assets sirven el mismo `index.html` (que ya lleva `window.MJ_PATHS=1` desde `build.js`) para `/` y `/game/*` sin pasar por el worker (`not_found_handling: "single-page-application"` en `wrangler.jsonc`; solo `/ws/*` y `/api/*` van al worker); el cliente abre el juego y mantiene la URL y el título de la pestaña. Un id desconocido lleva al inicio. Sin servidor (archivo abierto, visor de Claude) el mismo enlace se escribe como `#/game/<id>`.
 Ids: ajedrez, ahorcado, atasco, backgammon, brisca, chinchon, cuatro, damas, domino, flechas, flota, hanoi, hilos, hive, mahjong, nonograma, nudos, parejas, parchis, rummi, scrabble, solitario, sudoku, tangram, texas, tute, wordle.
 
 ## Actualizar el juego
@@ -25,7 +25,7 @@ Solo generar: `npm run build`. Elimina todos los comentarios (el fuente los cons
 `public/index.html` es un fichero generado: está en `.gitignore`, no se edita ni se versiona.
 
 ## PWA: instalar y jugar sin conexión
-En Chrome/Edge/Android: menú → «Instalar aplicación» (o el icono de instalar de la barra). En iPhone/iPad (Safari): Compartir → «Añadir a pantalla de inicio». Tras la primera visita con red el service worker guarda en segundo plano el núcleo, todos los juegos y la copia offline: la app abre y funciona sin conexión.
+En Chrome/Edge/Android: menú → «Instalar aplicación» (o el icono de instalar de la barra). En iPhone/iPad (Safari): Compartir → «Añadir a pantalla de inicio». Una vez instalada, el service worker guarda en segundo plano el núcleo y todos los juegos: la app abre al instante y funciona sin conexión. En el navegador (sin instalar) cada juego se guarda al abrirlo, y «Guardar juegos en este dispositivo» los guarda todos. Cuando hay una versión nueva, la app avisa y el menú ofrece «Actualizar ahora».
 Sin internet se juega solo/contra IA y en **sala sin conexión**: los móviles deben estar en la misma Wi-Fi (o punto de acceso); el anfitrión enseña un QR, el invitado lo escanea con la cámara dentro de la app (o lo lee con otra app de QR y pega el texto), y viceversa con la respuesta. Las salas online sí necesitan internet. La cámara requiere https (la web desplegada o localhost).
 «Descarga offline» sigue entregando un único `mesa-de-juegos.html` sin servidor ni instalación, para enviarlo por mensajería.
 

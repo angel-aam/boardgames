@@ -1,6 +1,7 @@
 // Build de «Mesa de Juegos». Fuente: public/mesa-de-juegos.html (archivo único con módulos <script type="text/plain" data-mod>, sin tocar).
 // Genera (todo en public/, ignorado por git):
-//   index.html        núcleo + estilos + manifiesto window.MJ_MODS (lo que carga el navegador; sin módulos)
+//   index.html        núcleo + estilos + window.MJ_MODS (manifiesto de módulos), MJ_PATHS=1 (enlaces /game/<id>) y MJ_BUILD
+//                     (id del build, para avisar de versión nueva); se sirve como estático (wrangler: not_found_handling SPA)
 //   m/<id>.<hash>.js  un fichero por módulo, con hash del contenido (caché inmutable, ver _headers)
 //   sw.js             service worker (plantilla src/sw.tpl.js): núcleo, iconos y módulos en caché para jugar sin conexión (PWA)
 //   offline-<l>.html  todo en uno minificado de UN idioma (es/en) = lo que baja «Descarga offline» (funciona sin servidor);
@@ -79,7 +80,8 @@ const hi = headAt(core);
 if (hi < 0) throw new Error('no se encontró <head> en el fuente');
 // PWA (solo en el servidor; offline.html no lleva manifiesto): manifiesto, color de barra e iconos
 const pwa = '<link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#2757d6"><link rel="icon" href="/icons/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Mesa de Juegos">';
-core = core.slice(0, hi + 6) + pwa + '<script>window.MJ_MODS=' + JSON.stringify(manifest) + '</script>' + core.slice(hi + 6);
+const build = sha(core + JSON.stringify(manifest)).slice(0, 10);
+core = core.slice(0, hi + 6) + pwa + '<script>window.MJ_PATHS=1;window.MJ_BUILD=' + JSON.stringify(build) + ';window.MJ_MODS=' + JSON.stringify(manifest) + '</script>' + core.slice(hi + 6);
 const index = await minHtml(core, htmlOpts);
 writeFileSync('public/index.html', index);
 
@@ -88,7 +90,7 @@ const urls = Object.values(manifest).map(v => v.u).sort();
 const version = sha(index + urls.join() + readFileSync('public/manifest.webmanifest', 'utf8') + readFileSync('src/sw.tpl.js', 'utf8')).slice(0, 10);
 const shell = ['/manifest.webmanifest', ...readdirSync('public/icons').map(f => '/icons/' + f)].sort();
 const swSrc = readFileSync('src/sw.tpl.js', 'utf8');
-const sw = swSrc.replace('__VERSION__', version).replace('__MODS__', JSON.stringify(urls)).replace('__SHELL__', JSON.stringify(shell));
+const sw = swSrc.replace('__VERSION__', version).replace('__BUILD__', build).replace('__MODS__', JSON.stringify(urls)).replace('__SHELL__', JSON.stringify(shell));
 writeFileSync('public/sw.js', sw);
 
 const big = mods.slice().sort((a, b) => b.code.length - a.code.length).slice(0, 3).map(x => `${x.id} ${kb(x.code.length)}`).join(', ');
